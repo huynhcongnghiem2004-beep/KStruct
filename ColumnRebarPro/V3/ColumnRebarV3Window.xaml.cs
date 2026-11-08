@@ -199,12 +199,8 @@ namespace ColumnRebarPro.V3
             JointHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             BeamHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             JointStepBox.Text = c.JointSpacing > 0 ? c.JointSpacing.ToString(CultureInfo.InvariantCulture) : "";
-            DesignReferenceBox.Text = c.DesignReference ?? "";
-            DesignConfirmedCheck.IsChecked = c.DesignValuesConfirmed;
             HookRadio.IsChecked = c.TieStyle == V3TieStyle.Hook135;
             LoopRadio.IsChecked = c.TieStyle == V3TieStyle.ClosedLoop;
-            DetailText.Text = "Tầng " + row.Segment.LevelName + " | ElementId: " + row.Segment.Id.Value +
-                " | Cao độ đáy " + Math.Round(row.Segment.BottomMm) + " mm";
             _loading = false;
             TieLayoutControlState();
             UpdateSummary();
@@ -271,8 +267,6 @@ namespace ColumnRebarPro.V3
                 if (LoopRadio.IsChecked != true && HookRadio.IsChecked != true)
                     throw new InvalidOperationException("Chọn hình dạng đai theo chi tiết thiết kế đã duyệt.");
                 c.TieStyle = LoopRadio.IsChecked == true ? V3TieStyle.ClosedLoop : V3TieStyle.Hook135;
-                c.DesignReference = DesignReferenceBox.Text.Trim();
-                c.DesignValuesConfirmed = DesignConfirmedCheck.IsChecked == true;
                 _configs[_activeId.Value] = c;
                 var row = ActiveRow;
                 if (row != null) row.BarText = FormatBars(c);
@@ -381,14 +375,6 @@ namespace ColumnRebarPro.V3
             {
                 MessageBox.Show(this, "Chỉ hỗ trợ phân bố đều. Chọn kiểu này sau khi đối chiếu với thiết kế đã duyệt.",
                     "KStruct - Kiểm tra cấu hình", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            if (_configs.Values.Any(c => !c.DesignValuesConfirmed || string.IsNullOrWhiteSpace(c.DesignReference)))
-            {
-                MessageBox.Show(this,
-                    "Mỗi tầng cần mã/số bản vẽ thiết kế kết cấu đã duyệt và xác nhận đã đối chiếu các thông số. KStruct không tự xác nhận thiết kế.",
-                    "KStruct - Thiếu hồ sơ thiết kế", MessageBoxButton.OK, MessageBoxImage.Warning);
-                MainTabs.SelectedIndex = MainTabs.Items.Count - 1;
                 return;
             }
             try

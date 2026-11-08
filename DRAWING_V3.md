@@ -2,15 +2,17 @@
 
 ## Luồng sử dụng
 
-1. Chọn cột đứng chữ nhật, mở **Thép cột & triển khai V3**. Mỗi tuyến chọn một cột;
+1. Chọn cột đứng chữ nhật, mở **Tạo thép cột**. Mỗi tuyến chọn một cột;
    chương trình tìm các đoạn theo tầng. Cột tròn dùng lệnh riêng.
 2. Chọn tầng, nhập Cx/Cy (2–20 thanh mỗi cạnh), đường kính, cover ngoài đai và thông số đai.
    **Áp dụng cho tất cả tầng** sao chép cấu hình tầng đang chọn cho toàn bộ tuyến trong cửa sổ.
-3. Nhập mã bản vẽ thiết kế và xác nhận tại Cài đặt chung cho từng tầng.
-4. Bật **Cài đặt triển khai bản vẽ cột** nếu muốn tạo cả hồ sơ. Nút chạy hiển thị
+3. Bật **Cài đặt triển khai bản vẽ cột** nếu muốn tạo cả hồ sơ. Nút chạy hiển thị
    **Tạo thép 3D** hoặc **Tạo thép và bản vẽ** theo trạng thái này.
-5. Để triển khai lại từ thép đã tạo: dùng **Tạo bộ bản vẽ thép cột** hoặc
+4. Để triển khai lại từ thép đã tạo: dùng **Tạo bộ bản vẽ thép cột** hoặc
    **Cập nhật bản vẽ V3**. Cần cấu hình V3 đã lưu trên cột và cấu hình Triển khai của project.
+
+Không yêu cầu nhập mã bản vẽ tham chiếu hoặc đánh dấu xác nhận từng tầng; tab Cài đặt chung đã bỏ.
+Các kiểm tra hình học, loại thép và cấu hình bản vẽ vẫn chạy trước khi dựng.
 
 ## Phân bố thép thực tế
 

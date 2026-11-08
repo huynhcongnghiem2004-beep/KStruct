@@ -14,9 +14,6 @@ namespace ColumnRebarPro.V3
                 var g = item.Geometry;
                 var c = item.Config;
                 if (g == null || c == null) throw new InvalidOperationException("Thiếu thông tin cột hoặc cấu hình thép.");
-                if (!c.DesignValuesConfirmed || string.IsNullOrWhiteSpace(c.DesignReference))
-                    throw new InvalidOperationException("Cột " + item.Segment.Description +
-                        " chưa xác nhận thông số theo hồ sơ thiết kế kết cấu đã duyệt. Nhập mã/số bản vẽ tham chiếu và xác nhận trong cửa sổ cấu hình.");
                 if (c.Splice != V3SpliceStyle.None || c.StaggerSplices)
                     throw new InvalidOperationException("Nối chồng giữa tầng chưa được hỗ trợ. KStruct không tạo thanh nối bằng chiều dài suy diễn; hãy cung cấp chi tiết nối được duyệt trước khi triển khai.");
                 if (c.TieStyle == V3TieStyle.Unspecified || c.TieLayout == V3TieLayout.Unspecified)
