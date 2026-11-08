@@ -52,9 +52,9 @@ namespace ColumnRebarPro.V3
             XYZ a = new XYZ(basePoint.X, basePoint.Y, low);
             XYZ b = new XYZ(basePoint.X, basePoint.Y, high);
             var curves = new List<Curve> { Line.CreateBound(a, b) };
-            Rebar rebar = Rebar.CreateFromCurves(doc, RebarStyle.Standard, type,
+            Rebar rebar = SDK_HD.KStruct.NativeRebar.ExistingProjectRebar.Create(doc, RebarStyle.Standard, type,
                 null, null, item.Column, normal, curves,
-                RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                RebarHookOrientation.Left, RebarHookOrientation.Right, "Nhóm thép dọc");
             if (rebar == null)
                 throw new InvalidOperationException("Không tạo được nhóm thép dọc tại cột " + item.Column.Id.Value);
             V3RebarBuilder.SetPartition(rebar, V3RebarBuilder.Partition(item.Column.Id));
@@ -83,7 +83,6 @@ namespace ColumnRebarPro.V3
             double tolerance=V3Units.Mm(doc.Application.ShortCurveTolerance);
             var paths=ConnectionPaths(item);
             var groups=V3ProfileGeometry.Group(paths,c.GroupLongBars);
-            int freeForms=0;
             foreach(var group in groups)
             {
                 var path=group.Bars[0];
@@ -101,8 +100,8 @@ namespace ColumnRebarPro.V3
                     var lines=new List<Curve>();
                     for(int i=0;i<path.Points.Count-1;i++)lines.Add(Line.CreateBound(ModelPoint(path.Points[i]),ModelPoint(path.Points[i+1])));
                     XYZ normal=group.Bars.Count>1?ModelVector(group.Step).Normalize():ModelVector(path.Normal).Normalize();
-                    bar=Rebar.CreateFromCurves(doc,RebarStyle.Standard,type,null,null,item.FoundationHost??(Element)item.Column,
-                        normal,lines,RebarHookOrientation.Left,RebarHookOrientation.Right,true,true);
+                    bar=SDK_HD.KStruct.NativeRebar.ExistingProjectRebar.Create(doc,RebarStyle.Standard,type,null,null,item.FoundationHost??(Element)item.Column,
+                        normal,lines,RebarHookOrientation.Left,RebarHookOrientation.Right,"Thanh neo/chuyển tiếp "+(path.BarIndex+1));
                     if(bar==null)throw new InvalidOperationException("Không tạo được thanh chuyển tiếp phẳng.");
                     if(group.Bars.Count>1)
                     {
@@ -112,14 +111,7 @@ namespace ColumnRebarPro.V3
                 }
                 else
                 {
-                    var curves=rounded.Select(r=>r.Arc?(Curve)Arc.Create(ModelPoint(r.Start),ModelPoint(r.End),ModelPoint(r.Mid)):
-                        Line.CreateBound(ModelPoint(r.Start),ModelPoint(r.End))).ToList();
-                    RebarFreeFormValidationResult validation;
-                    bar=Rebar.CreateFreeForm(doc,type,item.FoundationHost??(Element)item.Column,
-                        new List<IList<Curve>>{curves},out validation);
-                    if(bar==null||validation!=RebarFreeFormValidationResult.Success)
-                        throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": không tạo được FreeForm nhiều mặt phẳng ("+validation+").");
-                    freeForms++;
+                    throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": đường nhiều mặt phẳng chưa hỗ trợ bằng Rebar Shape có sẵn. Lệnh không tạo FreeForm hoặc shape mới.");
                 }
                 V3RebarBuilder.SetPartition(bar,item.Column.Id);doc.Regenerate();
                 if(item.BottleneckToUpper)V3BottleneckBarType.CheckBends(bar,c,rounded.Count(r=>r.Arc));
@@ -135,7 +127,7 @@ namespace ColumnRebarPro.V3
                     }
                 report.MainBars+=group.Bars.Count;
             }
-            if(freeForms>0)report.Warnings.Add("Cột "+item.Column.Id.Value+": "+freeForms+" thanh nhiều mặt phẳng được tạo FreeForm riêng; các nhóm phẳng phù hợp vẫn dùng Fixed Number.");
+
         }
 
         private static XYZ ModelPoint(V3Point3 p)=>new XYZ(V3Units.Ft(p.X),V3Units.Ft(p.Y),V3Units.Ft(p.Z));
@@ -272,9 +264,9 @@ namespace ColumnRebarPro.V3
             Rebar bar;
             try
             {
-                bar = Rebar.CreateFromCurves(doc, RebarStyle.StirrupTie, type, h, h,
+                bar = SDK_HD.KStruct.NativeRebar.ExistingProjectRebar.Create(doc, RebarStyle.StirrupTie, type, h, h,
                     item.Column, XYZ.BasisZ, curves, RebarHookOrientation.Left,
-                    RebarHookOrientation.Right, true, true);
+                    RebarHookOrientation.Right, "Đai bao cột "+item.Column.Id.Value);
             }
             catch (Exception ex)
             {
@@ -316,9 +308,9 @@ namespace ColumnRebarPro.V3
                 throw new InvalidOperationException("Thiếu loại móc đai phụ theo cấu hình.");
             if (reverse) { var temp = a; a = b; b = temp; }
             var curves = new List<Curve> { Line.CreateBound(a, b) };
-            var bar = Rebar.CreateFromCurves(doc, RebarStyle.StirrupTie, type, startHook, endHook,
+            var bar = SDK_HD.KStruct.NativeRebar.ExistingProjectRebar.Create(doc, RebarStyle.StirrupTie, type, startHook, endHook,
                 item.Column, XYZ.BasisZ, curves, RebarHookOrientation.Left,
-                RebarHookOrientation.Right, true, true);
+                RebarHookOrientation.Right, "Đai phụ cột "+item.Column.Id.Value);
             if (bar == null) throw new InvalidOperationException("Không tạo được đai phụ.");
             V3RebarBuilder.SetPartition(bar, item.Column.Id);
             if (count >= 2)

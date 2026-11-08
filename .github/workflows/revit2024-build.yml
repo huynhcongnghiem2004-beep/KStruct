@@ -23,6 +23,8 @@ jobs:
         run: dotnet run --project tests/FootingRebarMemory/FootingRebarMemory.csproj --configuration Release
       - name: Check column tie layout and ownership
         run: dotnet run --project tests/ColumnRebarLayout/ColumnRebarLayout.csproj --configuration Release
+      - name: Check existing project Shape and Hook policy
+        run: dotnet run --project tests/ExistingProjectRebar/ExistingProjectRebar.csproj --configuration Release
       - name: Check footing view range and beam intersections
         run: dotnet run --project tests/FootingDrawingMath/FootingDrawingMath.csproj --configuration Release
       - name: Get pinned Revit 2024 compile references

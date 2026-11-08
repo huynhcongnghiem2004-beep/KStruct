@@ -87,29 +87,21 @@ namespace ColumnRebarPro.V3
                 work.TransitionUp != null || work.TransitionDown != null))
                 throw new InvalidOperationException("Không thể tạo nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
 
+            ValidateProjectTypes(doc,works);
             var types = new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
-            var hooks = new FilteredElementCollector(doc).OfClass(typeof(RebarHookType)).Cast<RebarHookType>().ToList();
-
-            List<RebarHookType> hookTypes135 = hooks.Where(h =>
-                Math.Abs(h.HookAngle - 3 * Math.PI / 4) < 1e-6).ToList();
-            RebarHookType hook135 = hookTypes135.Count == 1 ? hookTypes135[0] : null;
-
-            var hooks90 = hooks.Where(h => Math.Abs(h.HookAngle - Math.PI / 2) < 1e-6).ToList();
-            RebarHookType hook90 = hooks90.Count == 1 ? hooks90[0] : null;
             V3RebarValidator.Preflight(works);
             foreach (var work in works)
             {
-                if ((work.Config.TieStyle == V3TieStyle.Hook135 || work.Config.CrossTies) && hookTypes135.Count != 1)
-                    throw new InvalidOperationException("Cần đúng một Rebar Hook Type 135°; hãy chuẩn hóa loại móc trong project.");
-
-                if (work.Config.CrossTies && work.Config.CrossTiesAlternating && hook90 == null)
-                    throw new InvalidOperationException("Đai phụ luân phiên cần đúng một Rebar Hook Type 90°; hãy chuẩn hóa loại móc trong project.");
-
                 RebarBarType mainType = FindBarType(types, work.Config.MainDiameter);
                 RebarBarType tieType = FindBarType(types, work.Config.TieDiameter);
 
                 if (mainType == null || tieType == null)
                     throw new InvalidOperationException("Không tìm thấy loại thép đúng đường kính cho cột " + work.Column.Id.Value);
+
+                RebarHookType hook135=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook135UniqueId,135,
+                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                RebarHookType hook90=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook90UniqueId,90,
+                    work.Config.CrossTies && work.Config.CrossTiesAlternating);
 
                 var existing = ExistingRebar(doc, work.Column.Id);
                 if (existing.Count > 0 && !replaceOld)
@@ -128,6 +120,29 @@ namespace ColumnRebarPro.V3
             }
 
             return report;
+        }
+
+        internal static void ValidateProjectTypes(Document doc,IList<V3SegmentWork> works)
+        {
+            if(!new FilteredElementCollector(doc).OfClass(typeof(RebarShape)).Any())
+                throw new InvalidOperationException("Project chưa có Rebar Shape. Nạp shape phù hợp; lệnh chỉ dùng shape có sẵn.");
+            var types=new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
+            foreach(var work in works)
+            {
+                var type=FindBarType(types,work.Config.TieDiameter);
+                if(type==null)throw new InvalidOperationException("Không tìm thấy loại thép đai D"+work.Config.TieDiameter+" trong project.");
+                V3ProjectRebar.Hook(doc,type,work.Config.TieHook135UniqueId,135,
+                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                V3ProjectRebar.Hook(doc,type,work.Config.TieHook90UniqueId,90,
+                    work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                if(work.FoundationHost!=null || work.BottleneckToUpper)
+                    foreach(var path in V3RebarSetCreator.ConnectionPaths(work))
+                    {
+                        path.Inspect();
+                        if(!path.Planar)throw new InvalidOperationException("Cột "+work.Column.Id.Value+
+                            ": thanh neo L kết hợp cổ chai nằm nhiều mặt phẳng. Chưa hỗ trợ dựng thanh này từ Rebar Shape có sẵn; không tự chuyển sang FreeForm. Kiểm tra lại hướng neo/nhấn.");
+                    }
+            }
         }
 
         private static List<ElementId> ExistingRebar(Document doc, ElementId columnId)
@@ -199,10 +214,10 @@ namespace ColumnRebarPro.V3
                 }
 
                 XYZ planeNormal = GetCurvePlaneNormal(curves, geo.X);
-                Rebar rebar = Rebar.CreateFromCurves(
+                Rebar rebar = SDK_HD.KStruct.NativeRebar.ExistingProjectRebar.Create(
                     doc, RebarStyle.Standard, barType, null, null,
                     work.FoundationHost ?? (Element)work.Column,
-                    planeNormal, curves, RebarHookOrientation.Left, RebarHookOrientation.Left, true, true);
+                    planeNormal, curves, RebarHookOrientation.Left, RebarHookOrientation.Left, "Thép dọc cột " + work.Column.Id.Value);
 
                 if (rebar != null)
                 {

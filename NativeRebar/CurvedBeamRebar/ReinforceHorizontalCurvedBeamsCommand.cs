@@ -206,8 +206,8 @@ namespace SDK_HD.KStruct.NativeRebar
                     Line.CreateBound(p0, p1), Line.CreateBound(p1, p2),
                     Line.CreateBound(p2, p3), Line.CreateBound(p3, p0)
                 };
-                Rebar tie = NativeRebarFactory.CreateFromCurves(doc, RebarStyle.StirrupTie, options.TieType,
-                    null, null, beam, tangent, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                Rebar tie = ExistingProjectRebar.Create(doc, RebarStyle.StirrupTie, options.TieType,
+                    null, null, beam, tangent, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, "Đai dầm cong " + beam.Id.Value);
                 if (tie == null) throw new InvalidOperationException("Revit không tạo được đai số " + (i + 1) + ".");
                 ApplyRebarDisplay(tie, doc.ActiveView, options.Unobscured, options.SolidIn3D);
                 SetPartition(tie, beam.Id);
@@ -455,9 +455,9 @@ namespace SDK_HD.KStruct.NativeRebar
                     if (hookY > doc.Application.ShortCurveTolerance) curves.Add(Line.CreateBound(endCorner, endTip));
                 }
                 else curves.Add(barCurve);
-                Rebar bar = NativeRebarFactory.CreateFromCurves(doc, RebarStyle.Standard, type, actualStartHook, actualEndHook, beam,
+                Rebar bar = ExistingProjectRebar.Create(doc, RebarStyle.Standard, type, actualStartHook, actualEndHook, beam,
                     path.Normal, curves, RebarHookOrientation.Left,
-                    RebarHookOrientation.Right, true, true);
+                    RebarHookOrientation.Right, "Thép dọc dầm cong " + beam.Id.Value);
                 if (bar == null) throw new InvalidOperationException("Revit không tạo được thanh dọc.");
                 ApplyRebarDisplay(bar, view, unobscured, solidIn3D);
                 SetPartition(bar, beam.Id);

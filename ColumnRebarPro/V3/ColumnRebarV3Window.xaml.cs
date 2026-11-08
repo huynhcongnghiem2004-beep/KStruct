@@ -46,6 +46,7 @@ namespace ColumnRebarPro.V3
         private readonly Dictionary<long, V3RebarConfig> _configs = new Dictionary<long, V3RebarConfig>();
         private readonly ObservableCollection<FloorRow> _rows = new ObservableCollection<FloorRow>();
         private readonly List<BarSizeChoice> _sizes;
+        private List<V3HookChoice> _projectHooks = new List<V3HookChoice>();
         private long? _activeId;
         private bool _loading = true;
 
@@ -90,6 +91,7 @@ namespace ColumnRebarPro.V3
                 }
             }
 
+            if(document != null) _projectHooks = V3ProjectRebar.Hooks(document);
             InitializeComponent();
             var workArea = SystemParameters.WorkArea;
             MinWidth = Math.Min(MinWidth, workArea.Width);
@@ -176,6 +178,16 @@ namespace ColumnRebarPro.V3
                 ? _sizes.FirstOrDefault(x => Math.Abs(x.Mm - diameter) <= .01)
                 : null;
         }
+        private void LoadHookBox(ComboBox box,string selected,double degrees)
+        {
+            var choices=new List<V3HookChoice> {new V3HookChoice {Id="",Label="Tự chọn nếu chỉ có một loại phù hợp"}};
+            choices.AddRange(_projectHooks.Where(h=>h.TieStyle && Math.Abs(h.Angle-degrees*Math.PI/180)<1e-6));
+            if(!string.IsNullOrEmpty(selected) && !choices.Any(h=>h.Id==selected))
+                choices.Add(new V3HookChoice {Id=selected,Label="Móc đã lưu không còn hợp lệ — chọn lại"});
+            box.ItemsSource=choices;
+            box.SelectedItem=choices.FirstOrDefault(h=>h.Id==(selected??"")) ?? choices[0];
+        }
+
         private void LoadActive()
         {
             var c = ActiveConfig;
@@ -203,6 +215,8 @@ namespace ColumnRebarPro.V3
                 c.TieLayout == V3TieLayout.MaximumSpacing ? 0 : -1;
             EndCountBox.Text = c.EndTieCount > 0 ? c.EndTieCount.ToString(CultureInfo.InvariantCulture) : "";
             MidCountBox.Text = c.MidTieCount > 0 ? c.MidTieCount.ToString(CultureInfo.InvariantCulture) : "";
+            LoadHookBox(TieHook135Box,c.TieHook135UniqueId,135);
+            LoadHookBox(TieHook90Box,c.TieHook90UniqueId,90);
             CrossCheck.IsChecked = c.CrossTies;
             CrossAlternateCheck.IsChecked = c.CrossTiesAlternating;
             JointTiesCheck.IsChecked = c.JointTies;
@@ -268,6 +282,8 @@ namespace ColumnRebarPro.V3
                         ? "Đã chuyển cấu hình nối cũ sang nhấn cổ chai; dùng chiều dài chờ đã nhập."
                         : "Đã tắt nối tầng theo lựa chọn trong giao diện.";
                 }
+                c.TieHook135UniqueId = (TieHook135Box.SelectedItem as V3HookChoice)?.Id ?? "";
+                c.TieHook90UniqueId = (TieHook90Box.SelectedItem as V3HookChoice)?.Id ?? "";
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
                 c.JointTies = JointTiesCheck.IsChecked == true;
@@ -321,6 +337,8 @@ namespace ColumnRebarPro.V3
             MidStepBox.IsEnabled = !enabled;
             EndCountBox.IsEnabled = enabled;
             MidCountBox.IsEnabled = enabled;
+            TieHook135Box.IsEnabled = HookRadio.IsChecked == true || CrossCheck.IsChecked == true;
+            TieHook90Box.IsEnabled = CrossCheck.IsChecked == true && CrossAlternateCheck.IsChecked == true;
             CrossAlternateCheck.IsEnabled = CrossCheck.IsChecked == true;
             JointHeightBox.IsEnabled = JointTiesCheck.IsChecked == true;
             JointStepBox.IsEnabled = JointTiesCheck.IsChecked == true;
@@ -424,11 +442,13 @@ namespace ColumnRebarPro.V3
                         Segment = s, Geometry = _geometry[s.Id.Value], Config = _configs[s.Id.Value].Copy() }).ToList();
                     V3StarterConnection.Resolve(works);
                     V3RebarValidator.Preflight(works);
+                    V3RebarBuilder.ValidateProjectTypes(_document,works);
                 }
             }
             catch (Exception ex)
             {
-                MainTabs.SelectedIndex = 1;
+                MainTabs.SelectedIndex = ex.Message.IndexOf("móc",StringComparison.OrdinalIgnoreCase)>=0 ||
+                    ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 2 : 1;
                 MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

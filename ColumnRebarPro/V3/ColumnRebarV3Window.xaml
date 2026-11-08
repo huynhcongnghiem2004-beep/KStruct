@@ -248,6 +248,9 @@
             <TabItem Header="Thép đai">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20" Width="600" HorizontalAlignment="Left">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Hiệu chỉnh thép đai theo vùng" Margin="0,0,0,12"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#FF315889" Margin="0,0,0,8" Text="Chỉ dùng Rebar Shape và Rebar Hook có sẵn. Tự chọn móc khi chỉ có một loại phù hợp; có nhiều loại thì chọn bên dưới."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai 135°"/><ComboBox x:Name="TieHook135Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai phụ 90°"/><ComboBox x:Name="TieHook90Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Chiều dài vùng đai đầu cột mỗi đầu (mm)"/><TextBox x:Name="ZoneBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai hai đầu (mm)"/><TextBox x:Name="EndStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai giữa (mm)"/><TextBox x:Name="MidStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>

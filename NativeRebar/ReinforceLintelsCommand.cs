@@ -170,9 +170,9 @@ namespace SDK_HD.KStruct.NativeRebar
             {
                 XYZ a = origin + axis * start + faceNormal * (side * barOffset) + XYZ.BasisZ * (z - origin.Z);
                 XYZ b = origin + axis * end + faceNormal * (side * barOffset) + XYZ.BasisZ * (z - origin.Z);
-                Rebar longitudinal = NativeRebarFactory.CreateFromCurves(doc, RebarStyle.Standard, settings.MainType,
+                Rebar longitudinal = ExistingProjectRebar.Create(doc, RebarStyle.Standard, settings.MainType,
                     null, null, wall, faceNormal, new List<Curve> { Line.CreateBound(a, b) },
-                    RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                    RebarHookOrientation.Left, RebarHookOrientation.Right, "Thép dọc lanh tô " + insert.Id.Value);
                 if (longitudinal == null) throw new InvalidOperationException("Revit không tạo được thép dọc lanh tô.");
                 SetPartition(longitudinal, wall.Id, insert.Id, "LONG_" + side + "_" + (z == bottomZ ? "BOT" : "TOP"));
                 created++;
@@ -195,8 +195,8 @@ namespace SDK_HD.KStruct.NativeRebar
                     Line.CreateBound(p0, p1), Line.CreateBound(p1, p2),
                     Line.CreateBound(p2, p3), Line.CreateBound(p3, p0)
                 };
-                Rebar tie = NativeRebarFactory.CreateFromCurves(doc, RebarStyle.StirrupTie, settings.TieType,
-                    null, null, wall, axis, loop, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                Rebar tie = ExistingProjectRebar.Create(doc, RebarStyle.StirrupTie, settings.TieType,
+                    null, null, wall, axis, loop, RebarHookOrientation.Left, RebarHookOrientation.Right, "Đai lanh tô " + insert.Id.Value);
                 if (tie == null) throw new InvalidOperationException("Revit không tạo được đai lanh tô số " + (i + 1) + ".");
                 SetPartition(tie, wall.Id, insert.Id, "TIE_" + i);
                 created++;
