@@ -190,12 +190,21 @@
                         <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Width="280" VerticalAlignment="Center"/>
                         <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"/>
                     </StackPanel>
-                    <GroupBox Header="Nhấn cổ chai giữa hai tầng cùng cấu hình" Padding="10" Margin="0,0,0,12">
+                    <GroupBox Header="Ghép thanh và nhấn cổ chai giữa hai tầng" Padding="10" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Thanh dưới nhấn vào trong, thanh trên giữ thẳng. Chiều dài chờ gồm khoảng hở dầm/sàn và đoạn nối; không tự tăng chiều dài đã nhập." TextWrapping="Wrap"/>
                             <CheckBox x:Name="BottleneckRibbedCheck" Content="Thép dọc có gân (bỏ chọn nếu thép trơn)" Margin="0,8,0,4" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Khe hở giữa hai thanh nối (mm)" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckClearanceBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Tỷ lệ xiên dựng hình 1:n" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckSlopeBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" ToolTip="n là chiều cao đoạn nhấn / độ dịch ngang; mặc định hình học 6, không phải tỷ lệ được quy định trong TCVN 5574:2018."/></StackPanel>
+                            <DataGrid x:Name="ConnectionComparisonGrid" Margin="0,8,0,4" MaxHeight="240" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Thông số" Binding="{Binding Parameter}" Width="160"/>
+                                    <DataGridTextColumn Header="Tầng dưới" Binding="{Binding Lower}" Width="*"/>
+                                    <DataGridTextColumn Header="Tầng trên" Binding="{Binding Upper}" Width="*"/>
+                                    <DataGridTextColumn Header="So sánh" Binding="{Binding Status}" Width="75"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock x:Name="ConnectionPairingStatus" TextWrapping="Wrap" Foreground="#FF315889" Margin="0,5,0,0"/>
                             <TextBlock x:Name="StarterConnectionSummary" TextWrapping="Wrap" Foreground="#FF315889" Margin="0,7,0,0"/>
                             <TextBlock Text="TCVN 5574:2018: kiểm tra gối uốn theo 10.3.7 và giới hạn dưới đoạn nối theo 10.3.6.2. Chiều dài nối tính toán và cấu tạo đai vẫn lấy theo thiết kế." TextWrapping="Wrap" Margin="0,7,0,0"/>
                         </StackPanel>
@@ -231,7 +240,7 @@
                         </Grid>
                     </Border>
                     <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#FF9C3D26"
-                        Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Nhấn cổ chai áp dụng cho hai tầng cùng cấu hình; nối so le và chuyển tiếp tiết diện chưa được hỗ trợ. Bản vẽ là DRAFT."/>
+                        Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Ghép cổ chai theo vị trí thực khi cùng số thanh; nối so le và tự bổ sung/kết thúc khi đổi số thanh chưa được hỗ trợ. Bản vẽ là DRAFT."/>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>

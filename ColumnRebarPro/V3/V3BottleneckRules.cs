@@ -36,6 +36,13 @@ namespace ColumnRebarPro.V3
         {
             Positive(bendDiameter);
             double shift = Shift(diameter, clearance), height = Height(diameter, clearance, slope);
+            return TangentForOffset(diameter, shift, height, bendDiameter);
+        }
+
+        internal static double TangentForOffset(double diameter, double shift, double height, double bendDiameter)
+        {
+            if (shift < 1e-6) return 0;
+            Positive(diameter); Positive(shift); Positive(height); Positive(bendDiameter);
             double radius = (bendDiameter + diameter) / 2;
             double tangent = radius * Math.Tan(Math.Atan2(shift, height) / 2);
             if (Math.Sqrt(shift * shift + height * height) <= 2 * tangent + .1)

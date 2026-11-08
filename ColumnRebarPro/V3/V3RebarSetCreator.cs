@@ -76,74 +76,102 @@ namespace ColumnRebarPro.V3
         internal static void CreateShapedLongitudinalSets(Document doc, V3SegmentWork item,
             RebarBarType type, V3BuildReport report)
         {
-            var g = item.Geometry;
-            var c = item.Config;
-            double horizontal = item.FoundationHost == null ? 0 : V3Units.Ft(V3AnchorLayoutPlan.HorizontalLength(
-                item.FoundationAnchorLengthMm, V3Units.Mm(g.Bottom - item.FoundationBendZ)));
-            if (item.BottleneckToUpper)
+            var g=item.Geometry;var c=item.Config;
+            if(item.BottleneckToUpper)type=V3BottleneckBarType.Resolve(doc,type,c);
+            double radius=(V3Units.Mm(type.StandardBendDiameter)+c.MainDiameter)/2;
+            double tolerance=V3Units.Mm(doc.Application.ShortCurveTolerance);
+            var paths=ConnectionPaths(item);
+            var groups=V3ProfileGeometry.Group(paths,c.GroupLongBars);
+            int freeForms=0;
+            foreach(var group in groups)
             {
-                type = V3BottleneckBarType.Resolve(doc, type, c);
-                double tangent = V3Units.Ft(V3BottleneckRules.TangentLength(c.MainDiameter,
-                    c.BottleneckClearanceMm, c.BottleneckSlope, V3Units.Mm(type.StandardBendDiameter)));
-                double lapStart = Math.Max(item.BottleneckUpperBarStart, g.Top + tangent);
-                if (V3Units.Mm(g.Top + V3Units.Ft(c.StarterLength) - lapStart) < V3BottleneckRules.MinimumLap(c.MainDiameter) - .1)
-                    throw new InvalidOperationException("Đoạn thẳng nối sau bán kính uốn không đủ chiều dài tối thiểu; tăng chiều dài chờ theo thiết kế.");
-            }
-            double low = item.FoundationHost == null ? g.Bottom + V3Units.Ft(c.Cover + c.MainDiameter / 2) : item.FoundationBendZ;
-            double top = c.StarterBars ? g.Top + V3Units.Ft(c.StarterLength) :
-                g.Top - V3Units.Ft(c.Cover + c.MainDiameter / 2);
-            foreach (var array in AnchorPlan(item))
-            {
-                XYZ hookDirection = g.X * array.HookX + g.Y * array.HookY;
-                XYZ step = g.X * V3Units.Ft(array.StepX) + g.Y * V3Units.Ft(array.StepY);
-                XYZ normal = step.GetLength() > 1e-9 ? step.Normalize() : XYZ.BasisZ.CrossProduct(hookDirection);
-                int elements = c.GroupLongBars ? 1 : array.Count;
-                for (int i = 0; i < elements; i++)
+                var path=group.Bars[0];
+                var rounded=V3ProfileGeometry.Round(path.Points,radius,tolerance);
+                if(item.BottleneckToUpper)
                 {
-                    XYZ basePoint = g.At(V3Units.Ft(array.X), V3Units.Ft(array.Y), low) + step * i;
-                    XYZ foot = basePoint + hookDirection * horizontal;
-                    var curves = new List<Curve>();
-                    if (item.FoundationHost != null) curves.Add(Line.CreateBound(foot, basePoint));
-                    if (item.BottleneckToUpper)
+                    double lapStart=Math.Max(V3Units.Mm(item.BottleneckUpperBarStart),rounded.Last().Start.Z);
+                    double minimum=V3BottleneckRules.MinimumLap(Math.Max(c.MainDiameter,item.ConnectionPlan.Upper.Diameter));
+                    if(rounded.Last().End.Z-lapStart<minimum-.1)
+                        throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": đoạn nối thẳng sau gối uốn không đủ chiều dài tối thiểu.");
+                }
+                Rebar bar;
+                if(path.Planar)
+                {
+                    var lines=new List<Curve>();
+                    for(int i=0;i<path.Points.Count-1;i++)lines.Add(Line.CreateBound(ModelPoint(path.Points[i]),ModelPoint(path.Points[i+1])));
+                    XYZ normal=group.Bars.Count>1?ModelVector(group.Step).Normalize():ModelVector(path.Normal).Normalize();
+                    bar=Rebar.CreateFromCurves(doc,RebarStyle.Standard,type,null,null,item.FoundationHost??(Element)item.Column,
+                        normal,lines,RebarHookOrientation.Left,RebarHookOrientation.Right,true,true);
+                    if(bar==null)throw new InvalidOperationException("Không tạo được thanh chuyển tiếp phẳng.");
+                    if(group.Bars.Count>1)
                     {
-                        double shift = V3Units.Ft(V3BottleneckRules.Shift(c.MainDiameter, c.BottleneckClearanceMm));
-                        double height = V3Units.Ft(V3BottleneckRules.Height(c.MainDiameter, c.BottleneckClearanceMm, c.BottleneckSlope));
-                        XYZ inward = array.HookX != 0 ? g.X * (array.X <= 0 ? 1 : -1) : g.Y * (array.Y <= 0 ? 1 : -1);
-                        XYZ start = new XYZ(basePoint.X, basePoint.Y, g.Top - height);
-                        XYZ end = new XYZ(basePoint.X, basePoint.Y, g.Top) + inward * shift;
-                        curves.Add(Line.CreateBound(basePoint, start));
-                        curves.Add(Line.CreateBound(start, end));
-                        curves.Add(Line.CreateBound(end, new XYZ(end.X, end.Y, top)));
-                    }
-                    else curves.Add(Line.CreateBound(basePoint, new XYZ(basePoint.X, basePoint.Y, top)));
-                    var bar = Rebar.CreateFromCurves(doc, RebarStyle.Standard, type, null, null,
-                        item.FoundationHost ?? (Element)item.Column, normal, curves, RebarHookOrientation.Left,
-                        RebarHookOrientation.Right, true, true);
-                    if (bar == null) throw new InvalidOperationException("Không tạo được thép neo chân L.");
-                    V3RebarBuilder.SetPartition(bar, item.Column.Id);
-                    int count = c.GroupLongBars ? array.Count : 1;
-                    if (count >= 2)
-                    {
-                        ApplyFixedNumber(bar, count, step.GetLength() * (count - 1), "neo chân L");
+                        ApplyFixedNumber(bar,group.Bars.Count,V3Units.Ft(group.Step.Length*(group.Bars.Count-1)),"thép chuyển tiếp");
                         report.MainSets++;
                     }
-                    doc.Regenerate();
-                    if (item.BottleneckToUpper) V3BottleneckBarType.CheckBends(bar, c);
-                    if (bar.NumberOfBarPositions != count)
-                        throw new InvalidOperationException("Số vị trí neo thực tế khác cấu hình Fixed Number.");
-                    if (count >= 2)
-                    {
-                        using (var accessor = bar.GetShapeDrivenAccessor())
-                        {
-                            XYZ first = accessor.GetBarPositionTransform(0).Origin;
-                            for (int position = 1; position < count; position++)
-                                if ((accessor.GetBarPositionTransform(position).Origin - first).DistanceTo(step * position) > V3Units.Ft(.1))
-                                    throw new InvalidOperationException("Hướng phân bố neo thực tế khác trục nhóm đã chọn; hủy tuyến để kiểm tra family/shape.");
-                        }
-                    }
-                    report.MainBars += count;
                 }
+                else
+                {
+                    var curves=rounded.Select(r=>r.Arc?(Curve)Arc.Create(ModelPoint(r.Start),ModelPoint(r.End),ModelPoint(r.Mid)):
+                        Line.CreateBound(ModelPoint(r.Start),ModelPoint(r.End))).ToList();
+                    RebarFreeFormValidationResult validation;
+                    bar=Rebar.CreateFreeForm(doc,type,item.FoundationHost??(Element)item.Column,
+                        new List<IList<Curve>>{curves},out validation);
+                    if(bar==null||validation!=RebarFreeFormValidationResult.Success)
+                        throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": không tạo được FreeForm nhiều mặt phẳng ("+validation+").");
+                    freeForms++;
+                }
+                V3RebarBuilder.SetPartition(bar,item.Column.Id);doc.Regenerate();
+                if(item.BottleneckToUpper)V3BottleneckBarType.CheckBends(bar,c,rounded.Count(r=>r.Arc));
+                if(bar.NumberOfBarPositions!=group.Bars.Count)
+                    throw new InvalidOperationException("Số vị trí thép chuyển tiếp khác phương án ghép.");
+                if(group.Bars.Count>1)
+                    using(var accessor=bar.GetShapeDrivenAccessor())
+                    {
+                        XYZ first=accessor.GetBarPositionTransform(0).Origin;
+                        for(int i=1;i<group.Bars.Count;i++)
+                            if((accessor.GetBarPositionTransform(i).Origin-first).DistanceTo(ModelVector(group.Step)*i)>V3Units.Ft(.1))
+                                throw new InvalidOperationException("Hướng phân bố set chuyển tiếp không đúng phương án ghép.");
+                    }
+                report.MainBars+=group.Bars.Count;
             }
+            if(freeForms>0)report.Warnings.Add("Cột "+item.Column.Id.Value+": "+freeForms+" thanh nhiều mặt phẳng được tạo FreeForm riêng; các nhóm phẳng phù hợp vẫn dùng Fixed Number.");
+        }
+
+        private static XYZ ModelPoint(V3Point3 p)=>new XYZ(V3Units.Ft(p.X),V3Units.Ft(p.Y),V3Units.Ft(p.Z));
+        private static XYZ ModelVector(V3Point3 p)=>new XYZ(V3Units.Ft(p.X),V3Units.Ft(p.Y),V3Units.Ft(p.Z));
+
+        internal static List<V3BarPath> ConnectionPaths(V3SegmentWork item)
+        {
+            var g=item.Geometry;var c=item.Config;var result=new List<V3BarPath>();
+            double low=item.FoundationHost==null?V3Units.Mm(g.Bottom)+c.Cover+c.MainDiameter/2:V3Units.Mm(item.FoundationBendZ);
+            double high=c.StarterBars?V3Units.Mm(g.Top)+c.StarterLength:V3Units.Mm(g.Top)-c.Cover-c.MainDiameter/2;
+            double footLength=item.FoundationHost==null?0:V3AnchorLayoutPlan.HorizontalLength(item.FoundationAnchorLengthMm,
+                V3Units.Mm(g.Bottom-item.FoundationBendZ));
+            foreach(var array in AnchorPlan(item))for(int i=0;i<array.Count;i++)
+            {
+                XYZ model=g.At(V3Units.Ft(array.X+array.StepX*i),V3Units.Ft(array.Y+array.StepY*i),0);
+                var xy=new V3Point2(V3Units.Mm(model.X),V3Units.Mm(model.Y));
+                var path=new V3BarPath{BarIndex=result.Count,Points=new List<V3Point3>()};
+                if(item.FoundationHost!=null)
+                    path.Points.Add(new V3Point3(xy.X+(g.X.X*array.HookX+g.Y.X*array.HookY)*footLength,
+                        xy.Y+(g.X.Y*array.HookX+g.Y.Y*array.HookY)*footLength,low));
+                path.Points.Add(new V3Point3(xy.X,xy.Y,low));
+                if(item.BottleneckToUpper)
+                {
+                    var connection=item.ConnectionPlan.Bars.SingleOrDefault(p=>(p.Lower-xy).Length<.05);
+                    if(connection==null)throw new InvalidOperationException("Thiếu cặp ghép cho một thanh cột dưới.");
+                    path.BarIndex=connection.LowerIndex;path.Shift=connection.Shift;path.Height=connection.Height;
+                    if(connection.Shift>.001)
+                    {
+                        path.Points.Add(new V3Point3(xy.X,xy.Y,V3Units.Mm(g.Top)-connection.Height));
+                        path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,V3Units.Mm(g.Top)));
+                    }
+                    path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high));
+                }
+                else path.Points.Add(new V3Point3(xy.X,xy.Y,high));
+                result.Add(path);
+            }
+            return result;
         }
 
         internal static List<V3TieBand> TiePlan(V3SegmentWork item)

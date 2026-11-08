@@ -41,6 +41,8 @@ namespace ColumnRebarPro.V3
 
         private readonly Autodesk.Revit.DB.Document _document;
         private readonly List<ColumnSegment> _segments;
+        private V3ColumnConnectionPlan _previewConnectionPlan;
+        private readonly Dictionary<long, V3Geometry> _geometry = new Dictionary<long, V3Geometry>();
         private readonly Dictionary<long, V3RebarConfig> _configs = new Dictionary<long, V3RebarConfig>();
         private readonly ObservableCollection<FloorRow> _rows = new ObservableCollection<FloorRow>();
         private readonly List<BarSizeChoice> _sizes;
@@ -81,6 +83,11 @@ namespace ColumnRebarPro.V3
                 }
                 catch { /* A bad legacy profile must not prevent opening the editor. */ }
                 _configs[segment.Id.Value] = initial;
+                if (document != null)
+                {
+                    var column = document.GetElement(segment.Id) as Autodesk.Revit.DB.FamilyInstance;
+                    _geometry[segment.Id.Value] = V3GeometryReader.Read(column);
+                }
             }
 
             InitializeComponent();
@@ -403,11 +410,17 @@ namespace ColumnRebarPro.V3
                         Geometry = V3GeometryReader.Read(column), Config = _configs[segment.Id.Value].Copy() };
                     V3FoundationAnchor.Attach(_document, work, FoundationAnchorSettings);
                     _configs[segment.Id.Value] = work.Config;
+                    var works = _segments.Select(s => s.Id.Value == segment.Id.Value ? work : new V3SegmentWork {
+                        Column = _document.GetElement(s.Id) as Autodesk.Revit.DB.FamilyInstance,
+                        Segment = s, Geometry = _geometry[s.Id.Value], Config = _configs[s.Id.Value].Copy() }).ToList();
+                    V3StarterConnection.Resolve(works);
+                    V3RebarValidator.Preflight(works);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "KStruct - Neo thép xuống móng", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MainTabs.SelectedIndex = 1;
+                MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             Accepted = true;
@@ -427,6 +440,8 @@ namespace ColumnRebarPro.V3
             if (_loading) return;
             SetFoundationControlState();
             UpdateFoundationAnchorSummary();
+            UpdateStarterConnectionSummary();
+            DrawLongSection();
         }
 
         private void UpdateFoundationAnchorSummary()
@@ -528,26 +543,48 @@ namespace ColumnRebarPro.V3
                 ? (100.0 * area / concreteArea).ToString("0.000", CultureInfo.InvariantCulture) + "%"
                 : "—";
             DrawSection();
-            DrawLongSection();
             UpdateFoundationAnchorSummary();
             UpdateStarterConnectionSummary();
+            DrawLongSection();
         }
 
         private void UpdateStarterConnectionSummary()
         {
+            _previewConnectionPlan = null;
             var row = ActiveRow; var c = ActiveConfig;
             if (row == null || c == null || StarterConnectionSummary == null) return;
             int index = _segments.FindIndex(s => s.Id.Value == row.Segment.Id.Value);
             if (!c.StarterBars || index + 1 >= _segments.Count)
             {
                 StarterConnectionSummary.Text = "Không có cặp nối tầng trên đang bật tại tầng này.";
+                ConnectionComparisonGrid.ItemsSource = null; ConnectionPairingStatus.Text = "";
                 return;
             }
             var upper = _segments[index + 1]; var u = _configs[upper.Id.Value];
             if (u.MainDiameter <= 0 || u.Cover <= 0 || c.MainDiameter <= 0)
             {
                 StarterConnectionSummary.Text = "Nhập cấu hình thép tầng trên để tính phần chờ vào cột.";
+                ConnectionPairingStatus.Text = "Chưa đủ dữ liệu ghép thanh."; ConnectionComparisonGrid.ItemsSource = null;
                 return;
+            }
+            if (_geometry.ContainsKey(row.Segment.Id.Value) && _geometry.ContainsKey(upper.Id.Value))
+            {
+                var lowerWork = new V3SegmentWork { Segment = row.Segment, Config = c, Geometry = _geometry[row.Segment.Id.Value] };
+                var upperWork = new V3SegmentWork { Segment = upper, Config = u, Geometry = _geometry[upper.Id.Value] };
+                var lowerProfile = V3ConnectionAdapter.Profile(lowerWork);
+                var upperProfile = V3ConnectionAdapter.Profile(upperWork);
+                lowerProfile.HasFoot = index == 0 && FoundationAnchorCheck.IsChecked == true;
+                if (lowerProfile.HasFoot && FoundationDirectionBox.SelectedIndex >= 0)
+                    lowerProfile.FootDirection = (V3AnchorDirection)FoundationDirectionBox.SelectedIndex;
+                ConnectionComparisonGrid.ItemsSource = V3ColumnPairing.Compare(lowerProfile, upperProfile);
+                try
+                {
+                    var plan = V3ColumnPairing.Create(lowerProfile, upperProfile, c.BottleneckClearanceMm, c.BottleneckSlope);
+                    _previewConnectionPlan = plan;
+                    ConnectionPairingStatus.Text = "Ghép " + plan.Bars.Count + " cặp; dịch ngang lớn nhất " + Math.Round(plan.MaximumShift, 1) +
+                        " mm; chiều cao nhấn lớn nhất " + Math.Round(plan.MaximumHeight, 1) + " mm. Nhóm chỉ khi cùng hình dạng và mặt phẳng.";
+                }
+                catch (InvalidOperationException ex) { ConnectionPairingStatus.Text = ex.Message; }
             }
             double gap = upper.BottomMm - row.Segment.TopMm;
             double lap = c.StarterLength - gap - u.Cover - u.MainDiameter / 2;
@@ -660,13 +697,21 @@ namespace ColumnRebarPro.V3
             bool hasUpper = segIdx + 1 < _segments.Count;
             double upperWidthMm = hasUpper ? _segments[segIdx + 1].WidthMm : widthMm;
             double upperHeightMm = hasUpper ? (_segments[segIdx + 1].TopMm - _segments[segIdx + 1].BottomMm) : 0;
+            var preview = _previewConnectionPlan;
+            double upperCenterX = 0;
+            if (preview != null)
+            {
+                upperCenterX = (preview.Upper.Center-preview.Lower.Center).Dot(preview.Lower.AxisX);
+                upperWidthMm = Math.Abs(preview.Upper.AxisX.Dot(preview.Lower.AxisX))*preview.Upper.Width +
+                    Math.Abs(preview.Upper.AxisY.Dot(preview.Lower.AxisX))*preview.Upper.Depth;
+            }
             double beamH = c.JointBeamHeight;
             double upperGapMm = hasUpper ? _segments[segIdx + 1].BottomMm - row.Segment.TopMm : 0;
 
             // Chiều cao tổng cộng cần vẽ
             double starterMm = c.StarterBars ? c.StarterLength : 0;
             double totalDrawH = heightMm + Math.Max(beamH, Math.Max(starterMm, hasUpper ? upperGapMm + upperHeightMm * 0.4 : 0));
-            double totalDrawW = Math.Max(widthMm, upperWidthMm) + 120;
+            double totalDrawW = Math.Max(widthMm, upperWidthMm + 2*Math.Abs(upperCenterX)) + 120;
 
             double pad = 18;
             double scale = Math.Min((cW - pad * 2) / totalDrawW, (cH - pad * 2) / totalDrawH);
@@ -729,7 +774,7 @@ namespace ColumnRebarPro.V3
                 upperDrawH = Math.Min(upperHeightMm, Math.Max(starterMm - upperGapMm, upperHeightMm * 0.35));
                 double uBot = colH + upperGapMm;
                 double uTop = uBot + upperDrawH;
-                double uLeft = mmToX(-uHalfW), uRight = mmToX(uHalfW);
+                double uLeft = mmToX(upperCenterX-uHalfW), uRight = mmToX(upperCenterX+uHalfW);
                 double uTopY = mmToY(uTop), uBotY = mmToY(uBot);
                 var upRect = new Rectangle
                 {
@@ -751,24 +796,27 @@ namespace ColumnRebarPro.V3
 
             double barBot = c.Cover + c.MainDiameter / 2;
             double barTop = colH - c.Cover - c.MainDiameter / 2;
-            double neckShift = hasUpper && c.StarterBars ? c.MainDiameter + c.BottleneckClearanceMm : 0;
-            double neckHeight = neckShift * c.BottleneckSlope;
-            foreach (int side in new[] { -1, 1 })
+            if (preview != null)
             {
-                double x = side < 0 ? barXL : barXR;
-                double shifted = x - side * neckShift;
-                if (neckShift > 0 && neckHeight > 0)
+                Func<V3Point2,double> project=p=>(p-preview.Lower.Center).Dot(preview.Lower.AxisX);
+                foreach(var pair in preview.Bars)
                 {
-                    addLn(mmToX(x), mmToY(barBot), mmToX(x), mmToY(colH - neckHeight), barBrush, barThick);
-                    addLn(mmToX(x), mmToY(colH - neckHeight), mmToX(shifted), mmToY(colH), barBrush, barThick);
+                    double x=project(pair.Lower), endX=project(pair.End), upperX=project(pair.Upper);
+                    addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(colH-pair.Height),barBrush,1.5);
+                    if(pair.Height>0)
+                        addLn(mmToX(x),mmToY(colH-pair.Height),mmToX(endX),mmToY(colH),barBrush,1.5);
+                    addLn(mmToX(endX),mmToY(colH),mmToX(endX),mmToY(colH+starterMm),Brushes.OrangeRed,1.5);
+                    addLn(mmToX(upperX),mmToY(colH+upperGapMm+preview.Upper.Cover+preview.Upper.Diameter/2),
+                        mmToX(upperX),mmToY(colH+upperGapMm+upperDrawH),Brushes.Firebrick,1.2);
                 }
-                else addLn(mmToX(x), mmToY(barBot), mmToX(x), mmToY(barTop), barBrush, barThick);
-                if (c.StarterBars)
-                    addLn(mmToX(shifted), mmToY(neckShift > 0 ? colH : barTop),
-                        mmToX(shifted), mmToY(colH + starterMm), Brushes.OrangeRed, 2.2);
-                if (hasUpper)
-                    addLn(mmToX(x), mmToY(colH + upperGapMm + c.Cover + c.MainDiameter / 2),
-                        mmToX(x), mmToY(colH + upperGapMm + upperDrawH), Brushes.Firebrick, 1.5);
+                addTxt(4,4,"Chiếu theo trục X cột dưới; các thanh có thể chồng hình.",Brushes.DimGray,9);
+            }
+            else
+            {
+                foreach(double x in new[]{barXL,barXR})
+                    addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(barTop),barBrush,barThick);
+                if(hasUpper && c.StarterBars)
+                    addTxt(4,4,"Chưa có phương án ghép hợp lệ — xem bảng so sánh.",Brushes.Firebrick,9);
             }
             if (c.StarterBars)
             {

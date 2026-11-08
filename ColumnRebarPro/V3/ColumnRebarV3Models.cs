@@ -92,6 +92,7 @@ namespace ColumnRebarPro.V3
         public bool HasPrevious, HasNext;
         public bool BottleneckToUpper;
         public double BottleneckUpperBarStart;
+        internal V3ColumnConnectionPlan ConnectionPlan;
         public double IncomingStarterLength, IncomingJoint;
         public bool IncomingStagger;
         public string StarterWarning;

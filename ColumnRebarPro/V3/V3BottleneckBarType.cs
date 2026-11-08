@@ -29,13 +29,13 @@ namespace ColumnRebarPro.V3
             return clone;
         }
 
-        internal static void CheckBends(Rebar bar, V3RebarConfig config)
+        internal static void CheckBends(Rebar bar, V3RebarConfig config, int minimumArcCount = 2)
         {
             double radius = V3Units.Ft((V3BottleneckRules.MinimumBendDiameter(config.MainDiameter, config.BottleneckRibbed) + config.MainDiameter) / 2);
-            var curves = bar.GetCenterlineCurves(false, false, false, MultiplanarOption.IncludeOnlyPlanarCurves, 0);
+            var curves = bar.GetCenterlineCurves(false, false, false, bar.IsRebarFreeForm() ? MultiplanarOption.IncludeAllMultiplanarCurves : MultiplanarOption.IncludeOnlyPlanarCurves, 0);
             var arcs = curves.OfType<Arc>().ToList();
-            if (arcs.Count < 2 || arcs.Any(a => a.Radius < radius - V3Units.Ft(.1)))
-                throw new InvalidOperationException("Hình nhấn cổ chai không đủ hai đoạn uốn hoặc bán kính dưới mức tối thiểu TCVN 5574:2018, 10.3.7.");
+            if (arcs.Count < minimumArcCount || arcs.Any(a => a.Radius < radius - V3Units.Ft(.1)))
+                throw new InvalidOperationException("Hình nhấn cổ chai không đủ số đoạn uốn theo phương án hoặc bán kính dưới mức tối thiểu TCVN 5574:2018, 10.3.7.");
         }
     }
 }
