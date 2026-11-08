@@ -82,9 +82,8 @@ namespace ColumnRebarPro.V3
             {
                 foreach (V3SegmentWork work in works)
                 {
-                    if (work.Config == null || !work.Config.DesignValuesConfirmed ||
-                        string.IsNullOrWhiteSpace(work.Config.DesignReference))
-                        throw new InvalidOperationException("Chỉ tạo bản vẽ khi đã xác nhận thông số theo hồ sơ thiết kế đã duyệt và nhập mã/số bản vẽ tham chiếu cho từng tầng.");
+                    if (work.Config == null)
+                        throw new InvalidOperationException("Thiếu cấu hình thép cột để triển khai bản vẽ.");
                     if (work.Config.Splice != V3SpliceStyle.None || work.Config.StaggerSplices ||
                         work.HasNext || work.HasPrevious || work.TransitionUp != null || work.TransitionDown != null)
                         throw new InvalidOperationException("Không thể triển khai bản vẽ nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
@@ -259,7 +258,7 @@ namespace ColumnRebarPro.V3
 
             string viewName = "KSTR V3 " + (prefix == "Cross" ? "MCN" : "MCD") + " " +
                 (B("UseMarkForViewportName") ? markName : work.Column.Id.Value.ToString(CultureInfo.InvariantCulture));
-            viewName += " - DRAFT REF " + SafeDrawingLabel(work.Config.DesignReference);
+            viewName += " - DRAFT";
             var level = doc.GetElement(work.Column.LevelId) as Level;
             if (prefix == "Cross" && level != null) viewName += " - " + level.Name;
             // Các tầng cùng Mark nên tên view phải được làm duy nhất, nếu không Revit báo trùng tên.

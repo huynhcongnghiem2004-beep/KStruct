@@ -45,7 +45,7 @@ namespace ColumnRebarPro.V3
 
                 DeploymentSettingsFile deployment = V3DeploymentControl.LoadSavedSettings(doc);
                 if (deployment == null)
-                    throw new InvalidOperationException("Project chưa lưu thiết lập triển khai. Mở lệnh Cốt thép cột & triển khai V3, cấu hình tab Triển khai và xác nhận để lưu thiết lập trước.");
+                    throw new InvalidOperationException("Project chưa lưu thiết lập triển khai. Mở lệnh Tạo thép cột, cấu hình tab Triển khai và xác nhận để lưu thiết lập trước.");
 
                 var jobs = new List<DrawingJob>();
                 var seen = new HashSet<ElementId>();

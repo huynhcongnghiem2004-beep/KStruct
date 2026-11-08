@@ -2,7 +2,7 @@
 
 ## Sử dụng trong Revit 2024
 
-1. Chọn tuyến cột và mở **Thép cột & triển khai V3**. Tại tầng chân tuyến, nhập Cx/Cy,
+1. Chọn tuyến cột và mở **Tạo thép cột**. Tại tầng chân tuyến, nhập Cx/Cy,
    đường kính, cover cột và cấu hình đai. Bật **Nhóm thép dọc (Fixed Number)**.
 2. Tại **Thép chờ / Neo móng**, bật **Neo chân L xuống móng tại chân tuyến**.
 3. Nhập **tổng kích thước đoạn đứng + chân ngang**, cover móng tại đáy và bên.
@@ -12,7 +12,7 @@
 4. Chọn hướng **Vào tâm**, **Ra ngoài**, **+X**, **-X**, **+Y** hoặc **-Y** theo hệ trục cột.
    Sơ đồ bên phải biểu diễn hướng, không biểu diễn chiều dài. Với cột xoay/mirror,
    hướng đi theo BasisX/BasisY của family, không phải trục thế giới.
-5. Nhập mã bản vẽ tham chiếu và xác nhận thông số. Nếu tạo lại, bật ghi đè V3.
+5. Nếu tạo lại, bật ghi đè V3. Không cần nhập mã bản vẽ hoặc đánh dấu xác nhận từng tầng.
 6. Giữ **Mở view 3D kiểm tra sau khi tạo** để xem thép thật. Một view mới tên
    `KSTR_V3_NEO_L_<ID cột>` được tạo cho mỗi tuyến có neo, khoanh quanh móng và 1.2 m
    chân cột, cô lập tạm cột/móng/thép V3 và hiện thép không bị bê tông che.

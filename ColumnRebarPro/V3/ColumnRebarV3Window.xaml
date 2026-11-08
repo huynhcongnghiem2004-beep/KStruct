@@ -246,22 +246,6 @@
                 </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Triển khai"><Grid x:Name="DeploymentHost" Background="White"/></TabItem>
-            <TabItem Header="Cài đặt chung">
-                <StackPanel Margin="24">
-                    <TextBlock FontWeight="SemiBold" FontSize="16" Text="Hồ sơ thiết kế tham chiếu" Margin="0,0,0,12"/>
-                    <TextBlock TextWrapping="Wrap" MaxWidth="750" HorizontalAlignment="Left"
-                               Text="Nhập mã/số bản vẽ kết cấu đã duyệt cho tầng đang chọn. Xác nhận chỉ sau khi đã đối chiếu số lượng, đường kính, bước đai, nối, neo và chi tiết chuyển tiếp. KStruct không phê duyệt thay kỹ sư thiết kế."/>
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
-                        <TextBlock Text="Mã / số bản vẽ tham chiếu" Width="220" VerticalAlignment="Center"/>
-                        <TextBox x:Name="DesignReferenceBox" Width="320" MaxLength="120" LostFocus="Text_LostFocus"/>
-                    </StackPanel>
-                    <CheckBox x:Name="DesignConfirmedCheck" Margin="0,5,0,10"
-                              Content="Tôi đã nhập và đối chiếu các thông số tầng này với thiết kế kết cấu đã duyệt"
-                              Checked="Edit_Changed" Unchecked="Edit_Changed"/>
-                    <TextBlock TextWrapping="Wrap" MaxWidth="750" HorizontalAlignment="Left" Text="Hỗ trợ cột đứng tiết diện chữ nhật, tuyến cột đồng trục. Tùy chọn phân bố đều và Rebar Set tạo hình học thép 3D. Nối chồng và chuyển tiếp tiết diện chưa được hỗ trợ; các thông số khác phải được đối chiếu với hồ sơ thiết kế."/>
-                    <TextBlock x:Name="DetailText" Margin="0,16,0,0" TextWrapping="Wrap"/>
-                </StackPanel>
-            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

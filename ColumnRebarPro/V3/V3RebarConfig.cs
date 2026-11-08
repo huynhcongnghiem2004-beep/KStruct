@@ -25,6 +25,7 @@ namespace ColumnRebarPro.V3
         public bool StarterBars = false;
         public double StarterLength;
         public bool StaggerSplices;
+        // Legacy XML fields retained for compatibility; creation no longer requires approval/reference input.
         public string DesignReference = "";
         public bool DesignValuesConfirmed;
         public bool FoundationAnchorEnabled;

@@ -66,10 +66,7 @@ namespace ColumnRebarPro.V3
             string markName=string.IsNullOrWhiteSpace(stackMark)?("C"+first.Column.Id.Value):stackMark.Trim();
             string stackName=B("UseMarkForStackName")?markName:("TUYEN COT "+first.Column.Id.Value);
             string sheetName=B("UseMarkForSheetName")?markName:S("SheetName");
-            string references = string.Join(", ", works.Select(w => SafeDrawingLabel(w.Config.DesignReference))
-                .Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase));
-            string draftName = "DRAFT - " + sheetName + " - " + stackName +
-                (references.Length == 0 ? "" : " | Ref: " + references);
+            string draftName = "DRAFT - " + sheetName + " - " + stackName;
             if (draftName.Length > 240) draftName = draftName.Substring(0, 237) + "...";
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
