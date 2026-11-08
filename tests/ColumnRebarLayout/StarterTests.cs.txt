@@ -98,6 +98,7 @@ static class StarterTests
         Near(V3BottleneckRules.MinimumBendDiameter(20,true),160,"TCVN ribbed 20 and above");
         Near(V3BottleneckRules.MinimumBendDiameter(16,false),40,"TCVN plain below 20");
         Near(V3BottleneckRules.MinimumBendDiameter(20,false),80,"TCVN plain 20 and above");
+        Reject(()=>V3BottleneckRules.MinimumLap(41),"40 mm");
         Near(V3BottleneckRules.MinimumLap(10),250,"250 mm lower bound");Near(V3BottleneckRules.MinimumLap(20),400,"20d lower bound");
         Check(V3BottleneckRules.TangentLength(20,2,6,160)>0,"Default geometric neck fits minimum mandrel");
         Reject(()=>V3BottleneckRules.TangentLength(20,2,.1,160),"quá ngắn");

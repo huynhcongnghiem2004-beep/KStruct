@@ -15,6 +15,7 @@ namespace ColumnRebarPro.V3
         internal static double MinimumLap(double diameter)
         {
             Positive(diameter);
+            if (diameter > 40) throw new InvalidOperationException("Nối chồng theo TCVN 5574:2018, 10.3.6.2 chỉ áp dụng đường kính không lớn hơn 40 mm.");
             return Math.Max(20 * diameter, 250);
         }
 
