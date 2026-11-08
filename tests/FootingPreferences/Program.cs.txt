@@ -17,11 +17,14 @@ internal static class Program
             Check(FootingDrawingSessionStore.Load("project-A", directory) == null, "First run must not invent settings");
             var profile = new FootingDrawingProfile { Name = "Sample", CropMarginMm = 6, OutputLayers = "Bot", PlanScale = 50,
                 DimensionFourSides = true, UseDetailedLayout = true, SectionXOffsetMm = -125,
-                ReverseSectionY = true, SectionDepthMm = 1800, ExistingSheetUniqueId = "sheet-A", SourceViewUniqueId = "source-A" };
+                ReverseSectionY = true, BreakLineFamily = "Breakline", BreakLineType = "Line", BreakLinePaddingPaperMm = 1.5,
+                ReverseBreakLineMask = true, ApplyViewTemplatesOnce = true, SectionDepthMm = 1800, ExistingSheetUniqueId = "sheet-A", SourceViewUniqueId = "source-A" };
             FootingDrawingSessionStore.Save("project-A", new FootingDrawingSession { Profile = profile }, directory);
             var read = FootingDrawingSessionStore.Load("project-A", directory);
             Check(read.Remember && read.Profile.CropMarginMm == 6 && read.Profile.OutputLayers == "Bot", "Selections must round-trip");
             Check(read.Profile.PlanScale == 50 && read.Profile.DimensionFourSides && read.Profile.SectionXOffsetMm == -125 && read.Profile.ReverseSectionY && read.Profile.SectionDepthMm == 1800, "View/dimension options must round-trip");
+            Check(read.Profile.BreakLineFamily == "Breakline" && read.Profile.BreakLineType == "Line" && read.Profile.BreakLinePaddingPaperMm == 1.5 && read.Profile.ReverseBreakLineMask, "Breakline selections must round-trip");
+            Check(read.Profile.ApplyViewTemplatesOnce, "Local template application choice must round-trip");
             Check(read.Profile.ExistingSheetUniqueId == "sheet-A" && read.Profile.SourceViewUniqueId == "source-A", "View/sheet identities must round-trip");
             Check(FootingDrawingSessionStore.Load("project-B", directory) == null, "Projects must be isolated");
             FootingDrawingSessionStore.Save("project-A", new FootingDrawingSession { Remember = false, Profile = null }, directory);

@@ -16,6 +16,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly List<Tuple<CheckBox, FamilyInstance>> _hostChoices = new List<Tuple<CheckBox, FamilyInstance>>();
         private readonly ComboBox _sourcePlan = new ComboBox();
         private readonly CheckBox _remember = new CheckBox { Content = "Nhớ lựa chọn cho lần tạo hồ sơ kế tiếp", IsChecked = true };
+        private readonly CheckBox _templateOnce = new CheckBox { Content = "Áp template một lần, chỉnh view riêng", IsChecked = true };
+        private readonly CheckBox _beamBreaks = new CheckBox { Content = "Đặt Breakline tại dầm cắt biên crop", IsChecked = true };
+        private readonly CheckBox _reverseBreak = new CheckBox { Content = "Đảo phía che của Breakline" };
+        private readonly ComboBox _breakLine = new ComboBox();
+        private readonly TextBox _breakPadding = new TextBox { Text = "1" };
         private readonly CheckBox _fourSides = new CheckBox { Content = "Dim hai lớp trên cả bốn cạnh mặt bằng", IsChecked = true };
         private readonly CheckBox _reverseX = new CheckBox { Content = "Đảo chiều A–A" };
         private readonly CheckBox _reverseY = new CheckBox { Content = "Đảo chiều B–B" };
@@ -82,7 +87,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _topLayer.Content = "Thép trên"; _bottomLayer.Content = "Thép dưới";
             _callouts.Content = "Callout từ view nguồn (tắt: plan độc lập)";
             _callouts.IsEnabled = true;
-            _sections.Content = "Tạo mặt cắt A–A và B–B";
+            _sections.Content = "Mặt cắt A–A/B–B liên kết trong callout";
+            _sections.Checked += (s,e) => { _callouts.IsChecked = true; if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true) _bottomLayer.IsChecked = true; };
             _dimensions.Content = "Tạo kích thước liên kết mô hình";
             var tabs = new TabControl();
             var view = new StackPanel();
@@ -93,7 +99,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 .Select(v => new Item { Text = v.Name, Element = v }), null, true);
             if (_parent != null) _sourcePlan.SelectedItem = _sourcePlan.Items.Cast<Item>().FirstOrDefault(i => i.Element?.Id == _parent.Id);
             Field(view, "View nguồn", _sourcePlan); Field(view, "View Type mặt bằng", _planType);
-            Field(view, "Template mặt bằng", _planTemplate); Field(view, "Tỷ lệ mặt bằng 1:", _planScale);
+            Field(view, "Template mặt bằng", _planTemplate); view.Children.Add(_templateOnce);
+            view.Children.Add(Note("Sao chép định dạng vào view rồi chỉnh view range/hiển thị riêng; template gốc không bị sửa."));
+            Field(view, "Tỷ lệ mặt bằng 1:", _planScale);
             var crop = new StackPanel(); Field(crop, "Mép móng → crop (mm)", _cropMargin);
             crop.Children.Add(Note("Kích thước thực tế, không nhân tỷ lệ view. Crop theo trục móng; biên annotation riêng."));
             view.Children.Add(new Border { Background = Brush("#E7F2FF"), Padding = new Thickness(8), Margin = new Thickness(0, 8, 0, 8), Child = crop });
@@ -109,6 +117,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Field(dims, "Dimension Type", _dimension); Field(dims, "Lớp dim 1 (mm giấy)", _dimOffset); Field(dims, "Cách hai lớp (mm giấy)", _dimGap);
             dims.Children.Add(Note("Lớp trong: mép–tim cột/cọc–mép. Lớp ngoài: kích thước tổng thể. Thiếu reference chi tiết sẽ báo cạnh thiếu; không dùng kích thước giả."));
             dims.Children.Add(_tags); Field(dims, "Tag thép", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
+            Populate(_breakLine, new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_DetailComponents)
+                .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+                .Where(s => s.Family.FamilyPlacementType == FamilyPlacementType.CurveBasedDetail || s.Family.FamilyPlacementType == FamilyPlacementType.ViewBased)
+                .Select(s => new Item {Text = s.FamilyName + " : " + s.Name, Element = s}), "break", true);
+            dims.Children.Add(_beamBreaks); Field(dims, "Family / Type Breakline", _breakLine);
+            Field(dims, "Dư hai đầu (mm giấy)", _breakPadding); dims.Children.Add(_reverseBreak);
+            dims.Children.Add(Note("Ưu tiên Detail Item theo đường. Phía che tùy family; kiểm tra và đảo hướng nếu cần. Chưa chọn family thì báo và bỏ qua Breakline."));
             AddTab(tabs, "Dim / Tag", dims);
 
             var sheet = new StackPanel(); sheet.Children.Add(_newSheet);
@@ -151,7 +166,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             buttons.Children.Add(new Button { Content = "Hủy", IsCancel = true });
             DockPanel.SetDock(buttons, Dock.Right); footer.Children.Add(buttons);
             footer.Children.Add(Note("Cấu hình được lưu khi tạo • Cancel không đổi mô hình")); Grid.SetRow(footer, 3); root.Children.Add(footer);
-            foreach (TextBox box in new[] { _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
+            foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
                 box.TextChanged += (s, e) => RefreshPreviews();
             foreach (CheckBox box in new[] { _fourSides, _reverseX, _reverseY, _newSheet })
             { box.Checked += (s, e) => RefreshPreviews(); box.Unchecked += (s, e) => RefreshPreviews(); }
@@ -205,7 +220,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         }
         private bool ValidateExtraFields()
         {
-            foreach (TextBox box in new[] { _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
+            foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
             {
                 double value = ParseDouble(box.Text, double.NaN);
                 if (double.IsNaN(value) || double.IsInfinity(value) ||

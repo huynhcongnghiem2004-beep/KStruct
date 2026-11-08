@@ -21,6 +21,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string FoundationTagFamily { get; set; }
         public string FoundationTagType { get; set; }
         public string DimensionTypeName { get; set; }
+        public bool ApplyViewTemplatesOnce { get; set; } = true;
+        public bool CreateBeamBreakLines { get; set; } = true;
+        public string BreakLineFamily { get; set; }
+        public string BreakLineType { get; set; }
+        public double BreakLinePaddingPaperMm { get; set; } = 1;
+        public bool ReverseBreakLineMask { get; set; }
         public bool UseDetailedLayout { get; set; }
         public bool DimensionFourSides { get; set; }
         public double DimensionOffsetPaperMm { get; set; } = 8;

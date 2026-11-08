@@ -36,9 +36,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
             if (bot) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, false, warnings), Role = "Plan-Bot" });
             if (top) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, true, warnings), Role = "Plan-Top" });
+            var linkedSections = new List<ViewSection>();
             if (p.CreateSections)
             {
+                if (!p.CreateCallouts || !outputs.Any(o => o.View is ViewPlan plan && plan.IsCallout))
+                    throw new InvalidOperationException("Mặt cắt cần callout móng làm view tham chiếu.");
                 List<ViewSection> sections = CreateSections(doc, footing, config, names, warnings);
+                linkedSections.AddRange(sections);
                 outputs.Add(new ViewOutput { View = sections[0], Role = "Section-X" });
                 outputs.Add(new ViewOutput { View = sections[1], Role = "Section-Y" });
             }
@@ -53,7 +57,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 string prefix = string.IsNullOrWhiteSpace(p.SheetPrefix) ? defaultPrefix : p.SheetPrefix.Trim();
                 sheet.SheetNumber = UniqueNumber(prefix, footing.Id.Value.ToString(), sheetNumbers);
                 sheet.Name = FormatName(p.SheetNamePattern, footing);
-                FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm, p.UseDetailedLayout ? 2 : 1);
+                FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm, 3);
                 sheetNumbers.Add(sheet.SheetNumber);
             }
             if (sheet == null) throw new InvalidOperationException("Không tìm được sheet đích.");
@@ -63,7 +67,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
-                FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, p.UseDetailedLayout ? 2 : 1);
+                if (view is ViewPlan callout && linkedSections.Count > 0) FootingDrawingSectionLinks.Refresh(doc, footing, callout, linkedSections);
+                FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
+                FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedSections : null);
+                FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
                 if (!names.Contains(view.Name)) names.Add(view.Name);
                 index++;
             }
@@ -107,49 +114,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
             string layer = topLayer ? "Top" : "Bot";
             view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer), names);
-            view.Scale = p.PlanScale;
-            view.Discipline = ViewDiscipline.Structural;
-            view.DetailLevel = ViewDetailLevel.Fine;
-            if (p.UseDetailedLayout && config.PlanTemplate != null) view.ViewTemplateId = config.PlanTemplate.Id;
-            else ApplyTemplate(view, config.PlanTemplate, warnings);
+            FootingDrawingVisibility.ApplyTemplate(view, config.PlanTemplate, p.ApplyViewTemplatesOnce);
+            if (view.Scale != p.PlanScale) view.Scale = p.PlanScale;
             if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
-            if (p.UseDetailedLayout && view.Scale != p.PlanScale)
-                throw new InvalidOperationException("Template mặt bằng khóa tỷ lệ khác tỷ lệ đã chọn.");
-            SetLayerRange(view, box, bars, layerBars, topLayer, footing.LevelId, p.UseDetailedLayout);
-            if (p.UseDetailedLayout)
-            {
-                if (view.GetCategoryHidden(new ElementId(BuiltInCategory.OST_Rebar)))
-                    throw new InvalidOperationException("View/template mặt bằng đang ẩn cốt thép; hãy chọn template khác.");
-                ConfigureAnnotationCrop(view, p);
-            }
-            List<ElementId> hidden = bars.Where(x => !layerBars.Any(y => y.Id == x.Id)).Select(x => x.Id).ToList();
-            if (hidden.Count > 0) try { view.HideElements(hidden); } catch (Exception ex) { warnings.Add("Không lọc được một số Rebar ở " + view.Name + ": " + ex.Message); }
+            FootingDrawingVisibility.Configure(view, footing, topLayer, p.ApplyViewTemplatesOnce, warnings);
+            if (p.UseDetailedLayout) ConfigureAnnotationCrop(view, p);
             return view;
-        }
-
-        private static void SetLayerRange(ViewPlan view, BoundingBoxXYZ hostBox, List<Rebar> all, List<Rebar> layer,
-            bool topLayer, ElementId levelId, bool detailed = false)
-        {
-            if (view.IsTemplate) return;
-            double elevation = layer.Select(x => x.get_BoundingBox(null)).Where(x => x != null).Select(x => (x.Min.Z + x.Max.Z) / 2.0)
-                .DefaultIfEmpty(topLayer ? hostBox.Max.Z - UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters) : hostBox.Min.Z + UnitUtils.ConvertToInternalUnits(50, UnitTypeId.Millimeters)).Average();
-            Level level = view.Document.GetElement(levelId) as Level;
-            if (level == null) level = view.GenLevel;
-            if (level == null) return;
-            double half = UnitUtils.ConvertToInternalUnits(150, UnitTypeId.Millimeters);
-            List<BoundingBoxXYZ> layerBoxes = layer.Select(r => r.get_BoundingBox(null)).Where(b => b != null).ToList();
-            double lower = detailed && layerBoxes.Count > 0 ? layerBoxes.Min(b => b.Min.Z) : elevation;
-            double upper = detailed && layerBoxes.Count > 0 ? layerBoxes.Max(b => b.Max.Z) : elevation;
-            PlanViewRange range = view.GetViewRange();
-            foreach (PlanViewPlane plane in new[] { PlanViewPlane.TopClipPlane, PlanViewPlane.CutPlane, PlanViewPlane.BottomClipPlane, PlanViewPlane.ViewDepthPlane })
-            {
-                range.SetLevelId(plane, level.Id);
-                double offset = plane == PlanViewPlane.TopClipPlane ? upper + half - level.Elevation :
-                    plane == PlanViewPlane.CutPlane ? upper + half / 2 - level.Elevation :
-                    plane == PlanViewPlane.BottomClipPlane ? lower - half - level.Elevation : lower - 2 * half - level.Elevation;
-                range.SetOffset(plane, offset);
-            }
-            view.SetViewRange(range);
         }
 
         private static List<ViewSection> CreateSections(Document doc, FamilyInstance footing, FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
@@ -185,8 +155,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 };
                 ViewSection view = ViewSection.CreateSection(doc, config.SectionType.Id, crop);
                 view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Section-X" : "Section-Y"), names);
+                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, config.Profile.ApplyViewTemplatesOnce);
                 view.Scale = config.Profile.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
-                ApplyTemplate(view, config.SectionTemplate, warnings);
                 result.Add(view);
             }
             return result;
@@ -223,9 +193,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 ViewSection view = ViewSection.CreateSection(doc, config.SectionType.Id, crop);
                 view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Section-X" : "Section-Y"), names);
                 names.Add(view.Name);
-                view.Scale = p.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
+                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
+                if (view.Scale != p.SectionScale) view.Scale = p.SectionScale;
+                view.CropBoxActive = true; view.CropBoxVisible = false;
                 view.DetailLevel = ViewDetailLevel.Fine; view.Discipline = ViewDiscipline.Structural;
-                if (config.SectionTemplate != null) view.ViewTemplateId = config.SectionTemplate.Id;
                 if (view.Scale != p.SectionScale) throw new InvalidOperationException("Template mặt cắt khóa tỷ lệ khác tỷ lệ đã chọn.");
                 if (view.GetCategoryHidden(new ElementId(BuiltInCategory.OST_Rebar)))
                     throw new InvalidOperationException("View/template mặt cắt đang ẩn cốt thép; hãy chọn template khác.");
@@ -358,20 +329,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
         private static List<Rebar> GetHostedBars(Document doc, FamilyInstance footing) => new FilteredElementCollector(doc).OfClass(typeof(Rebar)).WhereElementIsNotElementType()
             .Cast<Rebar>().Where(x => x.GetHostId() == footing.Id).ToList();
-        private static bool IsLayer(Rebar rebar, BoundingBoxXYZ host, bool top)
-        {
-            BoundingBoxXYZ bar = rebar.get_BoundingBox(null);
-            if (bar == null) return true;
-            double center = (bar.Min.Z + bar.Max.Z) / 2;
-            double mid = (host.Min.Z + host.Max.Z) / 2;
-            return top ? center >= mid : center < mid;
-        }
-        private static void ApplyTemplate(View view, View template, IList<string> warnings)
-        {
-            if (view == null || template == null) return;
-            try { view.ViewTemplateId = template.Id; }
-            catch (Exception ex) { warnings.Add("Không áp được template " + template.Name + " cho " + view.Name + ": " + ex.Message); }
-        }
+        private static bool IsLayer(Rebar rebar, BoundingBoxXYZ host, bool top) => FootingDrawingVisibility.InLayer(rebar, host, top);
         private static void SetPlanCrop(ViewPlan view, BoundingBoxXYZ source, double marginMm)
         {
             List<XYZ> corners = WorldCorners(source);
@@ -381,7 +339,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Max = new XYZ(corners.Max(x => x.X) + m, corners.Max(x => x.Y) + m, corners.Max(x => x.Z) + m) };
             view.CropBoxActive = true; view.CropBoxVisible = false;
         }
-        internal static void UpdateCrop(View view, FamilyInstance footing, double marginMm, string role)
+        internal static void UpdateCrop(View view, FamilyInstance footing, double marginMm, string role, IList<string> warnings = null)
         {
             BoundingBoxXYZ source = footing.get_BoundingBox(null), prior = view.CropBox;
             if (source == null || prior == null) throw new InvalidOperationException("Không đọc được móng hoặc vùng crop.");
@@ -421,12 +379,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (view is ViewPlan plan && role != null &&
                 (role.EndsWith("Top", StringComparison.OrdinalIgnoreCase) || role.EndsWith("Bot", StringComparison.OrdinalIgnoreCase)))
             {
-                List<Rebar> bars = GetHostedBars(view.Document, footing);
-                bool top = role.EndsWith("Top", StringComparison.OrdinalIgnoreCase);
-                List<Rebar> layer = bars.Where(x => IsLayer(x, source, top)).ToList();
-                try { SetLayerRange(plan, source, bars, layer, top, footing.LevelId, detailed); } catch { }
-                List<ElementId> hidden = bars.Where(x => !layer.Any(y => y.Id == x.Id)).Select(x => x.Id).ToList();
-                if (hidden.Count > 0) try { plan.HideElements(hidden); } catch { }
+                FootingDrawingProfile saved = FootingDrawingDetailState.Read(view, footing, out IList<string> ignoredSections);
+                FootingDrawingVisibility.Configure(plan, footing, role.EndsWith("Top", StringComparison.OrdinalIgnoreCase),
+                    saved?.ApplyViewTemplatesOnce ?? true, warnings ?? new List<string>());
             }
         }
         private static void PlaceViewports(Document doc, ViewSheet sheet, IList<View> views, int batchIndex, IList<string> warnings)

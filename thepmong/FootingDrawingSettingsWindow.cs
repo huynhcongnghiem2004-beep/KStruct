@@ -286,6 +286,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
             SheetPrefix = _sheetPrefix.Text.Trim(), SheetNamePattern = _sheetName.Text.Trim(), ViewNamePattern = _viewName.Text.Trim(),
             PlanScale = ParseInt(_planScale.Text, 20), SectionScale = ParseInt(_sectionScale.Text, 20), CropMarginMm = ParseDouble(_cropMargin.Text, 6),
+            ApplyViewTemplatesOnce = _templateOnce.IsChecked == true,
+            CreateBeamBreakLines = _beamBreaks.IsChecked == true, BreakLineFamily = FamilyName(Selected(_breakLine)), BreakLineType = TypeName(Selected(_breakLine)),
+            BreakLinePaddingPaperMm = ParseDouble(_breakPadding.Text, 1), ReverseBreakLineMask = _reverseBreak.IsChecked == true,
             UseDetailedLayout = true, DimensionFourSides = _fourSides.IsChecked == true,
             DimensionOffsetPaperMm = ParseDouble(_dimOffset.Text, 8), DimensionGapPaperMm = ParseDouble(_dimGap.Text, 6),
             SectionDepthMm = ParseDouble(_sectionDepth.Text, 1200),
@@ -299,6 +302,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         };
         private void ApplyProfile(FootingDrawingProfile p)
         {
+            _templateOnce.IsChecked = p.ApplyViewTemplatesOnce;
+            _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
+            _breakPadding.Text = p.BreakLinePaddingPaperMm.ToString("0.##"); SelectByPair(_breakLine, p.BreakLineFamily, p.BreakLineType);
             _fourSides.IsChecked = p.DimensionFourSides;
             _dimOffset.Text = p.DimensionOffsetPaperMm.ToString("0.##"); _dimGap.Text = p.DimensionGapPaperMm.ToString("0.##");
             _sectionDepth.Text = p.SectionDepthMm.ToString("0.##");
@@ -331,6 +337,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (!string.IsNullOrWhiteSpace(p.SectionTemplateName) && Selected(_sectionTemplate) == null) missing.Add("Template mặt cắt");
             if (!string.IsNullOrWhiteSpace(p.RebarTagType) && Selected(_rebarTag) == null) missing.Add("Tag thép");
             if (!string.IsNullOrWhiteSpace(p.FoundationTagType) && Selected(_foundationTag) == null) missing.Add("Tag móng");
+            if (!string.IsNullOrWhiteSpace(p.BreakLineType) && Selected(_breakLine) == null) missing.Add("Family Breakline");
             if (!string.IsNullOrWhiteSpace(p.DimensionTypeName) && Selected(_dimension) == null) missing.Add("Dimension Type");
             if (p.PlaceOnNewSheet && Selected(_titleBlock) == null) missing.Add("Title Block");
             if (p.CreateCallouts && Selected(_sourcePlan) == null) missing.Add("View nguồn");
@@ -391,6 +398,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Hãy tích chọn ít nhất một móng.", "Thiếu móng"); return; }
             if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true && _sections.IsChecked != true)
             { MessageBox.Show(this, "Hãy chọn ít nhất một mặt bằng hoặc mặt cắt.", "Thiếu view"); return; }
+            if (_sections.IsChecked == true && (_callouts.IsChecked != true || (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true)))
+            { MessageBox.Show(this, "Mặt cắt cần callout móng. Hãy bật Callout và chọn thép trên hoặc dưới.", "Thiếu callout"); return; }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
             { MessageBox.Show(this, "Hãy chọn mặt bằng nguồn hoặc tắt callout để tạo plan độc lập.", "Thiếu view nguồn"); return; }
