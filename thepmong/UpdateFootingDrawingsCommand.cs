@@ -86,9 +86,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                     {
                                         var targets = targetIds.Select(id => doc.GetElement(id)).OfType<ViewSection>()
                                             .Where(section => FootingDrawingStorage.TryRead(section, out string targetHost, out string targetRole, out double targetMargin) &&
-                                                targetHost == footing.UniqueId && targetRole.StartsWith("Section-", StringComparison.Ordinal)).ToList();
-                                        if (targets.Count == 0 || targets.Count != targetIds.Count) throw new InvalidOperationException("Thiếu mặt cắt liên kết; hãy tạo lại bộ hồ sơ.");
-                                        FootingDrawingSectionLinks.Refresh(doc, footing, callout, targets);
+                                                targetHost == footing.UniqueId && section.ViewType == ViewType.Detail &&
+                                                (targetRole.StartsWith("Detail-", StringComparison.Ordinal) || targetRole.StartsWith("Section-", StringComparison.Ordinal))).ToList();
+                                        if (targets.Count == 0 || targets.Count != targetIds.Count) throw new InvalidOperationException("Thiếu Detail View liên kết hoặc bộ cũ dùng Section View; hãy tạo lại hồ sơ bằng Detail.");
+                                        FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets);
                                     }
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
                                 }

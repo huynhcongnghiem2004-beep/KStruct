@@ -87,7 +87,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _topLayer.Content = "Thép trên"; _bottomLayer.Content = "Thép dưới";
             _callouts.Content = "Callout từ view nguồn (tắt: plan độc lập)";
             _callouts.IsEnabled = true;
-            _sections.Content = "Mặt cắt A–A/B–B liên kết trong callout";
+            _sections.Content = "Detail A–A/B–B tham chiếu từ callout";
             _sections.Checked += (s,e) => { _callouts.IsChecked = true; if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true) _bottomLayer.IsChecked = true; };
             _dimensions.Content = "Tạo kích thước liên kết mô hình";
             var tabs = new TabControl();
@@ -105,7 +105,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var crop = new StackPanel(); Field(crop, "Mép móng → crop (mm)", _cropMargin);
             crop.Children.Add(Note("Kích thước thực tế, không nhân tỷ lệ view. Crop theo trục móng; biên annotation riêng."));
             view.Children.Add(new Border { Background = Brush("#E7F2FF"), Padding = new Thickness(8), Margin = new Thickness(0, 8, 0, 8), Child = crop });
-            Field(view, "View Type mặt cắt", _sectionType); Field(view, "Template mặt cắt", _sectionTemplate);
+            Field(view, "Detail Type (A–A / B–B)", _detailType); Field(view, "Template mặt cắt", _sectionTemplate);
             Field(view, "Tỷ lệ mặt cắt 1:", _sectionScale);
             Field(view, "Chiều sâu nhìn (mm)", _sectionDepth);
             Field(view, "A–A: lệch theo Y (mm)", _sectionXOffset); view.Children.Add(_reverseX);
@@ -142,7 +142,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             preset.Children.Add(Note("Tự nhớ cấu hình hợp lệ khi bấm Tạo hồ sơ, riêng cho project này. Không nhớ danh sách móng. Hủy không lưu thay đổi. Preset có tên vẫn được giữ riêng."));
             AddTab(tabs, "Cấu hình", preset);
             // Relax legacy minimum widths so controls fit the middle panel at laptop resolutions.
-            foreach (ComboBox box in new[] { _profiles, _planType, _sectionType, _titleBlock, _planTemplate, _sectionTemplate,
+            foreach (ComboBox box in new[] { _profiles, _planType, _detailType, _titleBlock, _planTemplate, _sectionTemplate,
                 _rebarTag, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
             foreach (TextBox box in new[] { _sheetPrefix, _sheetName, _viewName, _profileName }) box.MinWidth = 0;
             AddColumn(columns, CreateCard("THIẾT LẬP HỒ SƠ", "View • Dim / Tag • Sheet • Cấu hình", tabs), 1);

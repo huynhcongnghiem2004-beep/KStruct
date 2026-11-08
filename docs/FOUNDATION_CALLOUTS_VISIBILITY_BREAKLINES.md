@@ -1,12 +1,14 @@
 # Callout, hiển thị thép và Breakline dầm — Revit 2024
 
-## Mặt cắt từ callout
+## Callout mặt bằng → mặt cắt trên callout → Reference Detail
 
-Lệnh tạo hồ sơ yêu cầu bật Callout và chọn ít nhất một mặt bằng thép khi bật mặt cắt. Tạo hai section theo hình học móng như trước, sau đó đặt **reference section thật trong từng callout** bằng `ViewSection.CreateReferenceSection`, tham chiếu đúng section đích. Ký hiệu tự động của section gốc được ẩn riêng trong callout nếu API cho phép, tránh chồng với reference mới. Không vẽ đường/chữ giả làm ký hiệu.
+Luồng tạo hồ sơ: tạo callout mặt bằng thép trước, tạo **Detail View A–A/B–B** thuộc `ViewFamily.Detail` bằng `ViewSection.CreateDetail`, rồi đặt ký hiệu mặt cắt trên chính callout tham chiếu tới các Detail View đó. Không tạo view đích thuộc `ViewFamily.Section`.
 
-Giới hạn API cần phân biệt: `CreateSection` không có tham số parent view. Bản sửa không giả lập quan hệ ParentView trong Project Browser; quan hệ thể hiện là marker section có parent là callout và liên kết Revit tới section thật. Kiểu đầu/ký hiệu và label do View Family Type/family section của project quyết định.
+Revit API dùng lớp `ViewSection` cho cả Detail và Section; bản sửa kiểm tra `ViewType.Detail` của view đích. Hàm `CreateReferenceSection` được dùng để đặt **ký hiệu mặt cắt trên mặt bằng callout**, không tạo Section View mới. View đích vẫn là Detail. Không dùng reference callout hình chữ nhật để thay đường cắt A–A/B–B.
 
-Các view mới lưu đúng cặp section đích theo từng bộ hồ sơ. Lệnh cập nhật dùng các ID đã lưu, không ghép tùy ý section của những bộ hồ sơ khác trên cùng host. Reference do người dùng đặt tay được giữ nguyên; chỉ reference có mã sở hữu của chức năng được làm mới.
+UI chỉ liệt kê **Detail Type**, lưu riêng `DetailTypeName`. Trường `SectionTypeName` cũ được giữ để đọc preset XML, nhưng không tự nhận Section Type cũ thành Detail Type có cùng tên. Preset cũ cần chọn lại Detail Type khi bật mặt cắt. Nếu project thiếu Detail Type, lệnh báo thiếu; không tự tạo Section View thay thế.
+
+Các view mới lưu đúng cặp Detail đích theo từng bộ hồ sơ. Khi cập nhật, kiểm tra view đích vẫn là Detail và đúng host; không nối tùy ý view của bộ khác hoặc chuyển Section cũ thành Detail ngầm. Ký hiệu tham chiếu có parent là callout và mở đúng Detail View trên sheet. Không giả lập thuộc tính ParentView trong Project Browser; kiểu đầu/ký hiệu do Detail View Family Type/family của dự án quyết định.
 
 ## View range và hiển thị cốt thép
 
@@ -34,7 +36,7 @@ Ký hiệu mới có ElementUniqueId/HostUniqueId/OwnerViewUniqueId và loại n
 
 ## Hồ sơ đã tạo trước bản sửa
 
-Lệnh cập nhật sửa được view range của plan Top/Bot cũ có metadata. Hồ sơ cũ chưa có dữ liệu liên kết section hoặc lựa chọn Breakline theo view sẽ không tự ghép marker/family từ bộ khác: cần tạo bộ hồ sơ mới để có đầy đủ phần liên kết và Breakline mới. Không tự xóa hồ sơ cũ.
+Lệnh cập nhật sửa được view range của plan Top/Bot cũ có metadata. Bộ đã lưu liên kết tới Section View cần tạo lại bằng Detail; không chuyển loại view cũ ngầm. Hồ sơ cũ chưa có dữ liệu liên kết Detail hoặc lựa chọn Breakline theo view sẽ không tự ghép marker/family từ bộ khác: cần tạo bộ hồ sơ mới để có đầy đủ phần liên kết và Breakline mới. Không tự xóa hồ sơ cũ.
 
 ## Kiểm tra
 
@@ -42,7 +44,7 @@ CI chạy bộ cấu hình cũ, bộ thép móng và bộ `tests/FootingDrawingM
 
 Cần chạy trực tiếp trên bản sao mô hình Revit 2024 trước phát hành:
 
-1. Callout thép trên/dưới, mở marker mặt cắt phải tới đúng section và sheet; kiểm tra không trùng marker, scale và chiều nhìn.
+1. Callout thép trên/dưới, mở marker mặt cắt phải tới đúng Detail View và sheet; kiểm tra không trùng marker, scale và chiều nhìn.
 2. Móng thấp hơn level, shared elevation khác internal, thép có móc cao, SideTies/thép thủ công, template/filter đang ẩn thép; kiểm tra bằng GetViewRange và hình hiển thị thật.
 3. Dầm một/hai phía, dầm xoay, dầm cong, dầm ngang/dọc mặt cắt, dầm không giao crop: đúng số/vị trí Breakline và mặt che.
 4. Family theo đường/điểm, type thiếu/đổi tên, crop xoay/split, template khóa, khổ sheet: báo rõ những phần không tạo được.

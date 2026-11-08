@@ -11,7 +11,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
     {
         public string Name { get; set; }
         public string PlanTypeName { get; set; }
-        public string SectionTypeName { get; set; }
+        public string SectionTypeName { get; set; } // Legacy XML only; new commands select DetailTypeName.
+        public string DetailTypeName { get; set; }
         public string TitleBlockFamily { get; set; }
         public string TitleBlockType { get; set; }
         public string PlanTemplateName { get; set; }

@@ -36,15 +36,17 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
             if (bot) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, false, warnings), Role = "Plan-Bot" });
             if (top) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, true, warnings), Role = "Plan-Top" });
-            var linkedSections = new List<ViewSection>();
+            if (p.CreateSections && (config.DetailType == null || config.DetailType.ViewFamily != ViewFamily.Detail))
+                throw new InvalidOperationException("Hãy chọn View Family Type thuộc Detail. Lệnh không tạo Section View thay thế.");
+            var linkedDetails = new List<ViewSection>();
             if (p.CreateSections)
             {
                 if (!p.CreateCallouts || !outputs.Any(o => o.View is ViewPlan plan && plan.IsCallout))
                     throw new InvalidOperationException("Mặt cắt cần callout móng làm view tham chiếu.");
-                List<ViewSection> sections = CreateSections(doc, footing, config, names, warnings);
-                linkedSections.AddRange(sections);
-                outputs.Add(new ViewOutput { View = sections[0], Role = "Section-X" });
-                outputs.Add(new ViewOutput { View = sections[1], Role = "Section-Y" });
+                List<ViewSection> details = CreateDetails(doc, footing, config, names, warnings);
+                linkedDetails.AddRange(details);
+                outputs.Add(new ViewOutput { View = details[0], Role = "Detail-X" });
+                outputs.Add(new ViewOutput { View = details[1], Role = "Detail-Y" });
             }
 
             ViewSheet sheet = config.ExistingSheet;
@@ -67,9 +69,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
-                if (view is ViewPlan callout && linkedSections.Count > 0) FootingDrawingSectionLinks.Refresh(doc, footing, callout, linkedSections);
+                if (view is ViewPlan callout && linkedDetails.Count > 0) FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails);
                 FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
-                FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedSections : null);
+                FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedDetails : null);
                 FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
                 if (!names.Contains(view.Name)) names.Add(view.Name);
                 index++;
@@ -122,9 +124,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return view;
         }
 
-        private static List<ViewSection> CreateSections(Document doc, FamilyInstance footing, FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
+        private static List<ViewSection> CreateDetails(Document doc, FamilyInstance footing, FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
         {
-            if (config.Profile.UseDetailedLayout) return CreateDetailedSections(doc, footing, config, names, warnings);
+            if (config.Profile.UseDetailedLayout) return CreateDetailedViews(doc, footing, config, names, warnings);
             BoundingBoxXYZ source = footing.get_BoundingBox(null);
             LocationPoint location = footing.Location as LocationPoint;
             if (source == null || location == null) throw new InvalidOperationException("Không đọc được hình học móng để tạo mặt cắt.");
@@ -153,8 +155,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         corners.Max(p => p.Z - center.Z) + margin,
                         corners.Max(p => (p - center).DotProduct(depth)) + margin)
                 };
-                ViewSection view = ViewSection.CreateSection(doc, config.SectionType.Id, crop);
-                view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Section-X" : "Section-Y"), names);
+                ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
+                view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Detail-X" : "Detail-Y"), names);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, config.Profile.ApplyViewTemplatesOnce);
                 view.Scale = config.Profile.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
                 result.Add(view);
@@ -162,7 +164,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return result;
         }
 
-        private static List<ViewSection> CreateDetailedSections(Document doc, FamilyInstance host,
+        private static List<ViewSection> CreateDetailedViews(Document doc, FamilyInstance host,
             FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
         {
             FootingDrawingProfile p = config.Profile;
@@ -190,8 +192,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 var crop = new BoundingBoxXYZ { Transform = t,
                     Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-margin, 0),
                     Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
-                ViewSection view = ViewSection.CreateSection(doc, config.SectionType.Id, crop);
-                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Section-X" : "Section-Y"), names);
+                ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y"), names);
                 names.Add(view.Name);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
                 if (view.Scale != p.SectionScale) view.Scale = p.SectionScale;
