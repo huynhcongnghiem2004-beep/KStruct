@@ -1,0 +1,216 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Autodesk.Revit.DB;
+
+namespace ColumnRebarPro.V3
+{
+    internal sealed partial class V3DrawingBuilder
+    {
+        private List<ElementId> BuildStack(Document doc,IList<V3SegmentWork> works)
+        {
+            var result=new List<ElementId>();if(!Enabled)return result;
+            if(works==null||works.Count==0)return result;
+            RemoveExistingKStructV3Sheet(doc);
+            var first=works[0];var baseGeometry=first.Geometry;
+            XYZ x=baseGeometry.X,y=new XYZ(-x.Y,x.X,0),origin=baseGeometry.Center;
+            var points=new List<XYZ>();
+            foreach(var w in works)
+                foreach(double a in new[]{-w.Geometry.Width/2,w.Geometry.Width/2})
+                    foreach(double b in new[]{-w.Geometry.Depth/2,w.Geometry.Depth/2})points.Add(w.Geometry.At(a,b,0)-new XYZ(origin.X,origin.Y,0));
+            double minX=points.Min(p=>p.DotProduct(x)),maxX=points.Max(p=>p.DotProduct(x));
+            double minY=points.Min(p=>p.DotProduct(y)),maxY=points.Max(p=>p.DotProduct(y));
+            var aggregate=new V3Geometry {
+                Center=new XYZ(origin.X,origin.Y,0)+x*((minX+maxX)/2)+y*((minY+maxY)/2),X=x,Y=y,
+                Width=maxX-minX,Depth=maxY-minY,Bottom=works.Min(w=>w.Geometry.Bottom),Top=works.Max(w=>w.Geometry.Top)
+            };
+            double top=works.Max(w=>w.Geometry.Top+V3Units.Ft(w.Config.StarterBars?w.Config.StarterLength:0));
+            var overview=new V3SegmentWork {Column=first.Column,Segment=first.Segment,Geometry=aggregate,Config=first.Config};
+            var longitudinal=Section(doc,overview,"Long",aggregate.Bottom,top);
+            string mark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
+            longitudinal.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set(string.IsNullOrWhiteSpace(mark)?"MẶT CẮT DỌC TUYẾN CỘT":mark.Trim()+"_MCD1");
+            doc.Regenerate();
+            foreach(var w in works) { Annotate(doc,w,longitudinal,"Long"); ZoneDetail(doc,w,longitudinal); StarterDim(doc,w,longitudinal); }
+            BreakLines(doc,works,longitudinal);
+            DrawBarShapes(doc,works,longitudinal,aggregate);
+            // Đánh số mặt cắt từ chân lên đỉnh: tầng dưới = 2-2, tầng trên = 3-3 (như bản vẽ mẫu)
+            var ordered=works.OrderBy(w=>w.Geometry.Bottom).ToList();
+            for(int i=0;i<ordered.Count;i++)SectionMarks(doc,longitudinal,ordered[i],i+2);
+            FitCrop(doc,longitudinal);
+            var sections=new List<View>();int index=2;
+            foreach(var w in ordered)
+            {
+                var cross=Section(doc,w,"Cross",w.Geometry.Bottom+w.Geometry.Height/2,w.Geometry.Top);
+                cross.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set("MC: "+index+"-"+index);
+                doc.Regenerate();Annotate(doc,w,cross,"Cross");
+                if(B("CrossShowValue"))SectionTable(doc,w,cross);
+                FitCrop(doc,cross);
+                sections.Add(cross);index++;
+            }
+            string stackMark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
+            string markName=string.IsNullOrWhiteSpace(stackMark)?("C"+first.Column.Id.Value):stackMark.Trim();
+            string stackName=B("UseMarkForStackName")?markName:("TUYEN COT "+first.Column.Id.Value);
+            string sheetName=B("UseMarkForSheetName")?markName:S("SheetName");
+            string references = string.Join(", ", works.Select(w => SafeDrawingLabel(w.Config.DesignReference))
+                .Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase));
+            string draftName = "DRAFT - " + sheetName + " - " + stackName +
+                (references.Length == 0 ? "" : " | Ref: " + references);
+            if (draftName.Length > 240) draftName = draftName.Substring(0, 237) + "...";
+            var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
+            sheet.Name=draftName;
+            doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
+            result.Add(sheet.Id);return result;
+        }
+
+        // Hai chuỗi Dim bên trái cột: chuỗi trong = từng vùng đai (kể cả đoạn lớp bảo vệ hai đầu),
+        // chuỗi ngoài = tổng chiều cao đoạn cột. Khoảng cách lấy từ V3DrawStyle (mm trên giấy).
+        private void ZoneDetail(Document doc,V3SegmentWork work,View view)
+        {
+            if(!B("LongShowValue"))return;
+            var g=work.Geometry;var c=work.Config;
+            double inset=V3Units.Ft(c.Cover+c.TieDiameter/2);
+            double low=g.Bottom+inset,high=g.Top-inset;
+            double zone=Math.Min(V3Units.Ft(c.EndZone),(high-low)/2);
+            ChainLeft(doc,view,g,new[]{g.Bottom,low,low+zone,high-zone,high,g.Top},V3DrawStyle.ZoneChainOffset);
+            ChainLeft(doc,view,g,new[]{g.Bottom,g.Top},V3DrawStyle.TotalChainOffset);
+            ExtendCropLeft(view,g,V3DrawStyle.TotalChainOffset);
+        }
+
+        // Thép chờ lên tầng trên: Dim chiều dài thép chờ phía trên đỉnh cột, cùng đường Dim với chuỗi vùng đai.
+        private void StarterDim(Document doc,V3SegmentWork work,View view)
+        {
+            if(!B("LongShowValue"))return;
+            if(!work.Config.StarterBars)return;
+            var g=work.Geometry;
+            double lap=V3Units.Ft(work.Config.StarterLength);
+            if(lap<doc.Application.ShortCurveTolerance)return;
+            ChainLeft(doc,view,g,new[]{g.Top,g.Top+lap},V3DrawStyle.ZoneChainOffset);
+        }
+
+        // Một chuỗi Dim dọc: đường Dim cách mép trái cột offsetPaper mm giấy, chân Dim (Detail Line ngắn) tại mép cột.
+        private void ChainLeft(Document doc,View view,V3Geometry g,double[] zs,double offsetPaper)
+        {
+            var type=doc.GetElement(Id("LongDimension")) as DimensionType;
+            if(type==null)return;
+            XYZ edge=Project(view,g.At(0,0,0))-view.RightDirection*(g.Width/2);
+            XYZ line=edge-view.RightDirection*V3DrawStyle.P(view,offsetPaper);
+            double tick=V3DrawStyle.P(view,V3DrawStyle.TickLength),tol=doc.Application.ShortCurveTolerance;
+            var references=new ReferenceArray();var used=new List<double>();
+            foreach(double z in zs.OrderBy(v=>v))
+            {
+                if(used.Count>0&&Math.Abs(z-used.Last())<tol)continue;
+                XYZ face=edge+XYZ.BasisZ*z;
+                var stub=doc.Create.NewDetailCurve(view,Line.CreateBound(face-view.RightDirection*tick,face));
+                references.Append(stub.GeometryCurve.Reference);used.Add(z);
+            }
+            if(used.Count<2)return;
+            doc.Regenerate();
+            doc.Create.NewDimension(view,Line.CreateBound(line+XYZ.BasisZ*used.First(),line+XYZ.BasisZ*used.Last()),references,type);
+        }
+
+        private void ExtendCropLeft(View view,V3Geometry g,double offsetPaper)
+        {
+            XYZ p=Project(view,g.At(0,0,0))-view.RightDirection*(g.Width/2+V3DrawStyle.P(view,offsetPaper+V3DrawStyle.CropMargin));
+            var box=view.CropBox;XYZ q=box.Transform.Inverse.OfPoint(p);
+            box.Min=new XYZ(Math.Min(box.Min.X,q.X),box.Min.Y,box.Min.Z);view.CropBox=box;
+        }
+
+        // Vạch cắt đỏ nét đứt ngang cột, hai đầu có tam giác đặc (mũi xuống) và số hiệu đỏ: "2 ▼----▼ 2".
+        private void SectionMarks(Document doc,View view,V3SegmentWork w,int index)
+        {
+            var g=w.Geometry;
+            XYZ center=Project(view,g.At(0,0,0))+XYZ.BasisZ*(g.Bottom+g.Height/2);
+            XYZ left=center-view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkLeft));
+            XYZ right=center+view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkRight));
+            var dash=V3DrawStyle.Line(doc,"KSTR Vạch cắt",new Color(255,0,0),2,"Dash");
+            doc.Create.NewDetailCurve(view,Line.CreateBound(left,right)).LineStyle=dash;
+            double halfW=V3DrawStyle.P(view,V3DrawStyle.MarkTriW)/2,h=V3DrawStyle.P(view,V3DrawStyle.MarkTriH);
+            var fill=V3DrawStyle.SolidRegion(doc);
+            foreach(XYZ end in new[]{left,right})
+            {
+                XYZ a=end-view.RightDirection*halfW,b=end+view.RightDirection*halfW,tip=end-view.UpDirection*h;
+                var loop=new CurveLoop();
+                loop.Append(Line.CreateBound(a,b));loop.Append(Line.CreateBound(b,tip));loop.Append(Line.CreateBound(tip,a));
+                if(fill!=ElementId.InvalidElementId)FilledRegion.Create(doc,fill,view.Id,new List<CurveLoop>{loop});
+                else foreach(Curve edge in loop)doc.Create.NewDetailCurve(view,edge).LineStyle=dash;
+            }
+            var text=V3DrawStyle.RedText(doc,Id("LongTextType"));
+            foreach(int side in new[]{-1,1})
+            {
+                XYZ at=(side<0?left:right)+view.RightDirection*(side*(halfW+V3DrawStyle.P(view,V3DrawStyle.MarkTextGap)));
+                var options=new TextNoteOptions(text){
+                    HorizontalAlignment=side<0?HorizontalTextAlignment.Right:HorizontalTextAlignment.Left,
+                    VerticalAlignment=VerticalTextAlignment.Bottom};
+                TextNote.Create(doc,view.Id,at,index.ToString(),options);
+            }
+        }
+
+        // Bảng thép dưới mặt cắt: canh mép trái theo mặt cắt, khung đỏ, 3 dòng như bản vẽ mẫu.
+        private void SectionTable(Document doc,V3SegmentWork w,View view)
+        {
+            var c=w.Config;var g=w.Geometry;
+            double width=V3DrawStyle.P(view,V3DrawStyle.TableWidth),row=V3DrawStyle.P(view,V3DrawStyle.TableRow);
+            double split=V3DrawStyle.TableSplit;
+            XYZ at=Project(view,g.At(0,0,g.Bottom+g.Height/2))-view.RightDirection*(g.Width/2)-
+                view.UpDirection*(g.Depth/2+V3DrawStyle.P(view,V3DrawStyle.TableGap));
+            bool fixedN=c.TieLayout==V3TieLayout.FixedNumber;
+            string[,] data={ {"THÉP CHỦ",c.BarCount+"Ø"+c.MainDiameter},
+                {"THÉP ĐAI TOP & BOT", "Ø"+c.TieDiameter+(fixedN?" | "+c.EndTieCount+" vị trí/vùng":"a"+c.EndSpacing)},
+                {"THÉP ĐAI MID", "Ø"+c.TieDiameter+(fixedN?" | "+c.MidTieCount+" vị trí/vùng":"a"+c.MidSpacing)} };
+            var red=V3DrawStyle.Line(doc,"KSTR Bảng đỏ",new Color(255,0,0),2,null);
+            for(int r=0;r<=3;r++)
+                doc.Create.NewDetailCurve(view,Line.CreateBound(at-view.UpDirection*row*r,at+view.RightDirection*width-view.UpDirection*row*r)).LineStyle=red;
+            foreach(double col in new[]{0.0,split,1.0})
+                doc.Create.NewDetailCurve(view,Line.CreateBound(at+view.RightDirection*(width*col),at+view.RightDirection*(width*col)-view.UpDirection*row*3)).LineStyle=red;
+            for(int r=0;r<3;r++)for(int col=0;col<2;col++)
+                TextNote.Create(doc,view.Id,at+view.RightDirection*(width*(col==0?.02:split+.02))-view.UpDirection*(row*(r+.15)),data[r,col],Id("CrossTextType"));
+            // Detail lines must lie inside the model crop as well as the annotation region.
+            var box=view.CropBox;Transform inverse=box.Transform.Inverse;
+            var corners=new[]{at,at+view.RightDirection*width,at-view.UpDirection*row*3,at+view.RightDirection*width-view.UpDirection*row*3}.Select(p=>inverse.OfPoint(p)).ToList();
+            box.Min=new XYZ(Math.Min(box.Min.X,corners.Min(p=>p.X))-V3Units.Ft(30),Math.Min(box.Min.Y,corners.Min(p=>p.Y))-V3Units.Ft(30),box.Min.Z);
+            box.Max=new XYZ(Math.Max(box.Max.X,corners.Max(p=>p.X))+V3Units.Ft(30),Math.Max(box.Max.Y,corners.Max(p=>p.Y))+V3Units.Ft(30),box.Max.Z);
+            view.CropBox=box;
+        }
+
+        private void PlaceStack(Document doc,ViewSheet sheet,View longitudinal,IList<View> sections)
+        {
+            var bounds=sheet.Outline;
+            double pad=V3Units.Ft(20),gap=V3Units.Ft(15);
+            double reserve=V3Units.Ft(double.Parse(S("SheetRightMargin"),System.Globalization.CultureInfo.InvariantCulture));
+            double left=bounds.Min.U+pad,right=bounds.Max.U-pad-reserve,bottom=bounds.Min.V+pad,top=bounds.Max.V-pad;
+            if(right<=left)throw new InvalidOperationException("Vùng chừa khung tên vượt bề rộng sheet.");
+            var longPort=Viewport.Create(doc,sheet.Id,longitudinal.Id,XYZ.Zero);
+            var ports=sections.Select(v=>Viewport.Create(doc,sheet.Id,v.Id,XYZ.Zero)).ToList();doc.Regenerate();
+            var longBox=longPort.GetBoxOutline();double longWidth=longBox.MaximumPoint.X-longBox.MinimumPoint.X;
+            double longHeight=longBox.MaximumPoint.Y-longBox.MinimumPoint.Y;
+            var widths=ports.Select(p=>p.GetBoxOutline().MaximumPoint.X-p.GetBoxOutline().MinimumPoint.X).ToList();
+            var heights=ports.Select(p=>p.GetBoxOutline().MaximumPoint.Y-p.GetBoxOutline().MinimumPoint.Y).ToList();
+            double labelSpace=V3Units.Ft(12),crossWidth=widths.Max();
+            longPort.SetBoxCenter(new XYZ(left+longWidth/2,top-longHeight/2,0));
+            longPort.get_Parameter(BuiltInParameter.VIEWPORT_DETAIL_NUMBER)?.Set("1");
+            // Bố trí mặt cắt ngang theo thuật toán tự động chia cột (nhiều tầng thì xuống cột kế bên)
+            double cursorY = top;
+            double currentColRight = right;
+            for (int i = 0; i < ports.Count; i++)
+            {
+                double hNeeded = heights[i] + labelSpace + gap;
+                if (cursorY - hNeeded < bottom && cursorY < top - 0.01)
+                {
+                    currentColRight -= (crossWidth + gap);
+                    cursorY = top;
+                }
+                ports[i].SetBoxCenter(new XYZ(currentColRight - widths[i] / 2, cursorY - heights[i] / 2, 0));
+                ports[i].get_Parameter(BuiltInParameter.VIEWPORT_DETAIL_NUMBER)?.Set((i + 2).ToString());
+                cursorY -= hNeeded;
+            }
+
+            // Canh giữa tiêu đề viewport dưới khung view.
+            doc.Regenerate();
+            CenterViewportTitle(doc, longPort);
+            foreach (var port in ports) CenterViewportTitle(doc, port);
+
+            // Không tự chèn schedule đầu tiên của project: nó có thể thống kê toàn mô hình,
+            // không giới hạn vào tuyến cột đang triển khai. Tạo schedule riêng qua nút nhóm "Tạo thép cột".
+        }
+    }
+}
