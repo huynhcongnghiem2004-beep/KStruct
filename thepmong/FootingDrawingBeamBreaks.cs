@@ -50,9 +50,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     var spans=new List<DrawingInterval>();
                     foreach(XYZ[] triangle in triangles)
                     {
-                        if(view is ViewSection&& !InSectionDepth(view,triangle))continue;
-                        DrawingInterval? clipped=FootingDrawingMath.ClipTriangle(sa,sb,screen(triangle[0]),screen(triangle[1]),screen(triangle[2]));
-                        if(clipped.HasValue)spans.Add(clipped.Value);
+                        var polygon=ClipToViewDepth(view,triangle);
+                        for(int i=1;i+1<polygon.Count;i++)
+                        {
+                            DrawingInterval? clipped=FootingDrawingMath.ClipTriangle(sa,sb,screen(polygon[0]),screen(polygon[i]),screen(polygon[i+1]));
+                            if(clipped.HasValue)spans.Add(clipped.Value);
+                        }
                     }
                     foreach(DrawingInterval span in FootingDrawingMath.Merge(spans))
                     {
@@ -94,10 +97,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if(width+doc.Application.ShortCurveTolerance<a.DistanceTo(b))throw new InvalidOperationException("Family đặt theo điểm chưa đủ rộng che dầm; hãy chọn type lớn hơn hoặc family theo đường.");
             return instance;
         }
-        private static bool InSectionDepth(View view,XYZ[] triangle)
+        private static IList<XYZ> ClipToViewDepth(View view,XYZ[] triangle)
         {
+            if(!(view is ViewSection))return triangle;
             BoundingBoxXYZ crop=view.CropBox;Transform inv=crop.Transform.Inverse;
-            var local=triangle.Select(inv.OfPoint).ToList();return local.Max(p=>p.Z)>=crop.Min.Z&&local.Min(p=>p.Z)<=crop.Max.Z;
+            var polygon=FootingDrawingMath.ClipDepth(triangle.Select(p=>{XYZ q=inv.OfPoint(p);return new DrawingPoint3(q.X,q.Y,q.Z);}),crop.Min.Z,crop.Max.Z);
+            return polygon.Select(p=>crop.Transform.OfPoint(new XYZ(p.X,p.Y,p.Z))).ToList();
         }
         private static bool Touches(BoundingBoxXYZ a,BoundingBoxXYZ b,double tol)=>a!=null&&b!=null&&
             b.Max.X>=a.Min.X-tol&&b.Min.X<=a.Max.X+tol&&b.Max.Y>=a.Min.Y-tol&&b.Min.Y<=a.Max.Y+tol&&b.Max.Z>=a.Min.Z-tol&&b.Min.Z<=a.Max.Z+tol;

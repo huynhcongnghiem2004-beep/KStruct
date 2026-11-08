@@ -28,6 +28,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string BreakLineType { get; set; }
         public double BreakLinePaddingPaperMm { get; set; } = 1;
         public bool ReverseBreakLineMask { get; set; }
+        // Pose recorded with each generated view, for moving existing Detail views without replacing their annotations.
+        public bool HostPoseRecorded { get; set; }
+        public double HostPoseX { get; set; }
+        public double HostPoseY { get; set; }
+        public double HostPoseZ { get; set; }
+        public double HostPoseAngle { get; set; }
         public bool UseDetailedLayout { get; set; }
         public bool DimensionFourSides { get; set; }
         public double DimensionOffsetPaperMm { get; set; } = 8;
@@ -47,7 +53,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string ViewNamePattern { get; set; } = "KStruct - MĐ {Id} - {Role}";
         public int PlanScale { get; set; } = 20;
         public int SectionScale { get; set; } = 20;
-        public double CropMarginMm { get; set; } = 300;
+        public double CropMarginMm { get; set; } = 6;
         public bool CreateCallouts { get; set; } = true;
         public bool CreateSections { get; set; } = true;
         public bool CreateDimensions { get; set; } = true;

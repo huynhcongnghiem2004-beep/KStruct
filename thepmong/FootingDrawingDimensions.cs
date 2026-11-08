@@ -36,7 +36,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 var candidates = faces.Where(f => f.Reference != null && Math.Abs(f.Normal.DotProduct(axis)) > 0.9999)
                     .OrderBy(f => f.Point.DotProduct(axis)).ToList();
                 if (candidates.Count < 2)
-                { warnings.Add("Thiếu reference mép móng để tạo dim hai lớp theo " + (axisIndex == 0 ? "X" : "Y") + " trong " + view.Name); continue; }
+                { throw new InvalidOperationException("Thiếu reference mép móng để tạo đủ dim hai lớp trong " + view.Name); }
                 PlaneReference low = candidates.First(), high = candidates.Last();
                 double a = low.Point.DotProduct(axis), b = high.Point.DotProduct(axis);
                 var inner = new List<MeasuredReference> { new MeasuredReference { Reference = low.Reference, Coordinate = a } };
@@ -79,8 +79,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     double offset = UnitUtils.ConvertToInternalUnits(profile.DimensionOffsetPaperMm * view.Scale, UnitTypeId.Millimeters);
                     double gap = UnitUtils.ConvertToInternalUnits(profile.DimensionGapPaperMm * view.Scale, UnitTypeId.Millimeters);
                     XYZ origin = center + perpendicular * (side * (extent + offset));
-                    if (inner.Count > 2) TryCreate(doc, view, type, axis, origin, a, b, inner.Select(r => r.Reference), warnings, "chi tiết");
-                    else warnings.Add("Thiếu reference chi tiết cho lớp dim trong " + view.Name + " / " + (axisIndex == 0 ? "X" : "Y") + " / cạnh " + side);
+                    TryCreate(doc, view, type, axis, origin, a, b, inner.Select(r => r.Reference), warnings, "chi tiết");
+                    if (inner.Count == 2) warnings.Add("Không có reference trung gian: lớp dim trong dùng hai mép móng trong " + view.Name + "; không thể chia chuỗi tim cột/cọc.");
                     TryCreate(doc, view, type, axis, origin + perpendicular * (side * gap), a, b,
                         new[] { low.Reference, high.Reference }, warnings, "tổng thể");
                 }
@@ -107,7 +107,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             // Project the dimension line into the view plane without changing its measured direction.
             XYZ n = view.ViewDirection.Normalize(); start -= n * (start-view.Origin).DotProduct(n); end -= n * (end-view.Origin).DotProduct(n);
             try { doc.Create.NewDimension(view, Line.CreateBound(start,end), array, type); }
-            catch (Exception ex) { warnings.Add("Không tạo được dim " + label + " trong " + view.Name + ": " + ex.Message); }
+            catch (Exception ex) { throw new InvalidOperationException("Không tạo đủ dim hai lớp: " + label + " trong " + view.Name + ": " + ex.Message, ex); }
         }
         private static void Collect(GeometryElement geometry, Transform transform, List<PlaneReference> result)
         {

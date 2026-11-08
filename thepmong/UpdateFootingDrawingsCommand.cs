@@ -75,6 +75,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                 {
                                     double margin = 300;
                                     FootingDrawingStorage.TryRead(view, out string ignoredHost, out string role, out margin);
+                                    FootingDrawingProfile pose=FootingDrawingDetailState.Read(view,footing,out IList<string> linked);
+                                    if(pose!=null)FootingDrawingBuilder.FollowHostPose(view,footing,pose);
                                     FootingDrawingBuilder.UpdateCrop(view, footing, margin, role, warnings);
                                 }
                                 doc.Regenerate();
@@ -92,6 +94,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                         FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets);
                                     }
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
+                                    FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
                                 }
                                 doc.Regenerate();
                                 if (sub.Commit() != TransactionStatus.Committed) throw new InvalidOperationException("Revit không chấp nhận crop mới.");

@@ -341,6 +341,26 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Max = new XYZ(corners.Max(x => x.X) + m, corners.Max(x => x.Y) + m, corners.Max(x => x.Z) + m) };
             view.CropBoxActive = true; view.CropBoxVisible = false;
         }
+        internal static void FollowHostPose(View view,FamilyInstance host,FootingDrawingProfile saved)
+        {
+            if(!(view is ViewSection detail) || detail.ViewType!=ViewType.Detail)return;
+            if(!saved.HostPoseRecorded)
+                throw new InvalidOperationException("Detail cũ chưa lưu vị trí móng; hãy tạo lại hồ sơ để cập nhật tuyến cắt an toàn.");
+            var location=host.Location as LocationPoint;
+            if(location==null)throw new InvalidOperationException("Không đọc được vị trí móng.");
+            XYZ oldPoint=new XYZ(saved.HostPoseX,saved.HostPoseY,saved.HostPoseZ),newPoint=location.Point;
+            double angle=location.Rotation-saved.HostPoseAngle;
+            XYZ shift=newPoint-oldPoint;
+            Transform rotation=Transform.CreateRotationAtPoint(XYZ.BasisZ,angle,newPoint);
+            XYZ expectedOrigin=rotation.OfPoint(view.Origin+shift);
+            XYZ expectedDirection=rotation.OfVector(view.ViewDirection).Normalize();
+            if(shift.GetLength()>1e-8)ElementTransformUtils.MoveElement(view.Document,view.Id,shift);
+            if(Math.Abs(angle)>1e-8)ElementTransformUtils.RotateElement(view.Document,view.Id,Line.CreateBound(newPoint,newPoint+XYZ.BasisZ),angle);
+            view.Document.Regenerate();
+            if(view.ViewDirection.Normalize().DotProduct(expectedDirection)<1-1e-8 ||
+                Math.Abs((view.Origin-expectedOrigin).DotProduct(expectedDirection))>1e-6)
+                throw new InvalidOperationException("Revit không dịch/xoay đúng tuyến Detail theo móng; đã hủy cập nhật để giữ hồ sơ.");
+        }
         internal static void UpdateCrop(View view, FamilyInstance footing, double marginMm, string role, IList<string> warnings = null)
         {
             BoundingBoxXYZ source = footing.get_BoundingBox(null), prior = view.CropBox;

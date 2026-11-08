@@ -47,6 +47,11 @@ internal static class Program
         Check(rotated.HasValue&&Near(rotated.Value.Start,first.Value.Start)&&Near(rotated.Value.End,first.Value.End),"Rotated/translated views must retain the same beam intersection");
         Check(FootingDrawingMath.InteriorOnLeft(P(10,0),P(10,10),P(5,5)),"Right crop edge must keep mask pointing outward");
         Check(!FootingDrawingMath.InteriorOnLeft(P(10,10),P(10,0),P(5,5)),"Reversed crop winding must reverse mask direction");
+        var slab=FootingDrawingMath.ClipDepth(new[]{new DrawingPoint3(0,0,-10),new DrawingPoint3(10,0,10),new DrawingPoint3(0,10,10)},0,1);
+        Check(slab.Count==4&&slab.All(p=>p.Z>=0&&p.Z<=1),"Slanted beam faces must be clipped to both depth planes before projection");
+        Check(slab.All(p=>p.X+p.Y>=5-1e-7&&p.X+p.Y<=5.5+1e-7),"Depth clipping must discard silhouette outside the slab, not keep the whole overlapping triangle");
+        Check(FootingDrawingMath.ClipDepth(new[]{new DrawingPoint3(0,0,2),new DrawingPoint3(1,0,2),new DrawingPoint3(0,1,3)},0,1).Count==0,"Faces completely outside depth must disappear");
+        Check(FootingDrawingMath.ClipDepth(new[]{new DrawingPoint3(0,0,.5),new DrawingPoint3(1,0,.5),new DrawingPoint3(0,1,.5)},0,1).Count==3,"Faces inside depth must stay unchanged");
         Console.WriteLine("PASS: "+checks+" foundation view-range and beam-boundary geometry checks");
     }
 }

@@ -27,10 +27,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
         internal static void Save(View view,FamilyInstance host,FootingDrawingProfile profile,IEnumerable<ViewSection> sections=null)
         {
             Schema schema=GetSchema(false);var entity=Base(schema,view,host,view);
+            RecordPose(profile,host);
             string xml;using(var writer=new StringWriter()){new XmlSerializer(typeof(FootingDrawingProfile)).Serialize(writer,profile);xml=writer.ToString();}
             entity.Set(schema.GetField("ProfileXml"),xml);
             entity.Set<IList<string>>(schema.GetField("SectionUniqueIds"),sections?.Select(s=>s.UniqueId).ToList()??new List<string>());
             view.SetEntity(entity);
+        }
+        internal static void RecordPose(FootingDrawingProfile profile,FamilyInstance host)
+        {
+            var location=host.Location as LocationPoint;
+            if(location==null)throw new InvalidOperationException("Không đọc được vị trí móng.");
+            profile.HostPoseX=location.Point.X;profile.HostPoseY=location.Point.Y;profile.HostPoseZ=location.Point.Z;
+            profile.HostPoseAngle=location.Rotation;profile.HostPoseRecorded=true;
         }
         internal static bool OwnsView(View view,FamilyInstance host)
         {

@@ -51,3 +51,11 @@ Cần chạy trực tiếp trên bản sao mô hình Revit 2024 trước phát h
 5. Cập nhật nhiều lần không nhân đôi ký hiệu; marker/Breakline đặt tay và bộ hồ sơ khác không đổi. Thử Cancel, Undo/Redo, rollback và hồ sơ legacy.
 
 Build/test thuật toán không xác nhận hiển thị/mặt che/link marker trong Revit. Phiên cloud không có Revit runtime để chạy các ca mô hình này.
+
+## Rà soát trước khi merge
+
+- Cấu hình mới mặc định crop 6 mm thực tế. Preset cũ có giá trị đã lưu được giữ nguyên; kiểm tra ô crop khi nạp preset cũ.
+- Dim mặt bằng luôn tạo hai lớp trên bốn cạnh khi bật tùy chọn. Thiếu reference trung gian thì lớp trong đo hai mép móng và có cảnh báo, không bịa tim cột/cọc. Thiếu reference mép hoặc Revit từ chối dim thì hủy tạo bộ hồ sơ đó.
+- Breakline trong Detail cắt tam giác hình học theo cả hai mặt phẳng giới hạn chiều sâu trước khi chiếu; không dùng toàn bộ tam giác chỉ vì bounding depth giao nhau.
+- Mỗi view mới lưu vị trí và góc xoay móng. Cập nhật dịch/xoay Detail hiện hữu, kiểm tra lại hướng nhìn và mặt phẳng cắt rồi mới cập nhật crop và ký hiệu. Nếu API không chấp nhận thao tác thì rollback bộ móng. Detail cũ thiếu dữ liệu vị trí cần tạo lại.
+- Cần chạy Revit 2024 để xác nhận di chuyển/xoay Detail, reference thật của family móng/cột/cọc và hướng mask của family Breakline. Build và các kiểm tra độc lập không thay thế bước này.

@@ -9,6 +9,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
         internal double X, Y;
         internal DrawingPoint2(double x, double y) { X=x; Y=y; }
     }
+    internal struct DrawingPoint3
+    {
+        internal double X,Y,Z;
+        internal DrawingPoint3(double x,double y,double z){X=x;Y=y;Z=z;}
+    }
     internal struct DrawingInterval
     {
         internal double Start, End;
@@ -27,6 +32,28 @@ namespace SDK_HD.KStruct.NativeDocumentation
             double lower=Math.Min(hostBottom,barBottom), upper=Math.Max(hostTop,barTop);
             return new DrawingViewRange {Top=upper+padding-levelElevation,Cut=upper+padding/2-levelElevation,
                 Bottom=lower-padding-levelElevation,Depth=lower-2*padding-levelElevation};
+        }
+        internal static IList<DrawingPoint3> ClipDepth(IEnumerable<DrawingPoint3> triangle,double min,double max)
+        {
+            if(max<min)throw new ArgumentException("Invalid depth slab");
+            var polygon=triangle.ToList();
+            foreach(bool lower in new[]{true,false})
+            {
+                var output=new List<DrawingPoint3>();double plane=lower?min:max;
+                for(int i=0;i<polygon.Count;i++)
+                {
+                    var a=polygon[i];var b=polygon[(i+1)%polygon.Count];
+                    bool insideA=lower?a.Z>=plane:a.Z<=plane,insideB=lower?b.Z>=plane:b.Z<=plane;
+                    if(insideA)output.Add(a);
+                    if(insideA!=insideB)
+                    {
+                        double t=(plane-a.Z)/(b.Z-a.Z);
+                        output.Add(new DrawingPoint3(a.X+t*(b.X-a.X),a.Y+t*(b.Y-a.Y),plane));
+                    }
+                }
+                polygon=output;
+            }
+            return polygon;
         }
         // Clip a crop-boundary segment against a projected solid triangle, retaining actual silhouette intersections.
         internal static DrawingInterval? ClipTriangle(DrawingPoint2 a, DrawingPoint2 b, DrawingPoint2 p, DrawingPoint2 q, DrawingPoint2 r)
