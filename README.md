@@ -1,6 +1,6 @@
 # KStruct
 
-Repository đang được khởi tạo; chưa có mã nguồn ứng dụng hoặc lệnh build/test ứng dụng.
+Add-in C# cho Revit 2024, .NET Framework 4.8, WPF, x64. Mã nguồn gồm các lệnh mô hình, cốt thép và hồ sơ bản vẽ kết cấu.
 
 ## Quy trình phát triển
 
@@ -14,7 +14,11 @@ Repository đang được khởi tạo; chưa có mã nguồn ứng dụng hoặ
 
 Workflow `Repository checks` chạy khi push, mở/cập nhật pull request hoặc chạy thủ công. Workflow chỉ kiểm tra các tệp nền và lỗi khoảng trắng trong thay đổi. Đây chưa phải build/test ứng dụng.
 
-Khi có mã nguồn, bổ sung lệnh cài dependency, lint, build và test phù hợp với công nghệ thực tế, cùng artifact nếu cần.
+Workflow `Revit 2024 build and preferences` chạy trên Windows, kiểm tra lưu lựa chọn/preset cũ và build toàn bộ add-in với compile references Revit 2024 được cố định phiên bản/checksum. Artifact gồm `KStruct.dll` và log build; workflow không chạy Revit hoặc tự cài DLL.
+
+Kiểm tra độc lập: `dotnet run --project tests/FootingPreferences/FootingPreferences.csproj --configuration Release`.
+
+Giao diện hồ sơ móng, chức năng nhớ lựa chọn và checklist kiểm tra Revit: [hướng dẫn](docs/FOUNDATION_DIALOG_IMPLEMENTATION.md). Build thành công chưa xác nhận hình học/đồ họa trong Revit; thử trên bản sao mô hình trước khi phát hành.
 
 ## Codex kiểm tra lại
 
