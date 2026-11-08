@@ -93,10 +93,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                         if (targets.Count == 0 || targets.Count != targetIds.Count) throw new InvalidOperationException("Thiếu Detail View liên kết hoặc bộ cũ dùng Section View; hãy tạo lại hồ sơ bằng Detail.");
                                         FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets, warnings);
                                     }
+                                    FootingDrawingStorage.TryRead(view, out string tagHost, out string tagRole, out double tagMargin);
+                                    FootingDrawingRebarMultiTags.Refresh(doc, footing, view, tagRole, options, warnings);
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
                                     FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
                                 }
                                 doc.Regenerate();
+                                var viewIds=new HashSet<ElementId>(views.Select(view=>view.Id));
+                                foreach(Viewport viewport in new FilteredElementCollector(doc).OfClass(typeof(Viewport)).Cast<Viewport>()
+                                    .Where(viewport=>viewIds.Contains(viewport.ViewId)))
+                                    FootingDrawingViewportTitles.Center(viewport,warnings);
                                 if (sub.Commit() != TransactionStatus.Committed) throw new InvalidOperationException("Revit không chấp nhận crop mới.");
                                 updated += views.Count;
                             }
@@ -115,7 +121,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                     if (tx.Commit() != TransactionStatus.Committed) throw new InvalidOperationException("Revit không commit được cập nhật.");
                 }
-                string report = "Đã cập nhật crop/view range của " + updated + " view; khôi phục ký hiệu Detail gốc, gỡ reference phụ của KStruct và làm mới Breakline có mã sở hữu. Tag/dimension và ký hiệu khác được giữ nguyên.";
+                string report = "Đã cập nhật crop/view range của " + updated + " view; khôi phục ký hiệu Detail gốc, gỡ reference phụ của KStruct và làm mới Breakline có mã sở hữu. Làm mới MultiTag của lệnh và căn giữa title viewport; tag/dimension thủ công được giữ nguyên.";
                 if (warnings.Count > 0) report += "\nCảnh báo:\n" + string.Join("\n", warnings.Distinct().Take(10));
                 if (skipped.Count > 0) report += "\nBỏ qua:\n" + string.Join("\n", skipped.Take(10));
                 TaskDialog.Show("KStruct - Cập nhật hồ sơ móng", report);

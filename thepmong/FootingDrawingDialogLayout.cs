@@ -118,7 +118,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var dims = new StackPanel(); dims.Children.Add(_dimensions); dims.Children.Add(_fourSides);
             Field(dims, "Dimension Type", _dimension); Field(dims, "Lớp dim 1 (mm giấy)", _dimOffset); Field(dims, "Cách hai lớp (mm giấy)", _dimGap);
             dims.Children.Add(Note("Lớp trong: mép–tim cột/cọc–mép. Lớp ngoài: kích thước tổng thể. Thiếu reference chi tiết sẽ báo cạnh thiếu; không dùng kích thước giả."));
-            dims.Children.Add(_tags); Field(dims, "Tag thép", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
+            dims.Children.Add(_tags); Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
             Populate(_breakLine, new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_DetailComponents)
                 .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
                 .Where(s => s.Family.FamilyPlacementType == FamilyPlacementType.CurveBasedDetail || s.Family.FamilyPlacementType == FamilyPlacementType.ViewBased)
@@ -126,6 +126,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             dims.Children.Add(_beamBreaks); Field(dims, "Family / Type Breakline", _breakLine);
             Field(dims, "Dư hai đầu (mm giấy)", _breakPadding); dims.Children.Add(_reverseBreak);
             dims.Children.Add(Note("Ưu tiên Detail Item theo đường. Phía che tùy family; kiểm tra và đảo hướng nếu cần. Chưa chọn family thì báo và bỏ qua Breakline."));
+            dims.Children.Add(Note("MultiTag cần loại Multi-Rebar Annotation có Rebar Tag và Dimension Type trong project; dùng trên mặt bằng và Detail."));
             AddTab(tabs, "Dim / Tag", dims);
 
             var sheet = new StackPanel(); sheet.Children.Add(_newSheet);

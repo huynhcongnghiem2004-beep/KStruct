@@ -10,6 +10,16 @@ internal static class Program
     private static DrawingPoint2 P(double x,double y)=>new DrawingPoint2(x,y);
     private static void Main()
     {
+        foreach(int turn in new[]{-1,0,1})
+        {
+            var offset=FootingDrawingMath.TitleOffsetShift(12.5,turn);double angle=turn*Math.PI/2;
+            Check(Near(offset.X*Math.Cos(angle)-offset.Y*Math.Sin(angle),12.5),"Title offset must produce the requested horizontal sheet shift for rotated viewports");
+            Check(Near(offset.X*Math.Sin(angle)+offset.Y*Math.Cos(angle),0),"Horizontal centering must preserve title height on the sheet");
+            var zero=FootingDrawingMath.TitleOffsetShift(0,turn);
+            Check(Near(zero.X,0)&&Near(zero.Y,0),"Repeated centering of an already centered title must not drift");
+        }
+        bool badRotation=false;try{FootingDrawingMath.TitleOffsetShift(1,2);}catch(ArgumentException){badRotation=true;}
+        Check(badRotation,"Unsupported title rotation must be rejected");
         var range=FootingDrawingMath.Range(-6,-3,-5.9,-3.2,100,0.2);
         Check(range.Top>range.Cut&&range.Cut>range.Bottom&&range.Bottom>range.Depth,"Planes must retain valid structural-plan order");
         Check(range.Top+100>-3&&range.Bottom+100< -6,"Range must cover below-level footing and bars in world coordinates");

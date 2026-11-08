@@ -19,7 +19,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         internal FamilySymbol TitleBlock { get; set; }
         internal View PlanTemplate { get; set; }
         internal View SectionTemplate { get; set; }
-        internal ElementType RebarTagType { get; set; }
+        internal MultiReferenceAnnotationType RebarMultiTagType { get; set; }
         internal ElementType FoundationTagType { get; set; }
         internal DimensionType DimensionType { get; set; }
         internal ViewSheet ExistingSheet { get; set; }
@@ -114,8 +114,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 .Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null);
             Populate(_planTemplate, Templates(doc).Select(x => new Item { Text = x.Name + " | " + x.ViewType, Element = x }), null, true);
             Populate(_sectionTemplate, Templates(doc).Select(x => new Item { Text = x.Name + " | " + x.ViewType, Element = x }), null, true);
-            Populate(_rebarTag, new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_RebarTags).WhereElementIsElementType().Cast<ElementType>()
-                .Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
+            Populate(_rebarTag, FootingDrawingRebarMultiTags.Types(doc)
+                .Select(x => new Item { Text = x.Name, Element = x }), null, true);
             Populate(_foundationTag, new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFoundationTags).WhereElementIsElementType().Cast<ElementType>()
                 .Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
             Populate(_dimension, new FilteredElementCollector(doc).OfClass(typeof(DimensionType)).Cast<DimensionType>().Where(x => x.StyleType == DimensionStyleType.Linear)
@@ -286,7 +286,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             PlanTypeName = TypeName(Selected(_planType)), DetailTypeName = TypeName(Selected(_detailType)),
             TitleBlockFamily = FamilyName(Selected(_titleBlock)), TitleBlockType = TypeName(Selected(_titleBlock)),
             PlanTemplateName = TypeName(Selected(_planTemplate)), SectionTemplateName = TypeName(Selected(_sectionTemplate)),
-            RebarTagFamily = FamilyName(Selected(_rebarTag)), RebarTagType = TypeName(Selected(_rebarTag)),
+            RebarMultiTagTypeName = TypeName(Selected(_rebarTag)), RebarMultiTagTypeUniqueId = Selected(_rebarTag)?.UniqueId,
             FoundationTagFamily = FamilyName(Selected(_foundationTag)), FoundationTagType = TypeName(Selected(_foundationTag)),
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
             SheetPrefix = _sheetPrefix.Text.Trim(), SheetNamePattern = _sheetName.Text.Trim(), ViewNamePattern = _viewName.Text.Trim(),
@@ -323,7 +323,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (string.IsNullOrWhiteSpace(p.DetailTypeName) && !string.IsNullOrWhiteSpace(p.SectionTypeName)) _detailType.SelectedIndex = -1;
             SelectByPair(_titleBlock, p.TitleBlockFamily, p.TitleBlockType);
             SelectBy(_planTemplate, p.PlanTemplateName); SelectBy(_sectionTemplate, p.SectionTemplateName);
-            SelectByPair(_rebarTag, p.RebarTagFamily, p.RebarTagType); SelectByPair(_foundationTag, p.FoundationTagFamily, p.FoundationTagType);
+            SelectBy(_rebarTag, p.RebarMultiTagTypeName); SelectByPair(_foundationTag, p.FoundationTagFamily, p.FoundationTagType);
             SelectBy(_dimension, p.DimensionTypeName);
             _topLayer.IsChecked = p.OutputLayers == "Top" || p.OutputLayers == "Both";
             _bottomLayer.IsChecked = p.OutputLayers == "Bot" || p.OutputLayers == "Both";
@@ -341,7 +341,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (!string.IsNullOrWhiteSpace(p.DetailTypeName ?? p.SectionTypeName) && Selected(_detailType) == null) missing.Add("Detail Type");
             if (!string.IsNullOrWhiteSpace(p.PlanTemplateName) && Selected(_planTemplate) == null) missing.Add("Template mặt bằng");
             if (!string.IsNullOrWhiteSpace(p.SectionTemplateName) && Selected(_sectionTemplate) == null) missing.Add("Template mặt cắt");
-            if (!string.IsNullOrWhiteSpace(p.RebarTagType) && Selected(_rebarTag) == null) missing.Add("Tag thép");
+            if (!string.IsNullOrWhiteSpace(p.RebarMultiTagTypeName ?? p.RebarTagType) && Selected(_rebarTag) == null) missing.Add("Multi-Rebar Annotation Type (tag đơn cũ cần chọn lại)");
             if (!string.IsNullOrWhiteSpace(p.FoundationTagType) && Selected(_foundationTag) == null) missing.Add("Tag móng");
             if (!string.IsNullOrWhiteSpace(p.BreakLineType) && Selected(_breakLine) == null) missing.Add("Family Breakline");
             if (!string.IsNullOrWhiteSpace(p.DimensionTypeName) && Selected(_dimension) == null) missing.Add("Dimension Type");
@@ -406,6 +406,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Hãy chọn ít nhất một mặt bằng hoặc mặt cắt.", "Thiếu view"); return; }
             if (AnyDetailSelected && (_callouts.IsChecked != true || (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true)))
             { MessageBox.Show(this, "Mặt cắt cần callout móng. Hãy bật Callout và chọn thép trên hoặc dưới.", "Thiếu callout"); return; }
+            if (_tags.IsChecked == true && !(Selected(_rebarTag) is MultiReferenceAnnotationType))
+            { MessageBox.Show(this, "Hãy chọn Multi-Rebar Annotation Type có Rebar Tag và Dimension Type, hoặc tắt tạo tag. Tag thép đơn không dùng cho MultiTag.", "Thiếu MultiTag"); return; }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
             { MessageBox.Show(this, "Hãy chọn mặt bằng nguồn hoặc tắt callout để tạo plan độc lập.", "Thiếu view nguồn"); return; }
@@ -436,7 +438,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 Profile = profile, PlanType = plan, DetailType = detail, TitleBlock = Selected(_titleBlock) as FamilySymbol,
                 PlanTemplate = Selected(_planTemplate) as View, SectionTemplate = Selected(_sectionTemplate) as View,
-                RebarTagType = Selected(_rebarTag) as ElementType, FoundationTagType = Selected(_foundationTag) as ElementType,
+                RebarMultiTagType = Selected(_rebarTag) as MultiReferenceAnnotationType, FoundationTagType = Selected(_foundationTag) as ElementType,
                 DimensionType = Selected(_dimension) as DimensionType, ExistingSheet = Selected(_existingSheet) as ViewSheet,
                 SourcePlan = source, SelectedFootings = CheckedFootings
             };

@@ -71,3 +71,13 @@ View hoặc tiêu đề vượt ô bố trí, hoặc có khả năng chồng n�
 Hai checkbox độc lập cho phép tạo chỉ A–A, chỉ B–B, cả hai hoặc chỉ mặt bằng khi tắt cả hai. Mỗi Detail được chọn vẫn dùng ký hiệu gốc trên callout; chọn một Detail sẽ bật callout và ít nhất một mặt bằng. Offset và đảo hướng của mặt cắt bị tắt sẽ khóa nhập. Preview mặt bằng/sheet, tạo view, mã vai trò X/Y và danh sách liên kết chỉ dùng những Detail được chọn; chỉ B–B vẫn mang vai trò Detail-Y.
 
 Lựa chọn A/B được lưu trong preset và lựa chọn lần trước. Preset cũ chưa có hai trường mới dùng công tắc CreateSections cũ: bật tạo cả hai, tắt không tạo Detail nào. Type, template, tỷ lệ và chiều sâu nhìn hiện vẫn dùng chung cho các Detail được bật.
+
+## MultiTag thép móng và căn Title Ref
+
+Bộ chọn thép sử dụng Multi-Rebar Annotation Type thuộc category Rebar, có TagTypeId và DimensionStyleId hợp lệ (Linear/LinearFixed). Tag đơn cũ chỉ giữ để đọc XML; không tự dùng ID/tag type đơn làm MultiTag. Lưu tên và UniqueId loại MultiTag cho lần sau. Khi cập nhật dữ liệu cũ chưa có lựa chọn, chỉ tự chọn nếu project có duy nhất một loại hợp lệ; nhiều loại hoặc thiếu loại thì cảnh báo chọn lại.
+
+Mỗi Rebar Set thuộc đúng móng, hiện trong view và đúng lớp Top/Bot của mặt bằng được tạo một MultiReferenceAnnotation. View Detail dùng các set hiện trong mặt cắt. Thử phương phân bố thực tế, phương vuông góc đoạn thanh và phương ngang/dọc view; dùng bộ kiểm tra reference của Revit trước khi tạo. Không thay thế bằng tag đơn khi MultiTag thất bại. Annotation crop được mở rộng theo số nhóm ở đơn vị giấy, crop mô hình 6 mm không đổi.
+
+MRA và tag/dimension con có mã sở hữu theo view/móng/Rebar nguồn. Cập nhật thay riêng annotation của từng set trong subtransaction; lỗi thì rollback giữ annotation cũ cho set đó. Tag đơn cũ và tag thủ công không có metadata mới được giữ nguyên, cần kiểm tra nếu còn chồng với MultiTag mới. Thiếu reference hợp lệ, family tag hoặc Rebar không hiện được báo theo view/ID thép; cần kiểm tra thực tế trong Revit.
+
+Title Ref được căn theo tâm ngang của bounding outline title so với viewport. Chỉ đổi LabelOffset, không đổi family, độ dài line title hay tỷ lệ view. Hàm dùng chung cho cả layout mới/cũ và cập nhật, đọc lại sau Regenerate và xử lý offset theo phép xoay viewport. Cần xác nhận native layout cho viewport xoay và family title đặc biệt trong Revit 2024.
