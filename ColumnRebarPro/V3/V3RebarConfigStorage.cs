@@ -17,8 +17,8 @@ namespace ColumnRebarPro.V3
             if (!File.Exists(path)) return null;
             try
             {
-                using (var input = File.OpenRead(path))
-                    return (V3RebarConfig)new XmlSerializer(typeof(V3RebarConfig)).Deserialize(input);
+                using (var input = File.OpenText(path))
+                    return V3LegacySplice.Read(input);
             }
             catch
             {
@@ -64,7 +64,7 @@ namespace ColumnRebarPro.V3
             string xml = entity.Get<string>(schema.GetField(FieldName));
             if (string.IsNullOrWhiteSpace(xml)) return null;
             using (var reader = new StringReader(xml))
-                return (V3RebarConfig)new XmlSerializer(typeof(V3RebarConfig)).Deserialize(reader);
+                return V3LegacySplice.Read(reader);
         }
 
         private static Schema GetOrCreateSchema()

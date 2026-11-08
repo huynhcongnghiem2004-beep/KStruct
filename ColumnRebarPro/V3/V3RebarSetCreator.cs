@@ -13,6 +13,7 @@ namespace ColumnRebarPro.V3
         internal static void CreateLongitudinalSets(Document doc, V3SegmentWork item,
             RebarBarType type, V3BuildReport report)
         {
+            V3LegacySplice.ValidateForCreation(item.Config);
             if (item.Config.Splice != V3SpliceStyle.None || item.Config.StaggerSplices ||
                 item.HasNext || item.HasPrevious || item.TransitionUp != null ||
                 item.TransitionDown != null)
