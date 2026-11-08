@@ -90,6 +90,8 @@ namespace ColumnRebarPro.V3
         public V3Geometry Geometry;
         public V3RebarConfig Config;
         public bool HasPrevious, HasNext;
+        public bool BottleneckToUpper;
+        public double BottleneckUpperBarStart;
         public double IncomingStarterLength, IncomingJoint;
         public bool IncomingStagger;
         public string StarterWarning;

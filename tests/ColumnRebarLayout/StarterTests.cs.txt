@@ -1,0 +1,115 @@
+using System;
+using System.Collections.Generic;
+using ColumnRebarPro.V3;
+
+// Test doubles replace Revit objects only. V3StarterConnection and TCVN rules below are production code.
+namespace ColumnRebarPro.V3
+{
+    public sealed class V3Geometry
+    {
+        public double Bottom, Top;
+        public double Height => Top - Bottom;
+    }
+    public sealed class ColumnSegment { public string LevelName; }
+    public sealed class V3SegmentWork
+    {
+        public V3RebarConfig Config;
+        public V3Geometry Geometry;
+        public ColumnSegment Segment;
+        public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper;
+        public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
+        public string StarterWarning;
+        public object TransitionUp, TransitionDown;
+        public bool MatchingStructure = true;
+    }
+    public static class V3Units
+    {
+        public static double Ft(double mm) => mm / 304.8;
+        public static double Mm(double ft) => ft * 304.8;
+    }
+    internal static class V3TransitionPlanner
+    {
+        // The Revit-dependent geometry/profile comparator is unchanged; isolate it in this unit test.
+        internal static bool SameStructure(V3SegmentWork lower, V3SegmentWork upper) => lower.MatchingStructure && upper.MatchingStructure;
+    }
+}
+
+static class StarterTests
+{
+    static int checks;
+    static void Check(bool value, string message) { checks++; if(!value) throw new Exception(message); }
+    static void Near(double value, double expected, string message) => Check(Math.Abs(value-expected)<1e-6,message);
+    static void Reject(Action action, string message)
+    {
+        bool rejected=false;
+        try { action(); } catch(InvalidOperationException ex) { rejected=ex.Message.Contains(message); }
+        Check(rejected,"Must reject with a useful message: "+message);
+    }
+    static V3SegmentWork Work(string name, double bottom, double top, bool starter=false, double length=1000) => new V3SegmentWork
+    {
+        Config = new V3RebarConfig { Cx=4,Cy=4,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=starter,StarterLength=length },
+        Geometry = new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
+        Segment = new ColumnSegment {LevelName=name}
+    };
+    static List<V3SegmentWork> Pair(double gap=400, double length=1000, double upperHeight=3000) => new List<V3SegmentWork>
+        { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
+    internal static void Run()
+    {
+        var pair=Pair();V3StarterConnection.Resolve(pair);
+        Near(pair[1].IncomingStarterLength,600,"400 mm beam/slab gap must be deducted from entered extension");
+        Near(pair[0].Config.StarterLength,1000,"Never silently change the user's length");
+        Near(V3Units.Mm(pair[0].BottleneckUpperBarStart),3440,"Lap starts at the upper bar end, not column solid base");
+        Check(pair[0].BottleneckToUpper && !pair[1].BottleneckToUpper,"Neck the lower bar only for an actual pair");
+        pair[0].Config.StarterLength=1200;V3StarterConnection.Resolve(pair);
+        Near(pair[1].IncomingStarterLength,800,"Repeated resolution must not accumulate the gap");
+        V3StarterConnection.Resolve(Pair(gap:0,length:600));
+        V3StarterConnection.Resolve(Pair(gap:-1,length:600));
+        V3StarterConnection.Resolve(Pair(gap:-2,length:600));
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-3)),"chồng lấn");
+        V3StarterConnection.Resolve(Pair(gap:1500,length:2200));
+        V3StarterConnection.Resolve(Pair(length:1000,upperHeight:800));
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:1000,upperHeight:600)),"chiều cao");
+        V3StarterConnection.Resolve(Pair(length:840)); // 400 gap + 40 upper end inset + 400 minimum lap
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:839.9)),"840");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:400)),"840");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:600)),"840");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:double.NaN)),"hữu hạn");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:double.PositiveInfinity)),"không hợp lệ");
+        pair=Pair();pair[1].MatchingStructure=false;
+        Reject(()=>V3StarterConnection.Resolve(pair),"thay đổi tiết diện");
+        pair=Pair();pair[0].Config.StaggerSplices=true;
+        Reject(()=>V3StarterConnection.Resolve(pair),"so le");
+        pair=Pair();pair[0].Config.BottleneckRibbed=false;
+        Reject(()=>V3StarterConnection.Resolve(pair),"thép trơn");
+        pair=Pair();pair[0].Config.BottleneckSlope=1000;
+        Reject(()=>V3StarterConnection.Resolve(pair),"nhấn cổ chai");
+        pair=Pair();pair[0].Config.StarterBars=false;
+        pair[0].BottleneckToUpper=true;pair[0].BottleneckUpperBarStart=99;
+        pair[1].IncomingStarterLength=99;pair[0].HasNext=true;pair[1].HasPrevious=true;
+        V3StarterConnection.Resolve(pair);
+        Check(!pair[0].BottleneckToUpper && pair[1].IncomingStarterLength==0 && pair[0].BottleneckUpperBarStart==0,
+            "Turning starter off must clear derived geometry");
+        Check(!pair[0].HasNext && !pair[1].HasPrevious,"Do not enter unsupported legacy transition mode");
+        var three=new List<V3SegmentWork>{Work("T0",0,3000,true),Work("T1",3400,6400,true),Work("T2",6800,9800,true)};
+        V3StarterConnection.Resolve(three);
+        Check(three[0].BottleneckToUpper && three[1].BottleneckToUpper && !three[2].BottleneckToUpper,"Each real pair is independent; topmost starters stay free");
+        Near(three[1].IncomingStarterLength,600,"First pair");Near(three[2].IncomingStarterLength,600,"Second pair");
+        Near(V3BottleneckRules.MinimumBendDiameter(16,true),80,"TCVN ribbed below 20");
+        Near(V3BottleneckRules.MinimumBendDiameter(20,true),160,"TCVN ribbed 20 and above");
+        Near(V3BottleneckRules.MinimumBendDiameter(16,false),40,"TCVN plain below 20");
+        Near(V3BottleneckRules.MinimumBendDiameter(20,false),80,"TCVN plain 20 and above");
+        Reject(()=>V3BottleneckRules.MinimumLap(41),"40 mm");
+        Near(V3BottleneckRules.MinimumLap(10),250,"250 mm lower bound");Near(V3BottleneckRules.MinimumLap(20),400,"20d lower bound");
+        Check(V3BottleneckRules.TangentLength(20,2,6,160)>0,"Default geometric neck fits minimum mandrel");
+        Reject(()=>V3BottleneckRules.TangentLength(20,2,.1,160),"quá ngắn");
+        Reject(()=>V3BottleneckRules.Shift(20,-1),"Khe hở");
+        foreach(V3AnchorDirection dir in Enum.GetValues(typeof(V3AnchorDirection)))
+        {
+            var arrays=V3AnchorLayoutPlan.Create(4,5,600,800,30,8,20,dir);
+            V3BottleneckRules.ValidateCenters(arrays,252,352,20,2);
+            checks++;
+        }
+        Reject(()=>V3BottleneckRules.ValidateCenters(V3AnchorLayoutPlan.Create(20,20,400,400,30,8,20,V3AnchorDirection.Inward),152,152,20,2),"giao");
+        Console.WriteLine($"PASS: {checks} starter-gap and bottleneck regression checks");
+    }
+}

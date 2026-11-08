@@ -33,8 +33,9 @@ Các kiểm tra hình học, loại thép và cấu hình bản vẽ vẫn chạ
   bước theo Joint Spacing (kể cả khi vùng thân dùng Fixed Number). Cần bật thép chờ,
   chiều dài chờ ít nhất bằng chiều cao nút. Không tự tìm hoặc đo dầm/sàn.
 - Preview dọc và dựng đai dùng chung bộ tính vị trí. Preview vẫn là minh họa, không phải
-  hình gia công chính xác của móc hoặc neo. Nối chồng, so le và chuyển tiếp tiết diện
-  tự động chưa được hỗ trợ.
+  hình gia công chính xác của móc hoặc neo. Thép chờ nối giữa hai tầng cùng cấu hình
+  dùng nhấn cổ chai: xem [quy tắc khoảng hở và cổ chai](docs/COLUMN_BOTTLENECK.md).
+  So le và chuyển tiếp tiết diện tự động chưa được hỗ trợ.
 
 ## Ghi đè và lưu cấu hình
 

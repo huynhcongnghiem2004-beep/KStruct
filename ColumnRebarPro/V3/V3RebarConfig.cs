@@ -25,6 +25,10 @@ namespace ColumnRebarPro.V3
         public bool StarterBars = false;
         public double StarterLength;
         public bool StaggerSplices;
+        public bool BottleneckRibbed = true;
+        public double BottleneckClearanceMm = 2;
+        // Geometric detailing default, not a slope mandated by TCVN 5574.
+        public double BottleneckSlope = 6;
         // Legacy XML fields retained for compatibility; creation no longer requires approval/reference input.
         public string DesignReference = "";
         public bool DesignValuesConfirmed;

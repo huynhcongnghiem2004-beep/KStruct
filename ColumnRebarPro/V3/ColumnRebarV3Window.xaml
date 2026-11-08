@@ -134,7 +134,7 @@
                                     <CheckBox x:Name="MainStarterCheck" Margin="0,2,0,3" Content="Thép chờ lên tầng trên (Starter Bars)" FontWeight="SemiBold" Foreground="#FF1B4EB0" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                                     <Grid Margin="0,2,0,2">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="107"/></Grid.ColumnDefinitions>
-                                        <TextBlock Style="{StaticResource FormLabel}" Text="Chiều dài chờ (mm)"/>
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="Chờ từ đỉnh cột dưới (mm)"/>
                                         <TextBox Grid.Column="1" x:Name="MainStarterLengthBox" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/>
                                     </Grid>
                                 </StackPanel>
@@ -187,9 +187,19 @@
                     <TextBlock Text="Cùng thiết lập thép chờ ở tab Hình học; thay đổi được đồng bộ hai tab." TextWrapping="Wrap" Margin="0,0,0,8"/>
                     <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Margin="0,4,0,8" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
-                        <TextBlock Text="Chiều dài chờ theo thiết kế (mm)" Width="280" VerticalAlignment="Center"/>
+                        <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Width="280" VerticalAlignment="Center"/>
                         <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"/>
                     </StackPanel>
+                    <GroupBox Header="Nhấn cổ chai giữa hai tầng cùng cấu hình" Padding="10" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Thanh dưới nhấn vào trong, thanh trên giữ thẳng. Chiều dài chờ gồm khoảng hở dầm/sàn và đoạn nối; không tự tăng chiều dài đã nhập." TextWrapping="Wrap"/>
+                            <CheckBox x:Name="BottleneckRibbedCheck" Content="Thép dọc có gân (bỏ chọn nếu thép trơn)" Margin="0,8,0,4" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Khe hở giữa hai thanh nối (mm)" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckClearanceBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Tỷ lệ xiên dựng hình 1:n" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckSlopeBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" ToolTip="n là chiều cao đoạn nhấn / độ dịch ngang; mặc định hình học 6, không phải tỷ lệ được quy định trong TCVN 5574:2018."/></StackPanel>
+                            <TextBlock x:Name="StarterConnectionSummary" TextWrapping="Wrap" Foreground="#FF315889" Margin="0,7,0,0"/>
+                            <TextBlock Text="TCVN 5574:2018: kiểm tra gối uốn theo 10.3.7 và giới hạn dưới đoạn nối theo 10.3.6.2. Chiều dài nối tính toán và cấu tạo đai vẫn lấy theo thiết kế." TextWrapping="Wrap" Margin="0,7,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
                     <Border BorderBrush="#FFD8DFEA" BorderThickness="1" Padding="12" CornerRadius="4">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -221,7 +231,7 @@
                         </Grid>
                     </Border>
                     <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#FF9C3D26"
-                        Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Nối chồng, so le và chuyển tiếp tiết diện tự động chưa được hỗ trợ. Bản vẽ là DRAFT."/>
+                        Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Nhấn cổ chai áp dụng cho hai tầng cùng cấu hình; nối so le và chuyển tiếp tiết diện chưa được hỗ trợ. Bản vẽ là DRAFT."/>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
