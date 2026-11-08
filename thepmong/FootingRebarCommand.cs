@@ -5,6 +5,7 @@ using System.Text;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 
@@ -24,6 +25,7 @@ namespace SDK_HD.KStruct.FootingRebar
         private static Result Run(ExternalCommandData data)
         {
             UIDocument uidoc = data.Application.ActiveUIDocument;
+            if (uidoc == null || uidoc.Document.IsFamilyDocument) return Result.Cancelled;
             Document doc = uidoc.Document;
 
             // 1. Chọn móng đơn hoặc đài cọc
@@ -79,7 +81,30 @@ namespace SDK_HD.KStruct.FootingRebar
                 return Fail("Thiếu loại thép", "Dự án chưa có RebarBarType nào. Hãy nạp loại thép trước khi tạo bố trí.");
 
             bool hasLeanConcrete = frame.HasEmbeddedLeanConcrete || HasLeanConcreteBelowFooting(doc, fi, frame);
-            var settingsWindow = new FootingRebarWindow(modelWithType, availableDiameters, hasLeanConcrete);
+            string projectKey = doc.ProjectInformation.UniqueId + "|" +
+                (string.IsNullOrWhiteSpace(doc.PathName) ? doc.Title : doc.PathName).ToUpperInvariant();
+            var memoryWarnings = new List<string>();
+            FootingRebarPreference hostPreference = null;
+            bool brokenHistory = false;
+            try { hostPreference = FootingRebarHistoryStorage.ReadHost(fi); }
+            catch (Exception ex) { brokenHistory = true; memoryWarnings.Add("Không đọc được lịch sử móng: " + ex.Message); }
+            FootingRebarSession session = null;
+            try { session = FootingRebarPreferenceStore.Load(projectKey, hostPreference?.FootingType ?? modelWithType.FootingType); }
+            catch (Exception ex) { memoryWarnings.Add("Không đọc được lựa chọn gần nhất: " + ex.Message); }
+            List<Rebar> hosted = new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
+                .Where(r => r.GetHostId() == fi.Id).ToList();
+            List<Rebar> owned = hosted.Where(r => FootingRebarHistoryStorage.IsOwned(r, fi)).ToList();
+            int otherCount = hosted.Count - owned.Count;
+            FootingRebarPreference restored = hostPreference ?? (!brokenHistory && session?.Remember == true ? session.Preference : null);
+            string memorySource = hostPreference != null ? "Đã nạp thông số lần tạo của móng này." :
+                restored != null ? "Đã nạp lần tạo thành công gần nhất của loại móng này trong project." : "Chưa có thông số cũ để nạp; dùng cấu hình ban đầu.";
+            memorySource += "\nKích thước luôn lấy từ mô hình hiện tại. Thép nhận diện: " + owned.Count + " nhóm; chưa nhận diện: " + otherCount + " nhóm.";
+            if (otherCount > 0) memorySource += "\nThép phiên bản cũ/thủ công/lệnh khác không được tự nhận là thép của lệnh này.";
+            if (memoryWarnings.Count > 0) memorySource += "\n" + string.Join("\n", memoryWarnings);
+            var settingsWindow = new FootingRebarWindow(modelWithType, availableDiameters, hasLeanConcrete,
+                restored, memorySource, session?.Remember ?? true, owned.Count, otherCount, hostPreference != null);
+            if (data.Application.MainWindowHandle != IntPtr.Zero)
+                new System.Windows.Interop.WindowInteropHelper(settingsWindow).Owner = data.Application.MainWindowHandle;
             if (settingsWindow.ShowDialog() != true) return Result.Cancelled;
 
             FootingRebarFullSettings fullSettings = settingsWindow.OutputFull;
@@ -93,6 +118,14 @@ namespace SDK_HD.KStruct.FootingRebar
                     settingsWindow.OutputBottom ?? FootingDefaults.Bottom(isPileCap),
                     dummyTop, dummySide);
             }
+
+            // UI may explicitly switch the footing classification; validate/build/report the same classification.
+            modelWithType = new FootingModel(modelWithType.LengthX, modelWithType.WidthY, modelWithType.Height,
+                fullSettings.FootingType, modelWithType.Name);
+            if (owned.Count > 0 && !settingsWindow.ReplaceOwnedRebar)
+                return Fail("Thép đã tồn tại", "Hãy chọn cập nhật bộ thép đã nhận diện; không tạo trùng.");
+            if (otherCount > 0 && !settingsWindow.AllowAlongsideOtherRebar)
+                return Fail("Thép chưa nhận diện", "Giữ nguyên thép hiện có. Chỉ tạo bổ sung khi bạn chủ động chọn cho phép trong cửa sổ.");
 
             // 4. Kiểm tra quy tắc thiết kế theo TCVN 5574:2018 & TCVN 198:1997
             IReadOnlyList<RuleIssue> issues = new Tcvn5574FootingRules().ValidateFull(modelWithType, fullSettings);
@@ -134,7 +167,10 @@ namespace SDK_HD.KStruct.FootingRebar
                 tx.SetFailureHandlingOptions(fho);
                 try
                 {
+                    if (owned.Count > 0) FootingRebarHistoryStorage.DeleteOwned(doc, fi, owned);
                     created = RebarFactory.Create(doc, frame, plan);
+                    if (created.Count == 0 || created.Count != plan.Sets.Count)
+                        throw new InvalidOperationException("Không tạo đủ nhóm thép theo kế hoạch; đã hủy và giữ bộ thép cũ.");
                     doc.Regenerate();
                     post = PostCheck.Verify(doc, created, frame, fullSettings.Cover);
                     if (post.Count > 0)
@@ -142,6 +178,7 @@ namespace SDK_HD.KStruct.FootingRebar
                         tx.RollBack();
                         return Fail("Thép vượt lớp bảo vệ", string.Join("\n", post));
                     }
+                    FootingRebarHistoryStorage.Record(doc, fi, created, fullSettings);
                 }
                 catch (Exception ex)
                 {
@@ -152,8 +189,19 @@ namespace SDK_HD.KStruct.FootingRebar
                     return Fail("Không tạo được thép", "Transaction không được commit.");
             }
 
+            // Persist project defaults only after the Revit transaction has committed successfully.
+            try
+            {
+                FootingRebarPreferenceStore.Save(projectKey, fullSettings.FootingType,
+                    new FootingRebarSession { Remember = settingsWindow.RememberForNextFooting,
+                        Preference = settingsWindow.RememberForNextFooting ? FootingRebarPreference.From(fullSettings) : null });
+            }
+            catch (Exception ex) { collector.Warnings.Add("Đã tạo thép nhưng không lưu được lựa chọn cho móng kế tiếp: " + ex.Message); }
+            if (otherCount > 0) collector.Warnings.Add("Giữ nguyên " + otherCount + " nhóm thép chưa nhận diện; cần kiểm tra khả năng trùng với bộ mới.");
+
             // 7. Báo cáo sau khi hậu kiểm thực tế đã đạt trong transaction.
-            ShowReport(plan, modelWithType, frame.Source, fullSettings.Cover.HasLeanConcrete, created, collector.Warnings, post);
+            ShowReport(plan, modelWithType, frame.Source, fullSettings.Cover.HasLeanConcrete, created, collector.Warnings, post,
+                owned.Count > 0 ? "Đã cập nhật bộ thép nhận diện của móng; giữ nguyên thép khác." : "Đã lưu lần tạo và mã nhận diện cho bộ thép mới.");
             return Result.Succeeded;
         }
 
@@ -219,11 +267,12 @@ namespace SDK_HD.KStruct.FootingRebar
         }
 
         private static void ShowReport(RebarPlan plan, FootingModel model, string source, bool hasLeanConcrete,
-                                       IList<CreatedSet> created, IList<string> revitWarnings, IList<string> postIssues)
+                                       IList<CreatedSet> created, IList<string> revitWarnings, IList<string> postIssues, string operationInfo = null)
         {
             var sb = new StringBuilder();
             string typeDesc = model.FootingType == FootingType.PileCap ? "MÓNG CỌC / ĐÀI CỌC" : "MÓNG ĐƠN";
             sb.AppendLine($"{typeDesc}: {model.LengthX:0} x {model.WidthY:0} x {model.Height:0} mm. (Nguồn: {source})");
+            if (!string.IsNullOrWhiteSpace(operationInfo)) sb.AppendLine(operationInfo);
             sb.AppendLine("Tuân thủ: TCVN 5574:2018 & TCVN 198:1997");
             sb.AppendLine("Bê tông lót: " + (hasLeanConcrete ? "Có (dùng xác định lớp bảo vệ; không tính vào kích thước móng)." : "Không phát hiện lớp lót bên dưới móng."));
             sb.AppendLine();
