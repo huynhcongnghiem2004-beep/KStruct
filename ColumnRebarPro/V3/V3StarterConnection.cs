@@ -9,7 +9,7 @@ namespace ColumnRebarPro.V3
         {
             foreach (var w in works)
             {
-                w.HasPrevious = false; w.HasNext = false; w.BottleneckToUpper = false; w.BottleneckUpperBarStart = 0;
+                w.HasPrevious = false; w.HasNext = false; w.BottleneckToUpper = false; w.BottleneckUpperBarStart = 0; w.ConnectionPlan = null;
                 w.IncomingStarterLength = 0; w.IncomingJoint = 0;
                 w.IncomingStagger = false; w.StarterWarning = null;
                 w.TransitionUp = null; w.TransitionDown = null;
@@ -40,11 +40,7 @@ namespace ColumnRebarPro.V3
                 if (gapMm < -2 - 1e-6)
                     throw new InvalidOperationException("Tầng " + lower.Segment.LevelName + " → " + upper.Segment.LevelName +
                         ": hai cột chồng lấn chiều cao " + Math.Round(-gapMm, 1) + " mm. Kiểm tra cột trùng hoặc cao độ/offset.");
-                if (!V3TransitionPlanner.SameStructure(lower, upper))
-                    throw new InvalidOperationException("Tuyến có thay đổi tiết diện hoặc cấu hình thép tại " +
-                        lower.Segment.LevelName + " → " + upper.Segment.LevelName +
-                        ". Cần chi tiết chuyển tiếp được thiết kế và duyệt; KStruct không tự suy diễn cấu tạo.");
-                if (!a.BottleneckRibbed)
+                if (!a.BottleneckRibbed || !b.BottleneckRibbed)
                     throw new InvalidOperationException("Nối cổ chai đầu thẳng hiện áp dụng thép có gân; thép trơn cần chi tiết móc/U phù hợp theo TCVN 5574:2018.");
                 double incomingMm = a.StarterLength - gapMm;
                 double upperEndInsetMm = b.Cover + b.MainDiameter / 2;
@@ -54,9 +50,11 @@ namespace ColumnRebarPro.V3
                         Math.Round(Math.Max(0, gapMm), 1) + " mm, chờ đã nhập " + Math.Round(a.StarterLength, 1) +
                         " mm; để có đoạn nối tối thiểu max(20d, 250 mm), chiều dài chờ từ đỉnh cột dưới phải ít nhất " +
                         Math.Round(gapMm + upperEndInsetMm + minimumLap, 1) + " mm. Chiều dài tính toán theo TCVN 5574 có thể lớn hơn.");
-                double bendHeight = V3BottleneckRules.Height(a.MainDiameter, a.BottleneckClearanceMm, a.BottleneckSlope);
+                var plan = V3ConnectionAdapter.Plan(lower, upper);
+                double bendHeight = plan.MaximumHeight;
                 if (bendHeight >= V3Units.Mm(g.Height) - a.Cover - a.MainDiameter / 2)
                     throw new InvalidOperationException("Cột tầng " + lower.Segment.LevelName + " không đủ chiều cao để nhấn cổ chai.");
+                lower.ConnectionPlan = plan;
                 lower.BottleneckToUpper = true;
                 lower.BottleneckUpperBarStart = h.Bottom + V3Units.Ft(upperEndInsetMm);
                 if (incomingMm >= heightMm - upperEndInsetMm)
@@ -65,6 +63,15 @@ namespace ColumnRebarPro.V3
                 upper.IncomingStarterLength = incomingMm;
                 upper.IncomingJoint = h.Bottom;
                 upper.IncomingStagger = a.StaggerSplices;
+            }
+            for (int i = 1; i < works.Count; i++)
+            {
+                var upper = works[i];var lower = works[i-1];
+                if (!lower.BottleneckToUpper || upper.ConnectionPlan == null) continue;
+                double straightTop = upper.Geometry.Top - V3Units.Ft(upper.ConnectionPlan.MaximumHeight);
+                if (lower.Geometry.Top + V3Units.Ft(lower.Config.StarterLength) >= straightTop)
+                    throw new InvalidOperationException("Thép chờ tầng " + lower.Segment.LevelName +
+                        " đi vào vùng cổ chai của tầng " + upper.Segment.LevelName + "; kiểm tra lại chiều dài và vị trí nối.");
             }
         }
 

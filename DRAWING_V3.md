@@ -35,7 +35,7 @@ Các kiểm tra hình học, loại thép và cấu hình bản vẽ vẫn chạ
 - Preview dọc và dựng đai dùng chung bộ tính vị trí. Preview vẫn là minh họa, không phải
   hình gia công chính xác của móc hoặc neo. Thép chờ nối giữa hai tầng cùng cấu hình
   dùng nhấn cổ chai: xem [quy tắc khoảng hở và cổ chai](docs/COLUMN_BOTTLENECK.md).
-  So le và chuyển tiếp tiết diện tự động chưa được hỗ trợ.
+  Ghép cổ chai hỗ trợ thay đổi tiết diện/cấu hình khi cùng số thanh và ghép được vị trí thực. Đổi số thanh và nối so le chưa được hỗ trợ.
 
 ## Ghi đè và lưu cấu hình
 

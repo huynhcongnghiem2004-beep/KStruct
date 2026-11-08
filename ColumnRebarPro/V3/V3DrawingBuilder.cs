@@ -412,7 +412,7 @@ namespace ColumnRebarPro.V3
             point = null;
             try
             {
-                var curves = bar.GetCenterlineCurves(false, true, true, MultiplanarOption.IncludeOnlyPlanarCurves, 0);
+                var curves = bar.GetCenterlineCurves(false, true, true, bar.IsRebarFreeForm() ? MultiplanarOption.IncludeAllMultiplanarCurves : MultiplanarOption.IncludeOnlyPlanarCurves, 0);
                 if (curves.Count == 0) return false;
                 point = curves[0].GetEndPoint(0);
                 return true;
@@ -425,8 +425,8 @@ namespace ColumnRebarPro.V3
             lo = 0; hi = 0;
             try
             {
-                var first = bar.GetCenterlineCurves(false, true, true, MultiplanarOption.IncludeOnlyPlanarCurves, 0);
-                var last = bar.GetCenterlineCurves(false, true, true, MultiplanarOption.IncludeOnlyPlanarCurves,
+                var first = bar.GetCenterlineCurves(false, true, true, bar.IsRebarFreeForm() ? MultiplanarOption.IncludeAllMultiplanarCurves : MultiplanarOption.IncludeOnlyPlanarCurves, 0);
+                var last = bar.GetCenterlineCurves(false, true, true, bar.IsRebarFreeForm() ? MultiplanarOption.IncludeAllMultiplanarCurves : MultiplanarOption.IncludeOnlyPlanarCurves,
                     Math.Max(0, bar.NumberOfBarPositions - 1));
                 if (first.Count == 0 || last.Count == 0) return false;
                 double z0 = first[0].GetEndPoint(0).Z, z1 = last[0].GetEndPoint(0).Z;

@@ -38,13 +38,8 @@ namespace ColumnRebarPro.V3
                     c.StarterLength < c.JointBeamHeight))
                     throw new InvalidOperationException("Đai nút phía trên đỉnh cột cần thép chờ dài ít nhất bằng chiều cao nút đã nhập.");
                 V3RebarSetCreator.TiePlan(item);
-                if (item.BottleneckToUpper)
-                {
-                    double inset = c.Cover + c.TieDiameter + c.MainDiameter / 2;
-                    V3BottleneckRules.ValidateCenters(V3RebarSetCreator.AnchorPlan(item),
-                        V3Units.Mm(g.Width) / 2 - inset, V3Units.Mm(g.Depth) / 2 - inset,
-                        c.MainDiameter, c.BottleneckClearanceMm);
-                }
+                if (item.BottleneckToUpper && item.ConnectionPlan == null)
+                    throw new InvalidOperationException("Thiếu phương án ghép thanh thực giữa hai tầng.");
                 double a = V3Units.Mm(g.Width), b = V3Units.Mm(g.Depth), h = V3Units.Mm(g.Height);
                 double availableX = a - 2 * (c.Cover + c.TieDiameter + c.MainDiameter / 2);
                 double availableY = b - 2 * (c.Cover + c.TieDiameter + c.MainDiameter / 2);

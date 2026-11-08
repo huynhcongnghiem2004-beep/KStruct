@@ -5,9 +5,16 @@ using ColumnRebarPro.V3;
 // Test doubles replace Revit objects only. V3StarterConnection and TCVN rules below are production code.
 namespace ColumnRebarPro.V3
 {
+    public sealed class TestVector
+    {
+        public double X,Y;
+        public TestVector(double x=0,double y=0){X=x;Y=y;}
+    }
     public sealed class V3Geometry
     {
         public double Bottom, Top;
+        public double Width=V3Units.Ft(600),Depth=V3Units.Ft(800);
+        public TestVector Center=new TestVector(),X=new TestVector(1,0),Y=new TestVector(0,1);
         public double Height => Top - Bottom;
     }
     public sealed class ColumnSegment { public string LevelName; }
@@ -20,18 +27,15 @@ namespace ColumnRebarPro.V3
         public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
         public string StarterWarning;
         public object TransitionUp, TransitionDown;
-        public bool MatchingStructure = true;
+        public object FoundationHost;
+        internal V3ColumnConnectionPlan ConnectionPlan;
     }
     public static class V3Units
     {
         public static double Ft(double mm) => mm / 304.8;
         public static double Mm(double ft) => ft * 304.8;
     }
-    internal static class V3TransitionPlanner
-    {
-        // The Revit-dependent geometry/profile comparator is unchanged; isolate it in this unit test.
-        internal static bool SameStructure(V3SegmentWork lower, V3SegmentWork upper) => lower.MatchingStructure && upper.MatchingStructure;
-    }
+
 }
 
 static class StarterTests
@@ -75,8 +79,8 @@ static class StarterTests
         Reject(()=>V3StarterConnection.Resolve(Pair(length:600)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:double.NaN)),"hữu hạn");
         Reject(()=>V3StarterConnection.Resolve(Pair(gap:double.PositiveInfinity)),"không hợp lệ");
-        pair=Pair();pair[1].MatchingStructure=false;
-        Reject(()=>V3StarterConnection.Resolve(pair),"thay đổi tiết diện");
+        pair=Pair();pair[1].Config.Cx=5;
+        Reject(()=>V3StarterConnection.Resolve(pair),"Khác số thanh");
         pair=Pair();pair[0].Config.StaggerSplices=true;
         Reject(()=>V3StarterConnection.Resolve(pair),"so le");
         pair=Pair();pair[0].Config.BottleneckRibbed=false;

@@ -8,6 +8,10 @@
     <Compile Include="AnchorTests.cs.txt" />
     <Compile Include="../../ColumnRebarPro/V3/V3BottleneckRules.cs" Link="V3BottleneckRules.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3StarterConnection.cs" Link="V3StarterConnection.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3ColumnPairing.cs" Link="V3ColumnPairing.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3ConnectionAdapter.cs" Link="V3ConnectionAdapter.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3ProfileGeometry.cs" Link="V3ProfileGeometry.cs" />
+    <Compile Include="PairingTests.cs.txt" />
     <Compile Include="StarterTests.cs.txt" />
     <Compile Include="Program.cs.txt" />
   </ItemGroup>

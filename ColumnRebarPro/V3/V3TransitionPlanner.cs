@@ -25,19 +25,5 @@ namespace ColumnRebarPro.V3
             return inward.GetLength() > 1e-4 ? inward.Normalize() : -geometry.Y;
         }
 
-        internal static bool SameStructure(V3SegmentWork lower, V3SegmentWork upper)
-        {
-            V3RebarConfig a = lower.Config, b = upper.Config;
-            V3Geometry g = lower.Geometry, h = upper.Geometry;
-            return a.Cx == b.Cx && a.Cy == b.Cy &&
-                System.Math.Abs(a.MainDiameter - b.MainDiameter) < .01 &&
-                System.Math.Abs(a.TieDiameter - b.TieDiameter) < .01 &&
-                System.Math.Abs(a.Cover - b.Cover) < .01 &&
-                System.Math.Abs(g.Width - h.Width) < V3Units.Ft(2) &&
-                System.Math.Abs(g.Depth - h.Depth) < V3Units.Ft(2) &&
-                System.Math.Abs(g.Center.X - h.Center.X) < V3Units.Ft(2) &&
-                System.Math.Abs(g.Center.Y - h.Center.Y) < V3Units.Ft(2) &&
-                g.X.DotProduct(h.X) > .9999 && g.Y.DotProduct(h.Y) > .9999;
-        }
     }
 }

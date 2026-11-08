@@ -69,6 +69,7 @@ static class Program
             Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
         AnchorTests.Run();
         StarterTests.Run();
+        PairingTests.Run();
         Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
     }
 }

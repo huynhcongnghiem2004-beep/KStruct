@@ -11,15 +11,19 @@ khoảng hở dầm/sàn 400 mm. Luồng mới xét chiều dài thép thực th
 - Ví dụ khoảng hở 400 mm, d20, cover tầng trên 30 mm: L=1000 mm cho đoạn nối thẳng
   560 mm. L=600 mm chỉ còn 160 mm, không đủ giới hạn dưới 400 mm; giao diện báo cần
   ít nhất 840 mm. Đây chưa phải chiều dài nối tính toán cuối cùng.
-- Khi có cặp cột cùng tiết diện/cấu hình, thanh dưới nhấn lệch vào lõi trước đỉnh cột,
-  thanh trên giữ thẳng. Khi chưa có cột trên, thép chờ tự do giữ thẳng.
-- Độ dịch tâm = đường kính thanh + khe hở; mặc định khe hở dựng hình 2 mm.
-  Chiều cao đoạn nhấn = độ dịch tâm × n, với tỷ lệ xiên 1:n mặc định 1:6.
-  Khe hở 2 mm và tỷ lệ 1:6 là giá trị dựng hình có thể chỉnh, không gán cho TCVN 5574.
-- Hướng nhấn nằm trong cùng mặt phẳng thanh, kể cả thanh có neo L ở móng. Các set
-  Fixed Number giữ mặt phẳng hợp lệ, không đổi số thanh và không tạo trùng góc.
-- Preview thể hiện khoảng hở theo cao độ thực, đoạn nhấn và thanh đứng tầng trên.
-  Preview là sơ đồ; hình uốn cuối lấy từ Rebar trong mô hình.
+- Khi hai tầng có cùng số thanh và phân bố cạnh tương thích, lệnh ghép từng thanh theo
+  tọa độ mô hình, giữ ghép góc với góc. Có thể khác tiết diện, cover, đường kính hoặc
+  hướng trục; không còn chặn chỉ vì các thông số này khác nhau.
+- Thanh dưới nhấn đến vị trí nằm cạnh thanh trên; thanh trên giữ thẳng. Khoảng cách tâm
+  tại đoạn nối = (d dưới + d trên)/2 + khe hở, mặc định khe hở dựng hình 2 mm.
+  Độ dịch và chiều cao nhấn tính riêng từng thanh; chiều cao = độ dịch × n, mặc định 1:6.
+  Khe hở và tỷ lệ này là thông số dựng hình, không gán cho TCVN 5574.
+- Chỉ ghép Fixed Number khi đường thanh phẳng, cùng hình dạng và phân bố đều theo
+  phương vuông góc mặt phẳng. Thanh khác hình tách riêng; neo L kết hợp nhấn khác mặt
+  phẳng dùng FreeForm có cung uốn. Không ép các thanh khác hình vào một set.
+- Tab Thép chờ/Neo móng có bảng thông số hai tầng, kết quả ghép và lỗi cụ thể.
+  Preview chiếu các vị trí ghép theo trục X cột dưới, có thể chồng hình; hiển thị khoảng
+  hở và vị trí cột trên. Hình uốn cuối phải kiểm tra trên Rebar trong mô hình.
 
 ## Phạm vi kiểm tra tiêu chuẩn
 
@@ -40,14 +44,18 @@ thanh giao nhau hoặc Revit tạo bán kính dưới mức kiểm tra thì roll
 
 ## Giới hạn và kiểm thử
 
-Giữ chặn cột chồng cao độ quá 2 mm, đổi tiết diện/cấu hình, nối so le và cấu hình nối cũ
-chưa hỗ trợ. Không tự nhận diện cấu kiện bê tông trong khoảng hở; không kiểm tra toàn bộ
-cấu tạo nối theo TCVN và không tự thay giá trị chiều dài đã nhập.
+Giữ chặn cột chồng cao độ quá 2 mm, khác số thanh, phân bố cạnh không ghép được góc,
+phương án ghép mơ hồ, thiếu cover/chiều dài hoặc giao đường tâm nhấn. Không tự bổ sung
+hay kết thúc thanh khi đổi số lượng. Nối so le và cấu hình nối cũ chưa hỗ trợ.
+Không tự nhận diện bê tông trong khoảng hở và không tự thay chiều dài đã nhập.
+Kiểm tra tránh giao hiện xét các đoạn đường tâm trước bo; chưa thay thế kiểm tra va chạm
+solid, đai và toàn bộ thanh sau khi Revit dựng.
 
-Bộ `tests/ColumnRebarLayout` chạy resolver thực với đối tượng hình học thay thế Revit:
-khoảng hở 0/400/1500 mm, dung sai chồng, thiếu chiều dài, cột trên ngắn, nhiều tầng,
-reset trạng thái, giới hạn gối uốn và xung đột tâm thanh. Bộ so sánh tiết diện Revit được
-thay thế trong kiểm thử này, không dùng kiểm thử để xác nhận hình học Revit thực.
+Bộ `tests/ColumnRebarLayout` liên kết trực tiếp bộ ghép, adapter, resolver và toán đường
+thanh dùng trong ứng dụng; không thay bộ so sánh bằng boolean giả. Kiểm tra đổi tiết diện,
+cover, đai, đường kính, tâm, xoay/mirror, đổi số thanh, phân bố cạnh, neo L, nhóm set,
+đường nhiều mặt phẳng, cung uốn, khoảng hở 0/400/1500 mm và chiều dài nối.
+Build CI dùng API Revit 2024; kiểm tra toán học và build không xác nhận chạy Revit thực.
 
 Cần thử trong Revit 2024 trên bản sao mô hình: cột Trệt/Lầu 1 hở 400 mm; mở tab Thép chờ
 để xem phần nối còn lại; chọn loại thép có gân và chiều dài phù hợp; kiểm tra cả GroupLongBars

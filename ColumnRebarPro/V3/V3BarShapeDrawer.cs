@@ -35,7 +35,7 @@ namespace ColumnRebarPro.V3
                 if (part == null || !partitions.Contains(part.AsString())) continue;
 
                 IList<Curve> curves;
-                try { curves = r.GetCenterlineCurves(false, true, true, MultiplanarOption.IncludeOnlyPlanarCurves, 0); }
+                try { curves = r.GetCenterlineCurves(false, true, true, r.IsRebarFreeForm() ? MultiplanarOption.IncludeAllMultiplanarCurves : MultiplanarOption.IncludeOnlyPlanarCurves, 0); }
                 catch { continue; }
                 if (curves == null || curves.Count == 0) continue;
 
