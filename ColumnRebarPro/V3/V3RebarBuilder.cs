@@ -90,33 +90,44 @@ namespace ColumnRebarPro.V3
             ValidateProjectTypes(doc,works);
             var types = new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
             V3RebarValidator.Preflight(works);
-            foreach (var work in works)
+            using (var attempt = new SubTransaction(doc))
             {
-                RebarBarType mainType = FindBarType(types, work.Config.MainDiameter);
-                RebarBarType tieType = FindBarType(types, work.Config.TieDiameter);
+                attempt.Start();
+                try
+                {
+                    foreach (var work in works)
+                    {
+                        RebarBarType mainType = FindBarType(types, work.Config.MainDiameter);
+                        RebarBarType tieType = FindBarType(types, work.Config.TieDiameter);
+                        if (mainType == null || tieType == null)
+                            throw new InvalidOperationException("Không tìm thấy loại thép đúng đường kính cho cột " + work.Column.Id.Value);
 
-                if (mainType == null || tieType == null)
-                    throw new InvalidOperationException("Không tìm thấy loại thép đúng đường kính cho cột " + work.Column.Id.Value);
+                        RebarHookType hook135=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook135UniqueId,135,
+                            work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                        RebarHookType hook90=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook90UniqueId,90,
+                            work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                        var existing = ExistingRebar(doc, work.Column.Id);
+                        if (existing.Count > 0 && !replaceOld)
+                            throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
+                        if (replaceOld && existing.Count > 0) doc.Delete(existing);
 
-                RebarHookType hook135=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook135UniqueId,135,
-                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
-                RebarHookType hook90=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook90UniqueId,90,
-                    work.Config.CrossTies && work.Config.CrossTiesAlternating);
-
-                var existing = ExistingRebar(doc, work.Column.Id);
-                if (existing.Count > 0 && !replaceOld)
-                    throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
-                if (replaceOld && existing.Count > 0) doc.Delete(existing);
-
-                if (work.FoundationHost != null || work.BottleneckToUpper)
-                    V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);
-                else if (work.Config.GroupLongBars)
-                    V3RebarSetCreator.CreateLongitudinalSets(doc, work, mainType, report);
-                else
-                    BuildMainBars(doc, work, mainType, report);
-                V3RebarSetCreator.CreateTies(doc, work, tieType, hook135, hook90, report);
-
-                report.ColumnCount++;
+                        if (work.FoundationHost != null || work.BottleneckToUpper)
+                            V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);
+                        else if (work.Config.GroupLongBars)
+                            V3RebarSetCreator.CreateLongitudinalSets(doc, work, mainType, report);
+                        else
+                            BuildMainBars(doc, work, mainType, report);
+                        V3RebarSetCreator.CreateTies(doc, work, tieType, hook135, hook90, report);
+                        report.ColumnCount++;
+                    }
+                    if (attempt.Commit() != TransactionStatus.Committed)
+                        throw new InvalidOperationException("Revit không chấp nhận tạo thép từ Rebar Shape; thép V3 cũ được giữ nguyên.");
+                }
+                catch
+                {
+                    if (attempt.GetStatus() == TransactionStatus.Started) attempt.RollBack();
+                    throw;
+                }
             }
 
             return report;
@@ -124,17 +135,38 @@ namespace ColumnRebarPro.V3
 
         internal static void ValidateProjectTypes(Document doc,IList<V3SegmentWork> works)
         {
-            if(!new FilteredElementCollector(doc).OfClass(typeof(RebarShape)).Any())
-                throw new InvalidOperationException("Project chưa có Rebar Shape. Nạp shape phù hợp; lệnh chỉ dùng shape có sẵn.");
             var types=new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
             foreach(var work in works)
             {
                 var type=FindBarType(types,work.Config.TieDiameter);
                 if(type==null)throw new InvalidOperationException("Không tìm thấy loại thép đai D"+work.Config.TieDiameter+" trong project.");
-                V3ProjectRebar.Hook(doc,type,work.Config.TieHook135UniqueId,135,
+                var mainType=FindBarType(types,work.Config.MainDiameter);
+                V3RebarShapeFactory.Resolve(doc,work.Config.LongitudinalShapeUniqueId,
+                    V3RebarShapeGroup.Longitudinal,work.Config.TieStyle,false,mainType,work.Column.Id);
+                if(work.FoundationHost!=null || work.BottleneckToUpper)
+                    V3RebarShapeFactory.Resolve(doc,work.Config.AnchorShapeUniqueId,
+                        V3RebarShapeGroup.Anchor,work.Config.TieStyle,false,mainType,work.Column.Id);
+                V3RebarShapeFactory.Resolve(doc,work.Config.OuterTieShapeUniqueId,
+                    V3RebarShapeGroup.OuterTie,work.Config.TieStyle,false,type,work.Column.Id);
+                if(work.Config.CrossTies)
+                    V3RebarShapeFactory.Resolve(doc,work.Config.CrossTieShapeUniqueId,
+                        V3RebarShapeGroup.CrossTie,work.Config.TieStyle,work.Config.CrossTiesAlternating,type,work.Column.Id);
+                RebarHookType hook135=V3ProjectRebar.Hook(doc,type,work.Config.TieHook135UniqueId,135,
                     work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
-                V3ProjectRebar.Hook(doc,type,work.Config.TieHook90UniqueId,90,
+                RebarHookType hook90=V3ProjectRebar.Hook(doc,type,work.Config.TieHook90UniqueId,90,
                     work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                if(work.Config.TieStyle==V3TieStyle.Hook135 && hook135==null)
+                    throw new InvalidOperationException("Chưa chọn Hook 135° có sẵn cho cột "+work.Column.Id.Value+".");
+                if(work.Config.TieStyle==V3TieStyle.Hook135 && !type.GetHookPermission(hook135.Id))
+                    throw new InvalidOperationException("RebarBarType đai không cho phép Hook 135° đã chọn ở cột "+work.Column.Id.Value+".");
+                if(work.Config.CrossTies && hook135==null)
+                    throw new InvalidOperationException("Chưa chọn Hook 135° cho đai phụ ở cột "+work.Column.Id.Value+".");
+                if(work.Config.CrossTiesAlternating && work.Config.CrossTies && hook90==null)
+                    throw new InvalidOperationException("Chưa chọn Hook 90° cho đai phụ luân phiên ở cột "+work.Column.Id.Value+".");
+                if(work.Config.CrossTiesAlternating && work.Config.CrossTies &&
+                    !type.GetHookPermission(hook90.Id))
+                    throw new InvalidOperationException("RebarBarType đai không cho phép Hook 90° đã chọn ở cột "+work.Column.Id.Value+".");
+                if(mainType==null)throw new InvalidOperationException("Không tìm thấy loại thép dọc đúng đường kính cho cột "+work.Column.Id.Value+".");
                 if(work.FoundationHost!=null || work.BottleneckToUpper)
                     foreach(var path in V3RebarSetCreator.ConnectionPaths(work))
                     {
@@ -175,79 +207,24 @@ namespace ColumnRebarPro.V3
             List<XYZ> barPoints = MainBarCenters(work);
             double zMin = geo.Bottom + V3Units.Ft(cfg.Cover + cfg.MainDiameter / 2);
             double zMax = geo.Top - V3Units.Ft(cfg.Cover + cfg.MainDiameter / 2);
-
+            RebarShape shape = V3RebarShapeFactory.Resolve(doc, cfg.LongitudinalShapeUniqueId,
+                V3RebarShapeGroup.Longitudinal, cfg.TieStyle, false, barType, work.Column.Id);
             for (int i = 0; i < barPoints.Count; i++)
             {
                 XYZ basePt = barPoints[i];
-                var curves = new List<Curve>();
                 XYZ p0 = new XYZ(basePt.X, basePt.Y, zMin);
-
-                V3Transition tr = work.TransitionUp;
-                if (tr != null && i < tr.Terminated.Count && tr.Terminated[i])
-                {
-                    curves.Add(Line.CreateBound(p0, new XYZ(basePt.X, basePt.Y, zMax)));
-                }
-                else if (tr != null && i < tr.UpperStarts.Count)
-                {
-                    double zJoint = tr.JointZ;
-                    double ext = V3Units.Ft(cfg.StarterBars ? cfg.StarterLength : tr.LapLength);
-                    double bendFt = V3Units.Ft(tr.LowerBend[i]);
-                    double tol = doc.Application.ShortCurveTolerance;
-                    XYZ p1 = new XYZ(tr.LapPoints[i].X, tr.LapPoints[i].Y, zJoint);
-                    XYZ p2 = new XYZ(tr.UpperStarts[i].X, tr.UpperStarts[i].Y, zJoint);
-                    XYZ p3 = new XYZ(p2.X, p2.Y, zJoint + ext);
-
-                    if (bendFt > tol)
-                    {
-                        XYZ pA = new XYZ(basePt.X, basePt.Y, zJoint - bendFt);
-                        curves.Add(Line.CreateBound(p0, pA));
-                        curves.Add(Line.CreateBound(pA, p1));
-                    }
-                    else curves.Add(Line.CreateBound(p0, p1));
-                    if (p1.DistanceTo(p2) > tol) curves.Add(Line.CreateBound(p1, p2));
-                    curves.Add(Line.CreateBound(p2, p3));
-                }
-                else
-                {
-                    double topZ = cfg.StarterBars ? geo.Top + V3Units.Ft(cfg.StarterLength) : zMax;
-                    curves.Add(Line.CreateBound(p0, new XYZ(basePt.X, basePt.Y, topZ)));
-                }
-
-                XYZ planeNormal = GetCurvePlaneNormal(curves, geo.X);
-                Rebar rebar = SDK_HD.KStruct.NativeRebar.ExistingProjectRebar.Create(
-                    doc, RebarStyle.Standard, barType, null, null,
-                    work.FoundationHost ?? (Element)work.Column,
-                    planeNormal, curves, RebarHookOrientation.Left, RebarHookOrientation.Left, "Thép dọc cột " + work.Column.Id.Value);
-
-                if (rebar != null)
-                {
-                    SetPartition(rebar, work.Column.Id);
-                    report.MainBars++;
-                }
+                double topZ = cfg.StarterBars ? geo.Top + V3Units.Ft(cfg.StarterLength) : zMax;
+                XYZ p1 = new XYZ(basePt.X, basePt.Y, topZ);
+                XYZ widthAxis=geo.X;
+                XYZ xVector=XYZ.BasisZ*(topZ-p0.Z);
+                XYZ yVector=widthAxis*barType.BarNominalDiameter;
+                Rebar rebar = V3RebarShapeFactory.Create(doc, shape, barType, work.Column, p0,
+                    xVector, yVector, work.Column.Id, "thanh dọc");
+                V3RebarShapeFactory.ValidateEnvelope(rebar, new[] { p0, p1 }, V3Units.Ft(2),
+                    work.Column.Id, "thanh dọc");
+                SetPartition(rebar, work.Column.Id);
+                report.MainBars++;
             }
-        }
-        private static XYZ GetCurvePlaneNormal(IList<Curve> curves, XYZ fallback)
-        {
-            if (curves == null || curves.Count < 2) return fallback;
-            XYZ origin = curves[0].GetEndPoint(0);
-            XYZ first = null;
-            double tolerance = 1e-8;
-            foreach (Curve curve in curves)
-            {
-                XYZ direction = curve.GetEndPoint(1) - curve.GetEndPoint(0);
-                if (direction.GetLength() <= tolerance) continue;
-                if (first == null)
-                {
-                    first = direction.Normalize();
-                    continue;
-                }
-
-                XYZ offset = curve.GetEndPoint(0) - origin;
-                XYZ normal = first.CrossProduct(direction);
-                if (normal.GetLength() <= tolerance) normal = first.CrossProduct(offset);
-                if (normal.GetLength() > tolerance) return normal.Normalize();
-            }
-            return fallback;
         }
 
     }

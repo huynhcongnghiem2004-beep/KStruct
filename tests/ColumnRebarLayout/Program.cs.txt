@@ -72,6 +72,28 @@ static class Program
         PairingTests.Run();
         LegacySpliceTests.Run();
         HookTests.Run();
+        var savedShapeConfig = new V3RebarConfig {
+            LongitudinalShapeUniqueId = "long-shape",
+            AnchorShapeUniqueId = "anchor-shape",
+            OuterTieShapeUniqueId = "outer-shape",
+            CrossTieShapeUniqueId = "cross-shape"
+        };
+        var copiedShapeConfig = savedShapeConfig.Copy();
+        Check(copiedShapeConfig.LongitudinalShapeUniqueId == "long-shape" &&
+            copiedShapeConfig.AnchorShapeUniqueId == "anchor-shape" &&
+            copiedShapeConfig.OuterTieShapeUniqueId == "outer-shape" &&
+            copiedShapeConfig.CrossTieShapeUniqueId == "cross-shape",
+            "Shape selections are copied per column");
+        using (var writer = new System.IO.StringWriter())
+        {
+            new System.Xml.Serialization.XmlSerializer(typeof(V3RebarConfig)).Serialize(writer, savedShapeConfig);
+            var restored = V3LegacySplice.Read(new System.IO.StringReader(writer.ToString()));
+            Check(restored.LongitudinalShapeUniqueId == "long-shape" &&
+                restored.AnchorShapeUniqueId == "anchor-shape" &&
+                restored.OuterTieShapeUniqueId == "outer-shape" &&
+                restored.CrossTieShapeUniqueId == "cross-shape",
+                "Shape selections persist through XML profiles");
+        }
         Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
     }
 }
