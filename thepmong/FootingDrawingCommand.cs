@@ -62,7 +62,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     TaskDialog.Show("KStruct - Hồ sơ móng", "Khi dùng sheet có sẵn, hãy chọn một móng mỗi lần để tránh chồng viewport.");
                     return Result.Cancelled;
                 }
-                if (config.Profile.OutputLayers == "None" && !config.Profile.CreateSections)
+                if (config.Profile.OutputLayers == "None" && !config.Profile.HasDetails)
                 {
                     TaskDialog.Show("KStruct - Hồ sơ móng", "Cần bật callout mặt bằng hoặc mặt cắt.");
                     return Result.Cancelled;

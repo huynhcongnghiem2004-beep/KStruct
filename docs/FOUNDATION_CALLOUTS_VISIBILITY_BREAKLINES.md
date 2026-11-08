@@ -63,3 +63,9 @@ Build/test thuật toán không xác nhận hiển thị/mặt che/link marker t
 ## View vượt ô bố trí trên sheet
 
 View hoặc tiêu đề vượt ô bố trí, hoặc có khả năng chồng nội dung trên sheet, chỉ tạo cảnh báo sau khi hoàn tất. Lệnh giữ các view và viewport, tiếp tục đặt các view còn lại, giữ tỷ lệ đã chọn. Có thể kéo viewport/tiêu đề sau khi tạo. Vùng đặt không hợp lệ hoặc Revit không cho đặt view lên sheet vẫn là lỗi thực thi cần xử lý.
+
+## Chọn riêng Detail A–A và B–B
+
+Hai checkbox độc lập cho phép tạo chỉ A–A, chỉ B–B, cả hai hoặc chỉ mặt bằng khi tắt cả hai. Mỗi Detail được chọn vẫn tham chiếu từ callout; chọn một Detail sẽ bật callout và ít nhất một mặt bằng. Offset và đảo hướng của mặt cắt bị tắt sẽ khóa nhập. Preview mặt bằng/sheet, tạo view, mã vai trò X/Y và danh sách liên kết chỉ dùng những Detail được chọn; chỉ B–B vẫn mang vai trò Detail-Y.
+
+Lựa chọn A/B được lưu trong preset và lựa chọn lần trước. Preset cũ chưa có hai trường mới dùng công tắc CreateSections cũ: bật tạo cả hai, tắt không tạo Detail nào. Type, template, tỷ lệ và chiều sâu nhìn hiện vẫn dùng chung cho các Detail được bật.

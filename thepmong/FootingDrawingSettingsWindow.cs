@@ -53,7 +53,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _topLayer = new CheckBox { Content = "Tạo chế độ xem chi tiết trên cùng", IsChecked = true, Margin = new Thickness(4) };
         private readonly CheckBox _bottomLayer = new CheckBox { Content = "Tạo chế độ xem chi tiết dưới cùng", IsChecked = true, Margin = new Thickness(4) };
         private readonly CheckBox _callouts = new CheckBox { Content = "Tạo callout mặt bằng", IsChecked = true };
-        private readonly CheckBox _sections = new CheckBox { Content = "Tạo hai mặt cắt vuông góc", IsChecked = true };
+        private readonly CheckBox _detailA = new CheckBox { Content = "Detail A–A", IsChecked = true };
+        private readonly CheckBox _detailB = new CheckBox { Content = "Detail B–B", IsChecked = true };
+        private bool AnyDetailSelected => _detailA.IsChecked == true || _detailB.IsChecked == true;
         private readonly CheckBox _dimensions = new CheckBox { Content = "Tạo kích thước host", IsChecked = true };
         private readonly CheckBox _tags = new CheckBox { Content = "Gắn tag móng và Rebar", IsChecked = true };
         private readonly CheckBox _newSheet = new CheckBox { Content = "Tạo sheet mới cho từng móng", IsChecked = true };
@@ -127,7 +129,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _existingSheet.SelectionChanged += (s, e) => { if (_existingSheet.SelectedItem is Item i && i.Element is ViewSheet) _newSheet.IsChecked = false; };
             _newSheet.Checked += (s, e) => _existingSheet.IsEnabled = false;
             _newSheet.Unchecked += (s, e) => _existingSheet.IsEnabled = true;
-            foreach (CheckBox check in new[] { _topLayer, _bottomLayer, _callouts, _sections, _dimensions, _tags })
+            foreach (CheckBox check in new[] { _topLayer, _bottomLayer, _callouts, _detailA, _detailB, _dimensions, _tags })
             { check.Checked += (s, e) => RefreshPreviews(); check.Unchecked += (s, e) => RefreshPreviews(); }
             foreach (ComboBox combo in new[] { _planType, _detailType, _planTemplate, _sectionTemplate, _dimension, _rebarTag, _foundationTag })
                 combo.SelectionChanged += (s, e) => RefreshPreviews();
@@ -150,6 +152,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
         private void RefreshPreviews()
         {
+            _sectionXOffset.IsEnabled = _reverseX.IsEnabled = _detailA.IsChecked == true;
+            _sectionYOffset.IsEnabled = _reverseY.IsEnabled = _detailB.IsChecked == true;
+            _detailType.IsEnabled = _sectionTemplate.IsEnabled = _sectionScale.IsEnabled = _sectionDepth.IsEnabled = AnyDetailSelected;
             if (_planCanvas == null || _sectionCanvas == null) return;
             try { DrawModelPlanPreview(_planCanvas); DrawSheetPreview(_sectionCanvas); }
             catch (Exception ex) { _status.Text = "Không xem trước được móng: " + ex.Message; }
@@ -296,7 +301,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             ReverseSectionX = _reverseX.IsChecked == true, ReverseSectionY = _reverseY.IsChecked == true,
             SheetRightReserveMm = ParseDouble(_reserveRight.Text, 70), SheetBottomReserveMm = ParseDouble(_reserveBottom.Text, 35),
             SheetMarginMm = ParseDouble(_sheetMargin.Text, 10), SourceViewUniqueId = Selected(_sourcePlan)?.UniqueId,
-            CreateCallouts = _callouts.IsChecked == true, CreateSections = _sections.IsChecked == true,
+            CreateCallouts = _callouts.IsChecked == true, CreateSections = AnyDetailSelected, CreateDetailA = _detailA.IsChecked == true, CreateDetailB = _detailB.IsChecked == true,
             CreateDimensions = _dimensions.IsChecked == true, CreateTags = _tags.IsChecked == true,
             PlaceOnNewSheet = _newSheet.IsChecked == true, ExistingSheetUniqueId = SheetUniqueId(_existingSheet)
         };
@@ -324,7 +329,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _bottomLayer.IsChecked = p.OutputLayers == "Bot" || p.OutputLayers == "Both";
             _sheetPrefix.Text = p.SheetPrefix ?? "KSMD-"; _sheetName.Text = p.SheetNamePattern ?? "Móng đơn - {Mark}"; _viewName.Text = p.ViewNamePattern ?? "KStruct - MĐ {Id} - {Role}";
             _planScale.Text = p.PlanScale.ToString(); _sectionScale.Text = p.SectionScale.ToString(); _cropMargin.Text = p.CropMarginMm.ToString("0.##");
-            _callouts.IsChecked = p.CreateCallouts; _sections.IsChecked = p.CreateSections; _dimensions.IsChecked = p.CreateDimensions; _tags.IsChecked = p.CreateTags;
+            _callouts.IsChecked = p.CreateCallouts; _detailA.IsChecked = p.WantsDetailA; _detailB.IsChecked = p.WantsDetailB; _dimensions.IsChecked = p.CreateDimensions; _tags.IsChecked = p.CreateTags;
             _newSheet.IsChecked = p.PlaceOnNewSheet; _existingSheet.IsEnabled = !p.PlaceOnNewSheet;
             var sheet = new FilteredElementCollector(_doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>().FirstOrDefault(x => x.UniqueId == p.ExistingSheetUniqueId);
             _existingSheet.SelectedIndex = 0;
@@ -397,23 +402,23 @@ namespace SDK_HD.KStruct.NativeDocumentation
         {
             if (CheckedFootings.Count == 0)
             { MessageBox.Show(this, "Hãy tích chọn ít nhất một móng.", "Thiếu móng"); return; }
-            if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true && _sections.IsChecked != true)
+            if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true && !AnyDetailSelected)
             { MessageBox.Show(this, "Hãy chọn ít nhất một mặt bằng hoặc mặt cắt.", "Thiếu view"); return; }
-            if (_sections.IsChecked == true && (_callouts.IsChecked != true || (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true)))
+            if (AnyDetailSelected && (_callouts.IsChecked != true || (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true)))
             { MessageBox.Show(this, "Mặt cắt cần callout móng. Hãy bật Callout và chọn thép trên hoặc dưới.", "Thiếu callout"); return; }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
             { MessageBox.Show(this, "Hãy chọn mặt bằng nguồn hoặc tắt callout để tạo plan độc lập.", "Thiếu view nguồn"); return; }
             ViewFamilyType detail = Selected(_detailType) as ViewFamilyType;
-            if (!(Selected(_planType) is ViewFamilyType plan) || (_sections.IsChecked == true && detail == null) || (_newSheet.IsChecked == true && !(Selected(_titleBlock) is FamilySymbol)))
+            if (!(Selected(_planType) is ViewFamilyType plan) || (AnyDetailSelected && detail == null) || (_newSheet.IsChecked == true && !(Selected(_titleBlock) is FamilySymbol)))
             { MessageBox.Show(this, "Cần chọn View Type mặt bằng, Detail Type và Title Block khi tạo sheet mới.", "Thiếu cấu hình", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-            if (_sections.IsChecked == true && detail.ViewFamily != ViewFamily.Detail)
+            if (AnyDetailSelected && detail.ViewFamily != ViewFamily.Detail)
             { MessageBox.Show(this, "Cần chọn Detail Type, không dùng Section Type.", "Sai loại view"); return; }
             if (_callouts.IsChecked == true && source != null && plan.ViewFamily != (_doc.GetElement(source.GetTypeId()) as ViewFamilyType)?.ViewFamily)
             { MessageBox.Show(this, "Callout phải dùng View Type cùng họ với mặt bằng nguồn.", "View Type không tương thích", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             int planScale = ParseInt(_planScale.Text, -1), sectionScale = ParseInt(_sectionScale.Text, -1);
             double margin = ParseDouble(_cropMargin.Text, -1);
-            if (planScale <= 0 || sectionScale <= 0 || double.IsNaN(margin) || double.IsInfinity(margin) || margin < 0)
+            if (planScale <= 0 || (AnyDetailSelected && sectionScale <= 0) || double.IsNaN(margin) || double.IsInfinity(margin) || margin < 0)
             { MessageBox.Show(this, "Tỷ lệ phải là số nguyên dương; lề crop không được âm.", "Thông số chưa hợp lệ", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             if (_newSheet.IsChecked != true && !(Selected(_existingSheet) is ViewSheet))
             { MessageBox.Show(this, "Hãy chọn sheet hiện có hoặc bật tạo sheet mới.", "Thiếu sheet", MessageBoxButton.OK, MessageBoxImage.Warning); return; }

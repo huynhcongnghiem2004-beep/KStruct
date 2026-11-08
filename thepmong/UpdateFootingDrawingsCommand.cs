@@ -84,7 +84,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                 {
                                     FootingDrawingProfile options = FootingDrawingDetailState.Read(view, footing, out IList<string> targetIds);
                                     if (options == null) continue;
-                                    if (view is ViewPlan callout && options.CreateSections)
+                                    if (view is ViewPlan callout && options.HasDetails)
                                     {
                                         var targets = targetIds.Select(id => doc.GetElement(id)).OfType<ViewSection>()
                                             .Where(section => FootingDrawingStorage.TryRead(section, out string targetHost, out string targetRole, out double targetMargin) &&
