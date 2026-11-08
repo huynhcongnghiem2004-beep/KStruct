@@ -113,10 +113,13 @@ namespace ColumnRebarPro.V3
                         throw new InvalidOperationException("Số vị trí neo thực tế khác cấu hình Fixed Number.");
                     if (count >= 2)
                     {
-                        XYZ first = bar.GetBarPositionTransform(0).Origin;
-                        for (int position = 1; position < count; position++)
-                            if ((bar.GetBarPositionTransform(position).Origin - first).DistanceTo(step * position) > V3Units.Ft(.1))
-                                throw new InvalidOperationException("Hướng phân bố neo thực tế khác trục nhóm đã chọn; hủy tuyến để kiểm tra family/shape.");
+                        using (var accessor = bar.GetShapeDrivenAccessor())
+                        {
+                            XYZ first = accessor.GetBarPositionTransform(0).Origin;
+                            for (int position = 1; position < count; position++)
+                                if ((accessor.GetBarPositionTransform(position).Origin - first).DistanceTo(step * position) > V3Units.Ft(.1))
+                                    throw new InvalidOperationException("Hướng phân bố neo thực tế khác trục nhóm đã chọn; hủy tuyến để kiểm tra family/shape.");
+                        }
                     }
                     report.MainBars += count;
                 }

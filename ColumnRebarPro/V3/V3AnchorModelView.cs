@@ -26,7 +26,7 @@ namespace ColumnRebarPro.V3
             for (int i = 2; names.Contains(name); i++) name = prefix + "_" + i;
             view.Name = name;
             view.DetailLevel = ViewDetailLevel.Fine;
-            view.DisplayStyle = DisplayStyle.HiddenLine;
+            view.DisplayStyle = DisplayStyle.HLR;
             var box = work.FoundationHost.get_BoundingBox(null);
             if (box == null) throw new InvalidOperationException("Không đọc được phạm vi móng cho view 3D.");
             double padding = V3Units.Ft(200);
