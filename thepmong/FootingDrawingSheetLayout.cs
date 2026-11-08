@@ -8,7 +8,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
     internal static class FootingDrawingSheetLayout
     {
         private static double Feet(double mm) => UnitUtils.ConvertToInternalUnits(mm, UnitTypeId.Millimeters);
-        internal static void Place(Document doc, ViewSheet sheet, IList<View> views, FootingDrawingProfile profile)
+        internal static void Place(Document doc, ViewSheet sheet, IList<View> views, FootingDrawingProfile profile, IList<string> warnings)
         {
             doc.Regenerate();
             BoundingBoxUV outline = sheet.Outline;
@@ -39,9 +39,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 viewport.SetBoxCenter(viewport.GetBoxCenter() + center - new XYZ(extentCenter.X, extentCenter.Y, 0));
                 doc.Regenerate(); extent = Extent(viewport);
                 if (extent.MinimumPoint.X < x0 || extent.MaximumPoint.X > x1 || extent.MinimumPoint.Y < y0 || extent.MaximumPoint.Y > y1)
-                    throw new InvalidOperationException("View " + views[i].Name + " và tiêu đề không vừa ô sheet ở tỷ lệ 1:" + views[i].Scale + ". Hãy chọn khổ lớn hơn hoặc đổi tỷ lệ/vùng đặt.");
+                    warnings.Add("Đã đặt view " + views[i].Name + " lên sheet " + sheet.SheetNumber + " ở tỷ lệ 1:" + views[i].Scale + "; view hoặc tiêu đề vượt ô bố trí. Có thể kéo lại viewport/tiêu đề sau khi tạo.");
                 if (occupied.Any(o => Intersects(extent, o, gap / 2)))
-                    throw new InvalidOperationException("View " + views[i].Name + " chồng nội dung trên sheet. Hãy chọn sheet/vùng đặt khác.");
+                    warnings.Add("View " + views[i].Name + " có thể chồng nội dung trên sheet " + sheet.SheetNumber + "; hồ sơ vẫn được tạo, hãy chỉnh lại vị trí viewport/tiêu đề.");
                 occupied.Add(extent);
             }
         }

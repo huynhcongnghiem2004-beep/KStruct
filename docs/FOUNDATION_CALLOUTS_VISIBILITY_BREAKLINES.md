@@ -59,3 +59,7 @@ Build/test thuật toán không xác nhận hiển thị/mặt che/link marker t
 - Breakline trong Detail cắt solid theo cả hai mặt phẳng giới hạn chiều sâu, giữ mặt nắp của khối dầm xuyên qua vùng nhìn, rồi kiểm tra các tam giác trước khi chiếu; không dùng toàn bộ tam giác chỉ vì bounding depth giao nhau.
 - Mỗi view mới lưu vị trí và góc xoay móng. Cập nhật dịch/xoay Detail hiện hữu, kiểm tra lại hướng nhìn và mặt phẳng cắt rồi mới cập nhật crop và ký hiệu. Nếu API không chấp nhận thao tác thì rollback bộ móng. Detail cũ thiếu dữ liệu vị trí cần tạo lại.
 - Cần chạy Revit 2024 để xác nhận di chuyển/xoay Detail, reference thật của family móng/cột/cọc và hướng mask của family Breakline. Build và các kiểm tra độc lập không thay thế bước này.
+
+## View vượt ô bố trí trên sheet
+
+View hoặc tiêu đề vượt ô bố trí, hoặc có khả năng chồng nội dung trên sheet, chỉ tạo cảnh báo sau khi hoàn tất. Lệnh giữ các view và viewport, tiếp tục đặt các view còn lại, giữ tỷ lệ đã chọn. Có thể kéo viewport/tiêu đề sau khi tạo. Vùng đặt không hợp lệ hoặc Revit không cho đặt view lên sheet vẫn là lỗi thực thi cần xử lý.
