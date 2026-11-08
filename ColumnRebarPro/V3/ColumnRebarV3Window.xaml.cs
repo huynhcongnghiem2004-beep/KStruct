@@ -50,6 +50,7 @@ namespace ColumnRebarPro.V3
         public DeploymentSettingsFile DeploymentSettings { get { return DeploymentHost.Children.OfType<V3DeploymentControl>().Single().Capture(); } }
         public bool Accepted { get; private set; }
         internal V3FoundationAnchorSettings FoundationAnchorSettings { get; private set; }
+        public bool OpenAnchorModel => FoundationAnchorCheck.IsChecked == true && OpenAnchorModelCheck.IsChecked == true;
         public bool ReplaceOld { get { return OverwriteCheck.IsChecked == true; } }
         public Dictionary<long, V3RebarConfig> Configurations
         {
@@ -88,9 +89,13 @@ namespace ColumnRebarPro.V3
             MinHeight = Math.Min(MinHeight, workArea.Height);
             Width = Math.Min(Width, workArea.Width);
             Height = Math.Min(Height, workArea.Height);
-            bool anchorEnabled = FoundationAnchorCheck.IsChecked == true;
-            FoundationLengthBox.IsEnabled = anchorEnabled;
-            FoundationCoverBox.IsEnabled = anchorEnabled;
+            var bottomConfig = _configs[_segments[0].Id.Value];
+            FoundationAnchorCheck.IsChecked = bottomConfig.FoundationAnchorEnabled;
+            FoundationLengthBox.Text = bottomConfig.FoundationAnchorLength > 0 ? bottomConfig.FoundationAnchorLength.ToString(CultureInfo.InvariantCulture) : "";
+            FoundationCoverBox.Text = bottomConfig.FoundationAnchorCover > 0 ? bottomConfig.FoundationAnchorCover.ToString(CultureInfo.InvariantCulture) : "";
+            FoundationDirectionBox.SelectedIndex = Enum.IsDefined(typeof(V3AnchorDirection), bottomConfig.FoundationAnchorDirection)
+                ? (int)bottomConfig.FoundationAnchorDirection : 0;
+            SetFoundationControlState();
             var deployment = new V3DeploymentControl();
             DeploymentHost.Children.Add(deployment);
             if (document != null) deployment.Initialize(document);
@@ -395,7 +400,19 @@ namespace ColumnRebarPro.V3
                 MessageBox.Show(this,ex.Message,"KStruct - Thiết lập bản vẽ",MessageBoxButton.OK,MessageBoxImage.Warning);
                 return;
             }
-            try { FoundationAnchorSettings = CaptureFoundationAnchorSettings(); }
+            try
+            {
+                FoundationAnchorSettings = CaptureFoundationAnchorSettings();
+                var segment = _segments[0];
+                if (_document != null)
+                {
+                    var column = _document.GetElement(segment.Id) as Autodesk.Revit.DB.FamilyInstance;
+                    var work = new V3SegmentWork { Column = column, Segment = segment,
+                        Geometry = V3GeometryReader.Read(column), Config = _configs[segment.Id.Value].Copy() };
+                    V3FoundationAnchor.Attach(_document, work, FoundationAnchorSettings);
+                    _configs[segment.Id.Value] = work.Config;
+                }
+            }
             catch (Exception ex)
             {
                 MessageBox.Show(this, ex.Message, "KStruct - Neo thép xuống móng", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -404,41 +421,93 @@ namespace ColumnRebarPro.V3
             Accepted = true;
             DialogResult = true;
         }
-        private void FoundationAnchor_Changed(object sender, RoutedEventArgs e)
+        private void SetFoundationControlState()
         {
-            if (_loading) return;
             bool enabled = FoundationAnchorCheck.IsChecked == true;
             FoundationLengthBox.IsEnabled = enabled;
             FoundationCoverBox.IsEnabled = enabled;
+            FoundationDirectionBox.IsEnabled = enabled;
+            OpenAnchorModelCheck.IsEnabled = enabled;
+        }
+
+        private void FoundationAnchor_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            SetFoundationControlState();
             UpdateFoundationAnchorSummary();
         }
 
         private void UpdateFoundationAnchorSummary()
         {
             if (FoundationAnchorSummary == null) return;
-            double length;
-            if (!double.TryParse(FoundationLengthBox.Text.Trim().Replace(',', '.'), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out length) || length <= 0)
-            {
-                FoundationAnchorSummary.Text = "Nhập chiều dài neo chân L theo chi tiết thiết kế đã duyệt. KStruct không tính chiều dài neo.";
-                return;
-            }
-            FoundationAnchorSummary.Text = "Chiều dài neo chân L lấy từ hồ sơ thiết kế: " +
-                length.ToString("0.##", CultureInfo.InvariantCulture) + " mm.";
+            var bottom = _configs[_segments[0].Id.Value];
+            FoundationAnchorSummary.Text = "Áp dụng tại " + _segments[0].LevelName + ": " + FormatBars(bottom) +
+                (bottom.GroupLongBars ? " — nhóm Fixed Number theo cạnh (1 thanh dùng Single)." : " — tạo từng thanh.") +
+                " Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang = tổng kích thước nhập trừ đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
+            DrawFoundationPreview();
         }
 
         private V3FoundationAnchorSettings CaptureFoundationAnchorSettings()
         {
             if (FoundationAnchorCheck.IsChecked != true) return new V3FoundationAnchorSettings { Enabled = false };
-            double length = ReadPositive(FoundationLengthBox, "Chiều dài neo theo thiết kế");
-            double cover = ReadPositive(FoundationCoverBox, "Cover đáy móng");
+            if (FoundationDirectionBox.SelectedIndex < 0)
+                throw new InvalidOperationException("Chọn hướng chân neo theo trục cột.");
             return new V3FoundationAnchorSettings
             {
                 Enabled = true,
-                CoverMm = cover,
-                AnchorLengthMm = length
+                CoverMm = ReadPositive(FoundationCoverBox, "Cover móng"),
+                AnchorLengthMm = ReadPositive(FoundationLengthBox, "Tổng kích thước neo chân L"),
+                Direction = (V3AnchorDirection)FoundationDirectionBox.SelectedIndex
             };
         }
+
+        private void FoundationCanvas_SizeChanged(object sender, SizeChangedEventArgs e) => DrawFoundationPreview();
+
+        private void DrawFoundationPreview()
+        {
+            if (FoundationCanvas == null || _loading) return;
+            FoundationCanvas.Children.Clear();
+            if (FoundationAnchorCheck.IsChecked != true || FoundationDirectionBox.SelectedIndex < 0) return;
+            var segment = _segments[0];
+            var config = _configs[segment.Id.Value];
+            double width = FoundationCanvas.ActualWidth, height = FoundationCanvas.ActualHeight;
+            if (width < 100 || height < 100) return;
+            try
+            {
+                var plan = V3AnchorLayoutPlan.Create(config.Cx, config.Cy, segment.WidthMm, segment.DepthMm,
+                    config.Cover, config.TieDiameter, config.MainDiameter, (V3AnchorDirection)FoundationDirectionBox.SelectedIndex);
+                double scale = Math.Min((width - 100) / segment.WidthMm, (height - 90) / segment.DepthMm);
+                Func<double, double, Point> point = (x, y) => new Point(width / 2 + x * scale, height / 2 - y * scale);
+                Action<Point, Point, Brush> line = (a, b, brush) => FoundationCanvas.Children.Add(
+                    new Line { X1=a.X,Y1=a.Y,X2=b.X,Y2=b.Y,Stroke=brush,StrokeThickness=2 });
+                Point lower = point(-segment.WidthMm / 2, -segment.DepthMm / 2);
+                Point upper = point(segment.WidthMm / 2, segment.DepthMm / 2);
+                var outline = new Rectangle { Width=upper.X-lower.X,Height=lower.Y-upper.Y,
+                    Stroke=Brushes.SeaGreen,StrokeThickness=2 };
+                Canvas.SetLeft(outline,lower.X);Canvas.SetTop(outline,upper.Y);FoundationCanvas.Children.Add(outline);
+                foreach (var array in plan)
+                {
+                    for (int i=0;i<array.Count;i++)
+                    {
+                        Point p=point(array.X+array.StepX*i,array.Y+array.StepY*i);
+                        var dot=new Ellipse {Width=6,Height=6,Fill=Brushes.Firebrick};
+                        Canvas.SetLeft(dot,p.X-3);Canvas.SetTop(dot,p.Y-3);FoundationCanvas.Children.Add(dot);
+                    }
+                    Point start=point(array.X+array.StepX*(array.Count-1)/2,array.Y+array.StepY*(array.Count-1)/2);
+                    var end=new Point(start.X+array.HookX*24,start.Y-array.HookY*24);
+                    line(start,end,Brushes.RoyalBlue);
+                    var v=end-start;v.Normalize();var side=new Vector(-v.Y,v.X);
+                    line(end,end-v*7+side*4,Brushes.RoyalBlue);line(end,end-v*7-side*4,Brushes.RoyalBlue);
+                }
+                var text=new TextBlock {Text="+X →     +Y ↑",Foreground=Brushes.DimGray,FontSize=11};
+                Canvas.SetLeft(text,8);Canvas.SetTop(text,5);FoundationCanvas.Children.Add(text);
+            }
+            catch (InvalidOperationException)
+            {
+                FoundationCanvas.Children.Add(new TextBlock { Text="Nhập đủ cấu hình thép tại tầng chân tuyến.",TextWrapping=TextWrapping.Wrap,Width=280 });
+            }
+        }
+
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             Accepted = false;
@@ -468,6 +537,7 @@ namespace ColumnRebarPro.V3
                 : "—";
             DrawSection();
             DrawLongSection();
+            UpdateFoundationAnchorSummary();
         }
         private void LongSectionCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {

@@ -128,7 +128,7 @@
                                     <Grid Margin="0,9,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="107"/></Grid.ColumnDefinitions>
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Đường kính cốt đai chính"/><ComboBox Grid.Column="1" x:Name="TieBarBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                                     </Grid>
-                                    <CheckBox x:Name="GroupLongCheck" Margin="0,7,0,3" Content="Nhóm thép dọc (Fixed Number)" ToolTip="Áp dụng thanh thẳng; thanh neo chân L vẫn tạo riêng và có thông báo kết quả." Checked="Edit_Changed" Unchecked="Edit_Changed"/>
+                                    <CheckBox x:Name="GroupLongCheck" Margin="0,7,0,3" Content="Nhóm thép dọc (Fixed Number)" ToolTip="Tạo Fixed Number cho thanh thẳng và neo chân L theo cạnh; cạnh có 1 thanh dùng Single." Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                                     <CheckBox x:Name="GroupTiesCheck" Margin="0,3,0,3" Content="Nhóm thép đai (Rebar Set)" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                                     <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,6,0,6"/>
                                     <CheckBox x:Name="MainStarterCheck" Margin="0,2,0,3" Content="Thép chờ lên tầng trên (Starter Bars)" FontWeight="SemiBold" Foreground="#FF1B4EB0" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
@@ -181,35 +181,49 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Thép chờ / Neo móng">
-                <StackPanel Margin="20">
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Thép chờ theo thiết kế" Margin="0,0,0,14"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="18">
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Thép chờ và neo chân L" Margin="0,0,0,10"/>
                     <TextBlock Text="Cùng thiết lập thép chờ ở tab Hình học; thay đổi được đồng bộ hai tab." TextWrapping="Wrap" Margin="0,0,0,8"/>
-                    <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Margin="0,4,0,11" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,2,0,11">
+                    <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Margin="0,4,0,8" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
                         <TextBlock Text="Chiều dài chờ theo thiết kế (mm)" Width="280" VerticalAlignment="Center"/>
                         <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"/>
                     </StackPanel>
-                    <TextBlock Text="Chiều dài thép chờ phải nhập đúng theo chi tiết thiết kế đã duyệt; KStruct không tự tính hoặc làm tròn chiều dài." Margin="0,0,0,12" TextWrapping="Wrap"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="#FF9C3D26" Margin="0,0,0,14"
-                               Text="Nối chồng giữa tầng và chuyển tiếp khi đổi tiết diện chưa được hỗ trợ. Cấu hình cũ có nối chồng sẽ bị từ chối, không tự tạo thép suy diễn."/>
-                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" Padding="12" Margin="0,0,0,14" CornerRadius="4">
-                        <StackPanel>
-                            <CheckBox x:Name="FoundationAnchorCheck" Content="Thiết kế duyệt neo thép dọc xuống móng dạng chân L" IsChecked="False" FontWeight="SemiBold" Margin="0,0,0,8" Checked="FoundationAnchor_Changed" Unchecked="FoundationAnchor_Changed"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,3">
-                                <TextBlock Text="Chiều dài neo chân L theo thiết kế (mm)" Width="250" VerticalAlignment="Center"/>
-                                <TextBox x:Name="FoundationLengthBox" Width="150" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" Padding="12" CornerRadius="4">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="310"/></Grid.ColumnDefinitions>
+                            <CheckBox Grid.ColumnSpan="2" x:Name="FoundationAnchorCheck" Content="Neo chân L xuống móng tại chân tuyến" IsChecked="False" FontWeight="SemiBold" Margin="0,0,0,10" Checked="FoundationAnchor_Changed" Unchecked="FoundationAnchor_Changed"/>
+                            <StackPanel Grid.Row="1" Margin="0,0,14,0">
+                                <TextBlock Text="Tổng kích thước đoạn đứng + chân ngang (mm)" TextWrapping="Wrap"/>
+                                <TextBox x:Name="FoundationLengthBox" Style="{StaticResource EditorText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                                <TextBlock Text="Cover móng tại đáy và bên (mm)" Margin="0,6,0,0"/>
+                                <TextBox x:Name="FoundationCoverBox" Style="{StaticResource EditorText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                                <TextBlock Text="Hướng chân neo theo trục cột" Margin="0,6,0,0"/>
+                                <ComboBox x:Name="FoundationDirectionBox" Style="{StaticResource EditorCombo}" IsEnabled="False" SelectionChanged="FoundationAnchor_Changed">
+                                    <ComboBoxItem Content="Vào tâm — vuông góc từng cạnh"/>
+                                    <ComboBoxItem Content="Ra ngoài — vuông góc từng cạnh"/>
+                                    <ComboBoxItem Content="Cùng hướng +X cột"/><ComboBoxItem Content="Cùng hướng -X cột"/>
+                                    <ComboBoxItem Content="Cùng hướng +Y cột"/><ComboBoxItem Content="Cùng hướng -Y cột"/>
+                                </ComboBox>
+                                <TextBlock Text="Số thanh lấy từ Cx/Cy. Bật Nhóm thép dọc ở tab Hình học để tạo Fixed Number; các thanh góc không lặp." TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                <CheckBox x:Name="OpenAnchorModelCheck" IsChecked="True" IsEnabled="False" Margin="0,10,0,4" Content="Mở view 3D kiểm tra sau khi tạo"/>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,3">
-                                <TextBlock Text="Cover đáy móng (mm)" Width="190" VerticalAlignment="Center"/>
-                                <TextBox x:Name="FoundationCoverBox" Width="150" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                            <StackPanel Grid.Row="1" Grid.Column="1">
+                                <TextBlock Text="Sơ đồ hướng chân neo (trục cột)" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <Border Background="#FFF4F7FA" BorderBrush="#FFD8DFEA" BorderThickness="1">
+                                    <Canvas x:Name="FoundationCanvas" Height="240" ClipToBounds="True" SizeChanged="FoundationCanvas_SizeChanged"/>
+                                </Border>
+                                <TextBlock Text="Mũi tên là hướng chân L, không biểu diễn chiều dài. Trục cột xoay/mirror theo family trong mô hình." FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
                             </StackPanel>
-                            <TextBlock x:Name="FoundationAnchorSummary" Margin="0,7,0,0" TextWrapping="Wrap" Foreground="#FF315889"/>
-                            <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#FF9C3D26" Text="Chỉ dựng neo chân L theo dữ liệu nhập; cần đối chiếu cấu tạo, lớp bảo vệ và khả năng bố trí với chi tiết đã duyệt."/>
-                        </StackPanel>
+                            <TextBlock Grid.Row="2" Grid.ColumnSpan="2" x:Name="FoundationAnchorSummary" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="#FF315889"/>
+                        </Grid>
                     </Border>
-                    <TextBlock MaxWidth="760" HorizontalAlignment="Left" TextWrapping="Wrap" Foreground="#FF9C3D26"
-                               Text="KStruct chỉ dựng thép chờ và neo chân L theo dữ liệu nhập; không thiết kế hoặc kiểm tra chiều dài neo, nối, nội lực hay điều kiện kháng chấn. Bản vẽ sinh ra luôn là DRAFT."/>
+                    <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#FF9C3D26"
+                        Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Nối chồng, so le và chuyển tiếp tiết diện tự động chưa được hỗ trợ. Bản vẽ là DRAFT."/>
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
             <TabItem Header="Thép đai">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20" Width="600" HorizontalAlignment="Left">

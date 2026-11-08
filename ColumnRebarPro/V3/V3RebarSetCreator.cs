@@ -65,6 +65,64 @@ namespace ColumnRebarPro.V3
             report.MainBars += count;
         }
 
+        internal static List<V3AnchorArray> AnchorPlan(V3SegmentWork item)
+        {
+            var c = item.Config;
+            return V3AnchorLayoutPlan.Create(c.Cx, c.Cy, V3Units.Mm(item.Geometry.Width),
+                V3Units.Mm(item.Geometry.Depth), c.Cover, c.TieDiameter, c.MainDiameter,
+                c.FoundationAnchorDirection);
+        }
+
+        internal static void CreateFoundationAnchorSets(Document doc, V3SegmentWork item,
+            RebarBarType type, V3BuildReport report)
+        {
+            var g = item.Geometry;
+            var c = item.Config;
+            double horizontal = V3Units.Ft(V3AnchorLayoutPlan.HorizontalLength(
+                item.FoundationAnchorLengthMm, V3Units.Mm(g.Bottom - item.FoundationBendZ)));
+            double top = c.StarterBars ? g.Top + V3Units.Ft(c.StarterLength) :
+                g.Top - V3Units.Ft(c.Cover + c.MainDiameter / 2);
+            foreach (var array in AnchorPlan(item))
+            {
+                XYZ hookDirection = g.X * array.HookX + g.Y * array.HookY;
+                XYZ step = g.X * V3Units.Ft(array.StepX) + g.Y * V3Units.Ft(array.StepY);
+                XYZ normal = step.GetLength() > 1e-9 ? step.Normalize() : XYZ.BasisZ.CrossProduct(hookDirection);
+                int elements = c.GroupLongBars ? 1 : array.Count;
+                for (int i = 0; i < elements; i++)
+                {
+                    XYZ basePoint = g.At(V3Units.Ft(array.X), V3Units.Ft(array.Y), item.FoundationBendZ) + step * i;
+                    XYZ foot = basePoint + hookDirection * horizontal;
+                    var curves = new List<Curve>
+                    {
+                        Line.CreateBound(foot, basePoint),
+                        Line.CreateBound(basePoint, new XYZ(basePoint.X, basePoint.Y, top))
+                    };
+                    var bar = Rebar.CreateFromCurves(doc, RebarStyle.Standard, type, null, null,
+                        item.FoundationHost, normal, curves, RebarHookOrientation.Left,
+                        RebarHookOrientation.Right, true, true);
+                    if (bar == null) throw new InvalidOperationException("Không tạo được thép neo chân L.");
+                    V3RebarBuilder.SetPartition(bar, item.Column.Id);
+                    int count = c.GroupLongBars ? array.Count : 1;
+                    if (count >= 2)
+                    {
+                        ApplyFixedNumber(bar, count, step.GetLength() * (count - 1), "neo chân L");
+                        report.MainSets++;
+                    }
+                    doc.Regenerate();
+                    if (bar.NumberOfBarPositions != count)
+                        throw new InvalidOperationException("Số vị trí neo thực tế khác cấu hình Fixed Number.");
+                    if (count >= 2)
+                    {
+                        XYZ first = bar.GetBarPositionTransform(0).Origin;
+                        for (int position = 1; position < count; position++)
+                            if ((bar.GetBarPositionTransform(position).Origin - first).DistanceTo(step * position) > V3Units.Ft(.1))
+                                throw new InvalidOperationException("Hướng phân bố neo thực tế khác trục nhóm đã chọn; hủy tuyến để kiểm tra family/shape.");
+                    }
+                    report.MainBars += count;
+                }
+            }
+        }
+
         internal static List<V3TieBand> TiePlan(V3SegmentWork item)
         {
             var c = item.Config;

@@ -67,6 +67,7 @@ static class Program
         Check(V3RebarOwnership.Matches(42,"KSTR_V3_42"), "Recognize legacy V3 partition, regardless of column/foundation host");
         foreach (string partition in new[]{null,"","KSTR_V3_420","KSTR_V3_41","kstr_v3_42","Manual"," KSTR_V3_42"})
             Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
+        AnchorTests.Run();
         Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
     }
 }

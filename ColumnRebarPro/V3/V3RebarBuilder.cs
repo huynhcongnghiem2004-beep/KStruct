@@ -115,14 +115,12 @@ namespace ColumnRebarPro.V3
                     throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
                 if (replaceOld && existing.Count > 0) doc.Delete(existing);
 
-                if (work.Config.GroupLongBars && work.FoundationHost == null)
+                if (work.FoundationHost != null)
+                    V3RebarSetCreator.CreateFoundationAnchorSets(doc, work, mainType, report);
+                else if (work.Config.GroupLongBars)
                     V3RebarSetCreator.CreateLongitudinalSets(doc, work, mainType, report);
                 else
-                {
                     BuildMainBars(doc, work, mainType, report);
-                    if (work.Config.GroupLongBars)
-                        report.Warnings.Add("Cột " + work.Column.Id.Value + ": neo chân L tạo từng thanh; chưa hỗ trợ nhóm thanh neo.");
-                }
                 V3RebarSetCreator.CreateTies(doc, work, tieType, hook135, hook90, report);
 
                 report.ColumnCount++;
@@ -166,22 +164,6 @@ namespace ColumnRebarPro.V3
                 XYZ basePt = barPoints[i];
                 var curves = new List<Curve>();
                 XYZ p0 = new XYZ(basePt.X, basePt.Y, zMin);
-
-                if (work.FoundationHost != null)
-                {
-                    double diameter = cfg.MainDiameter;
-                    double verticalEmbedMm = V3Units.Mm(geo.Bottom - work.FoundationBendZ);
-                    double horizontalMm = work.FoundationAnchorLengthMm - verticalEmbedMm;
-                    if (horizontalMm <= 0)
-                        throw new InvalidOperationException("Chiều dài neo theo thiết kế không đủ cho đoạn neo đứng trong móng.");
-                    double hx = geo.Width / 2 - V3Units.Ft(cfg.Cover + cfg.TieDiameter + diameter / 2);
-                    double hy = geo.Depth / 2 - V3Units.Ft(cfg.Cover + cfg.TieDiameter + diameter / 2);
-                    XYZ inward = V3TransitionPlanner.InwardDirection(basePt, geo, hx, hy);
-                    XYZ bend = new XYZ(basePt.X, basePt.Y, work.FoundationBendZ);
-                    XYZ anchor = bend + inward * V3Units.Ft(horizontalMm);
-                    curves.Add(Line.CreateBound(anchor, bend));
-                    curves.Add(Line.CreateBound(bend, p0));
-                }
 
                 V3Transition tr = work.TransitionUp;
                 if (tr != null && i < tr.Terminated.Count && tr.Terminated[i])

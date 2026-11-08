@@ -16,8 +16,8 @@
 
 - Thép dọc thẳng: bật nhóm để tạo Fixed Number theo cạnh, bốn góc chỉ tạo một lần.
   Bỏ nhóm sẽ tạo từng thanh; cùng cover và chiều dài ở cả hai chế độ.
-- Neo chân L xuống móng vẫn tạo từng thanh và báo trong kết quả nếu đã yêu cầu nhóm.
-  Chiều dài neo lấy từ thiết kế; KStruct không tự tính neo hoặc nối.
+- Neo chân L cũng hỗ trợ Fixed Number. Chọn hướng và nhóm tại tab Thép chờ / Neo móng;
+  xem [hướng dẫn neo L và view mô hình](docs/COLUMN_L_ANCHOR.md). Không tự tính neo hoặc nối.
 - Đai có ba vùng: chân, giữa, đầu. Chiều dài mỗi vùng đầu tính từ tâm đai đầu/cuối.
   Hai vùng đầu không được chồng nhau. Nhập chiều dài 0 để chỉ có vùng giữa.
 - Maximum Spacing chia đều vị trí trong từng vùng, bước thực tế không lớn hơn bước nhập.
