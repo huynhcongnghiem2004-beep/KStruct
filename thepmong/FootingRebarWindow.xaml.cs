@@ -21,6 +21,12 @@ namespace SDK_HD.KStruct.FootingRebar
         {
             InitializeComponent();
             _model = model;
+            Rect workArea = SystemParameters.WorkArea;
+            Width = workArea.Width > 320 ? Math.Min(1380, workArea.Width - 32) : 1380;
+            Height = workArea.Height > 320 ? Math.Min(900, workArea.Height - 32) : 900;
+            MinWidth = Math.Min(1040, Width); MinHeight = Math.Min(660, Height);
+            TxtHostName.Text = string.IsNullOrWhiteSpace(model.Name) ? "Móng từ mô hình" : model.Name;
+            TxtHostName.ToolTip = TxtHostName.Text;
 
             TxtLengthX.Text = _model.LengthX.ToString("0");
             TxtWidthY.Text = _model.WidthY.ToString("0");

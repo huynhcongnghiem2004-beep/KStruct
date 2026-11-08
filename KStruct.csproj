@@ -40,6 +40,7 @@
     <Compile Remove="BimSpeedStructureColumnDesignPort\**\*.cs" />
     <Compile Remove="thepmong\BottomLayerTests.cs" />
     <Compile Remove="tests\**\*.cs" />
+    <Page Remove="tests\**\*.xaml" />
     <Compile Remove="BimSpeedStructureBeamDesign\**\*.cs" />
     <Page Remove="BimSpeedStructureBeamDesign\**\*.xaml" />
     <EmbeddedResource Remove="BimSpeedStructureBeamDesign\**\*.resx" />

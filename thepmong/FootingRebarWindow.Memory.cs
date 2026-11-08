@@ -32,6 +32,8 @@ namespace SDK_HD.KStruct.FootingRebar
         internal void ConfigureForUpdate()
         {
             Title = "KStruct - Cập nhật thép móng cọc, móng đơn";
+            TxtDialogHeading.Text = "Cập nhật thép móng";
+            InputTabs.SelectedIndex = 0;
             ChkReplaceOwned.IsChecked = true;
             ChkReplaceOwned.IsEnabled = false;
             ChkAllowAlongside.Visibility = Visibility.Collapsed;

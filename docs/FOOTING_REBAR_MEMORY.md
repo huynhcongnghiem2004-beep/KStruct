@@ -13,6 +13,16 @@
 
 Chỉ lưu sau khi tạo thành công: Cancel, từ chối cảnh báo, lỗi lập kế hoạch, hậu kiểm/commit lỗi không ghi cấu hình mới. Metadata trên host/Rebar và việc tạo/thay thép cùng transaction nên Undo/rollback đồng bộ trong model. File mặc định người dùng bên ngoài model không tự quay về khi Undo trong Revit.
 
+## Bố cục giao diện
+
+- Cửa sổ nền sáng, nhóm nhập liệu và vùng xem trước tách thành hai vùng; khối thông tin lần tạo trước nằm phía trên.
+- Thông tin cấu kiện và kích thước đọc từ mô hình luôn hiện ở đầu vùng nhập.
+- Ba tab: **Cốt thép**, **Bảo vệ**, **Tùy chọn**. Các xác nhận bộ thép hiện có vẫn hiện ngoài tab để không bị bỏ sót.
+- Nút **Tạo thép móng / Cập nhật thép móng** và **Hủy** cố định ở cuối cửa sổ, không phải cuộn xuống để tìm.
+- Giữ nguyên 36 control có tên và các event xử lý của giao diện trước; thay đổi giao diện không thay thuật toán tạo/cập nhật thép.
+
+Workflow build còn biên dịch và chạy `tests/FootingRebarUi` trên Windows để render chính cửa sổ WPF ở kích thước thường/thu gọn, các tab và chế độ tạo/cập nhật. Artifact **KStruct-Footing-UI** chứa PNG với dữ liệu mẫu, không phải ảnh từ một mô hình Revit thực. Harness không tham chiếu Revit API; đây là kiểm tra giao diện WPF, không thay các ca kiểm tra mô hình Revit bên dưới.
+
 ## Nút Cập nhật thép móng
 
 Trong **KStruct → Thép móng**, nút **Cập nhật thép móng** nằm ngay sau nút tạo thép. Entry point mới là `SDK_HD.KStruct.FootingRebar.UpdateFootingRebarCommand`, Ribbon ID `KStruct_UpdateFootingRebar`; nút tạo hiện có giữ nguyên ID/entry point.

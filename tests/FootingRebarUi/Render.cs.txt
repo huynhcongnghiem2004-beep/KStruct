@@ -1,0 +1,60 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using SDK_HD.KStruct.FootingRebar;
+
+internal static class Render
+{
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        string output = args.Length > 0 ? Path.GetFullPath(args[0]) : Path.Combine(Environment.CurrentDirectory,"ui-previews");
+        Directory.CreateDirectory(output);
+        try
+        {
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            Capture(output, false, 1380,900,"footing-create");
+            Capture(output, true, 1380,900,"footing-update");
+            Capture(output, false, 1080,720,"footing-compact");
+            File.WriteAllText(Path.Combine(output,"README.txt"),
+                "Rendered from the actual compiled FootingRebarWindow XAML/code with sample data, outside Revit.\r\n" +
+                "This validates WPF layout and control rendering, not Revit API/model operations.\r\n");
+            app.Shutdown(); return 0;
+        }
+        catch (Exception ex) { File.WriteAllText(Path.Combine(output,"render-error.txt"),ex.ToString()); return 1; }
+    }
+    private static void Capture(string output, bool update, int width, int height, string name)
+    {
+        var model = new FootingModel(2400,1800,900,FootingType.PileCap,"Đài DC-01 · 2400 × 1800 × 900 mm");
+        var window = new FootingRebarWindow(model,new List<double>{10,12,14,16,18,20,22,25},true,null,
+            "Dữ liệu mẫu để kiểm tra giao diện WPF. Kích thước và cấu hình có thể chỉnh trong mô hình Revit.",true,update?4:0,0,false);
+        if (update) window.ConfigureForUpdate();
+        window.Width=width; window.Height=height; window.Left=0; window.Top=0; window.ShowActivated=false;
+        window.Show(); window.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{})); window.UpdateLayout();
+        var root=(FrameworkElement)window.Content;
+        var accept=(Button)window.FindName("BtnAcceptRebar");
+        Rect bounds=accept.TransformToAncestor(root).TransformBounds(new Rect(accept.RenderSize));
+        if (bounds.Bottom>root.ActualHeight+1 || bounds.Right>root.ActualWidth+1 || bounds.Top<0)
+            throw new InvalidOperationException("Primary action is clipped at "+width+"x"+height);
+        foreach (int index in new[]{0,1,2})
+        {
+            ((TabControl)window.FindName("InputTabs")).SelectedIndex=index;
+            window.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{})); window.UpdateLayout();
+            var bitmap=new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth),(int)Math.Ceiling(root.ActualHeight),96,96,PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            var encoder=new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using(var file=File.Create(Path.Combine(output,name+"-tab"+index+".png"))) encoder.Save(file);
+        }
+        // Exercise the real ComboBox template/pop-up; no Revit document is needed for these controls.
+        ((TabControl)window.FindName("InputTabs")).SelectedIndex=0; window.UpdateLayout();
+        var diameter=(ComboBox)window.FindName("CboDiameterX");
+        diameter.IsDropDownOpen=true; window.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{}));
+        if (!diameter.IsDropDownOpen || diameter.Items.Count==0) throw new InvalidOperationException("Diameter dropdown is unavailable");
+        diameter.IsDropDownOpen=false; window.Close();
+    }
+}

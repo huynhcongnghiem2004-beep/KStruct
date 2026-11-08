@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net48</TargetFramework><UseWPF>true</UseWPF>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems><EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <LangVersion>latest</LangVersion><PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Page Include="../../thepmong/FootingRebarWindow.xaml" Link="FootingRebarWindow.xaml" />
+    <Compile Include="../../thepmong/FootingRebarWindow.xaml.cs" Link="FootingRebarWindow.xaml.cs" />
+    <Compile Include="../../thepmong/FootingRebarWindow.Memory.cs" Link="FootingRebarWindow.Memory.cs" />
+    <Compile Include="../../thepmong/FootingRebarPreferences.cs" Link="FootingRebarPreferences.cs" />
+    <Compile Include="../../thepmong/Models.cs" Link="Models.cs" />
+    <Compile Include="../../thepmong/RebarPlan.cs" Link="RebarPlan.cs" />
+    <Compile Include="../../thepmong/BottomLayerBuilder.cs" Link="BottomLayerBuilder.cs" />
+    <Compile Include="../../thepmong/SpacingCalculator.cs" Link="SpacingCalculator.cs" />
+    <Compile Include="Render.cs.txt" />
+  </ItemGroup>
+</Project>
