@@ -38,8 +38,7 @@ namespace SDK_HD.KStruct.FootingRebar
             ChkReplaceOwned.IsEnabled = false;
             ChkAllowAlongside.Visibility = Visibility.Collapsed;
             BtnAcceptRebar.Content = "Cập nhật thép móng";
-            TxtHistoryStatus.Text += "\nChế độ cập nhật: chỉnh đường kính, bước, cover và neo của bộ đã nhận diện. " +
-                "Chiều dài thanh được tính lại theo kích thước móng hiện tại; không đổi kích thước bê tông móng. Thép khác được giữ nguyên.";
+            TxtHistoryStatus.Text += "\nChỉ cập nhật bộ thép đã nhận diện. Chiều dài theo móng hiện tại; thép khác được giữ nguyên.";
         }
 
         private void OnReloadRebarClick(object sender, RoutedEventArgs e) => ApplySavedPreference();
