@@ -26,6 +26,8 @@ Phân vùng đai, nhóm thép, ghi đè và hồ sơ cột V3: [hướng dẫn v
 
 Neo chân L Fixed Number, hướng chân neo và view 3D kiểm tra: [hướng dẫn](docs/COLUMN_L_ANCHOR.md).
 
+Callout, view range cốt thép và Breakline dầm: [hướng dẫn](docs/FOUNDATION_CALLOUTS_VISIBILITY_BREAKLINES.md).
+
 ## Codex kiểm tra lại
 
 GitHub Actions tự chạy theo sự kiện đã cấu hình. Workflow này không tự gọi Codex và không cần API key. Codex đọc kết quả và xử lý lỗi trong phiên làm việc được người dùng giao; chưa có dịch vụ Codex chạy nền sau khi phiên kết thúc.
