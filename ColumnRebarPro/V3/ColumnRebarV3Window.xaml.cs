@@ -581,7 +581,7 @@ namespace ColumnRebarPro.V3
                 {
                     var plan = V3ColumnPairing.Create(lowerProfile, upperProfile, c.BottleneckClearanceMm, c.BottleneckSlope);
                     _previewConnectionPlan = plan;
-                    ConnectionPairingStatus.Text = "Ghép " + plan.Bars.Count + " cặp; dịch ngang lớn nhất " + Math.Round(plan.MaximumShift, 1) +
+                    ConnectionPairingStatus.Text = "Ghép " + plan.Bars.Count + " cặp; " + plan.TerminatedLower.Count + " thanh dư dừng tại đáy dầm/đỉnh cột; dịch ngang lớn nhất " + Math.Round(plan.MaximumShift, 1) +
                         " mm; chiều cao nhấn lớn nhất " + Math.Round(plan.MaximumHeight, 1) + " mm. Nhóm chỉ khi cùng hình dạng và mặt phẳng.";
                 }
                 catch (InvalidOperationException ex) { ConnectionPairingStatus.Text = ex.Message; }
@@ -809,7 +809,13 @@ namespace ColumnRebarPro.V3
                     addLn(mmToX(upperX),mmToY(colH+upperGapMm+preview.Upper.Cover+preview.Upper.Diameter/2),
                         mmToX(upperX),mmToY(colH+upperGapMm+upperDrawH),Brushes.Firebrick,1.2);
                 }
-                addTxt(4,4,"Chiếu theo trục X cột dưới; các thanh có thể chồng hình.",Brushes.DimGray,9);
+                var lowerPoints=V3ColumnPairing.Points(preview.Lower);
+                foreach(int index in preview.TerminatedLower)
+                {
+                    double x=project(lowerPoints[index].Point);
+                    addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(barTop),Brushes.DarkSlateBlue,1.5);
+                }
+                addTxt(4,4,"Chiếu X; thanh tím dừng trong tầng dưới (cao độ đáy dầm kiểm tra khi tạo).",Brushes.DimGray,9);
             }
             else
             {
