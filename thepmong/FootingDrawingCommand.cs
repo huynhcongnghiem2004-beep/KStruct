@@ -40,10 +40,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 }
                 if (footings.Count == 0) return Result.Cancelled;
 
-                var window = new FootingDrawingSettingsWindow(doc, data.Application.MainWindowHandle, ui.ActiveView as ViewPlan, footings);
-                if (window.ShowDialog() != true || window.Configuration == null) return Result.Cancelled;
+                FootingDrawingSettingsWindow window;
+                do
+                {
+                    window = new FootingDrawingSettingsWindow(doc, data.Application.MainWindowHandle, ui.ActiveView as ViewPlan, footings);
+                    if (window.ShowDialog() == true && window.Configuration != null) break;
+                    if (!window.RequestSelection) return Result.Cancelled;
+                    IList<Reference> repicked = ui.Selection.PickObjects(ObjectType.Element, new FoundationFilter(), "Chọn móng cần tạo hồ sơ");
+                    footings = repicked.Select(x => doc.GetElement(x)).OfType<FamilyInstance>().Where(IsFoundation).Distinct().ToList();
+                } while (true);
                 FootingDrawingConfiguration config = window.Configuration;
-                ViewPlan parent = ui.ActiveView as ViewPlan;
+                footings = config.SelectedFootings.ToList();
+                ViewPlan parent = config.SourcePlan;
                 if (config.Profile.CreateCallouts && parent == null)
                 {
                     TaskDialog.Show("KStruct - Hồ sơ móng", "Hãy chạy lệnh từ mặt bằng Revit để tạo callout.");
@@ -54,7 +62,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     TaskDialog.Show("KStruct - Hồ sơ móng", "Khi dùng sheet có sẵn, hãy chọn một móng mỗi lần để tránh chồng viewport.");
                     return Result.Cancelled;
                 }
-                if (!config.Profile.CreateCallouts && !config.Profile.CreateSections)
+                if (config.Profile.OutputLayers == "None" && !config.Profile.CreateSections)
                 {
                     TaskDialog.Show("KStruct - Hồ sơ móng", "Cần bật callout mặt bằng hoặc mặt cắt.");
                     return Result.Cancelled;
@@ -72,6 +80,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     tx.Start();
                     foreach (FamilyInstance footing in footings)
                     {
+                        var priorNames = new HashSet<string>(viewNames, StringComparer.OrdinalIgnoreCase);
+                        var priorNumbers = new HashSet<string>(sheetNumbers, StringComparer.OrdinalIgnoreCase);
                         using (var sub = new SubTransaction(doc))
                         {
                             sub.Start();
@@ -85,6 +95,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                             catch (Exception ex)
                             {
                                 if (sub.GetStatus() == TransactionStatus.Started) sub.RollBack();
+                                viewNames = priorNames; sheetNumbers = priorNumbers;
                                 skipped.Add("Móng " + footing.Id.Value + ": " + ex.Message);
                             }
                         }

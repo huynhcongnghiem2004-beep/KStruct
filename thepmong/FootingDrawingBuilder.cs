@@ -32,10 +32,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     throw new InvalidOperationException("View Type mặt bằng không hợp lệ.");
             }
             if (p.CreateCallouts && parent == null) throw new InvalidOperationException("Callout cần chạy từ mặt bằng Revit.");
-            if (!p.CreateCallouts && !p.CreateSections) throw new InvalidOperationException("Cần bật callout hoặc mặt cắt.");
+            if (!top && !bot && !p.CreateSections) throw new InvalidOperationException("Cần bật callout hoặc mặt cắt.");
 
-            if (top) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, true, warnings), Role = "Plan-Top" });
             if (bot) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, false, warnings), Role = "Plan-Bot" });
+            if (top) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, true, warnings), Role = "Plan-Top" });
             if (p.CreateSections)
             {
                 List<ViewSection> sections = CreateSections(doc, footing, config, names, warnings);
@@ -53,7 +53,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 string prefix = string.IsNullOrWhiteSpace(p.SheetPrefix) ? defaultPrefix : p.SheetPrefix.Trim();
                 sheet.SheetNumber = UniqueNumber(prefix, footing.Id.Value.ToString(), sheetNumbers);
                 sheet.Name = FormatName(p.SheetNamePattern, footing);
-                FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm);
+                FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm, p.UseDetailedLayout ? 2 : 1);
                 sheetNumbers.Add(sheet.SheetNumber);
             }
             if (sheet == null) throw new InvalidOperationException("Không tìm được sheet đích.");
@@ -63,11 +63,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
-                FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm);
+                FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, p.UseDetailedLayout ? 2 : 1);
                 if (!names.Contains(view.Name)) names.Add(view.Name);
                 index++;
             }
-            PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
+            if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p);
+            else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
             return sheet;
         }
 
@@ -109,8 +110,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
             view.Scale = p.PlanScale;
             view.Discipline = ViewDiscipline.Structural;
             view.DetailLevel = ViewDetailLevel.Fine;
-            ApplyTemplate(view, config.PlanTemplate, warnings);
+            if (p.UseDetailedLayout && config.PlanTemplate != null) view.ViewTemplateId = config.PlanTemplate.Id;
+            else ApplyTemplate(view, config.PlanTemplate, warnings);
+            if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
+            if (p.UseDetailedLayout && view.Scale != p.PlanScale)
+                throw new InvalidOperationException("Template mặt bằng khóa tỷ lệ khác tỷ lệ đã chọn.");
             SetLayerRange(view, box, bars, layerBars, topLayer, footing.LevelId);
+            if (p.UseDetailedLayout) ConfigureAnnotationCrop(view, p);
             List<ElementId> hidden = bars.Where(x => !layerBars.Any(y => y.Id == x.Id)).Select(x => x.Id).ToList();
             if (hidden.Count > 0) try { view.HideElements(hidden); } catch (Exception ex) { warnings.Add("Không lọc được một số Rebar ở " + view.Name + ": " + ex.Message); }
             return view;
@@ -140,6 +146,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
         private static List<ViewSection> CreateSections(Document doc, FamilyInstance footing, FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
         {
+            if (config.Profile.UseDetailedLayout) return CreateDetailedSections(doc, footing, config, names, warnings);
             BoundingBoxXYZ source = footing.get_BoundingBox(null);
             LocationPoint location = footing.Location as LocationPoint;
             if (source == null || location == null) throw new InvalidOperationException("Không đọc được hình học móng để tạo mặt cắt.");
@@ -177,11 +184,66 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return result;
         }
 
+        private static List<ViewSection> CreateDetailedSections(Document doc, FamilyInstance host,
+            FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
+        {
+            FootingDrawingProfile p = config.Profile;
+            BoundingBoxXYZ bounds = FootingDrawingGeometry.LocalBounds(host);
+            Transform axes = bounds.Transform;
+            XYZ center = axes.OfPoint((bounds.Min + bounds.Max) * 0.5);
+            List<XYZ> vertices = FootingDrawingGeometry.WorldVertices(host);
+            double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
+            var result = new List<ViewSection>();
+            for (int i = 0; i < 2; i++)
+            {
+                XYZ right = (i == 0 ? axes.BasisX : axes.BasisY).Normalize();
+                bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
+                if (reverse) right = -right;
+                XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
+                double offset = UnitUtils.ConvertToInternalUnits(i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm, UnitTypeId.Millimeters);
+                double half = i == 0 ? (bounds.Max.Y - bounds.Min.Y) / 2 : (bounds.Max.X - bounds.Min.X) / 2;
+                if (Math.Abs(offset) >= half) throw new InvalidOperationException("Tuyến cắt nằm ngoài móng; hãy chỉnh offset.");
+                XYZ origin = center + across * offset;
+                Transform t = Transform.Identity;
+                t.Origin = origin; t.BasisX = right; t.BasisY = XYZ.BasisZ; t.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
+                // Section starts at the chosen cut plane, looking into the host rather than moving the cut to the rear edge.
+                double depth = vertices.Max(v => (v - origin).DotProduct(t.BasisZ)) + margin;
+                if (depth <= doc.Application.ShortCurveTolerance) throw new InvalidOperationException("Chiều sâu mặt cắt không hợp lệ.");
+                var crop = new BoundingBoxXYZ { Transform = t,
+                    Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-margin, 0),
+                    Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
+                ViewSection view = ViewSection.CreateSection(doc, config.SectionType.Id, crop);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Section-X" : "Section-Y"), names);
+                names.Add(view.Name);
+                view.Scale = p.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
+                view.DetailLevel = ViewDetailLevel.Fine; view.Discipline = ViewDiscipline.Structural;
+                if (config.SectionTemplate != null) view.ViewTemplateId = config.SectionTemplate.Id;
+                if (view.Scale != p.SectionScale) throw new InvalidOperationException("Template mặt cắt khóa tỷ lệ khác tỷ lệ đã chọn.");
+                ConfigureAnnotationCrop(view, p);
+                result.Add(view);
+            }
+            return result;
+        }
+
+        private static void ConfigureAnnotationCrop(View view, FootingDrawingProfile profile)
+        {
+            Parameter active = view.get_Parameter(BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE);
+            if (active != null && !active.IsReadOnly) active.Set(1);
+            var manager = view.GetCropRegionShapeManager();
+            double paper = UnitUtils.ConvertToInternalUnits(profile.DimensionOffsetPaperMm + profile.DimensionGapPaperMm + 10, UnitTypeId.Millimeters);
+            manager.LeftAnnotationCropOffset = paper; manager.RightAnnotationCropOffset = paper;
+            manager.TopAnnotationCropOffset = paper; manager.BottomAnnotationCropOffset = paper;
+        }
+
         private static void ApplyAnnotations(Document doc, FamilyInstance footing, View view, string role,
             FootingDrawingConfiguration config, BoundingBoxXYZ hostBox, IList<string> warnings)
         {
             if (config.Profile.CreateDimensions && config.DimensionType != null)
-                CreateHostDimensions(doc, footing, view, config.DimensionType, hostBox, warnings);
+            {
+                if (config.Profile.UseDetailedLayout && view is ViewPlan && config.Profile.DimensionFourSides)
+                    FootingDrawingDimensions.Create(doc, footing, view, config.DimensionType, config.Profile, warnings);
+                else CreateHostDimensions(doc, footing, view, config.DimensionType, hostBox, warnings);
+            }
             if (!config.Profile.CreateTags) return;
             if (config.FoundationTagType != null)
             {
@@ -314,7 +376,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             BoundingBoxXYZ source = footing.get_BoundingBox(null), prior = view.CropBox;
             if (source == null || prior == null) throw new InvalidOperationException("Không đọc được móng hoặc vùng crop.");
             Transform transform = prior.Transform ?? Transform.Identity;
-            if (role != null && role.StartsWith("Section-", StringComparison.OrdinalIgnoreCase))
+            bool detailed = FootingDrawingStorage.Version(view) >= 2;
+            if (!detailed && role != null && role.StartsWith("Section-", StringComparison.OrdinalIgnoreCase))
             {
                 LocationPoint location = footing.Location as LocationPoint;
                 if (location != null)
@@ -324,14 +387,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         ? new XYZ(Math.Cos(angle), Math.Sin(angle), 0).Normalize()
                         : new XYZ(-Math.Sin(angle), Math.Cos(angle), 0).Normalize();
                     XYZ right = XYZ.BasisZ.CrossProduct(direction).Normalize();
-                    transform = Transform.Identity;
-                    transform.Origin = location.Point;
-                    transform.BasisX = right;
-                    transform.BasisY = XYZ.BasisZ;
+                    transform = Transform.Identity; transform.Origin = location.Point;
+                    transform.BasisX = right; transform.BasisY = XYZ.BasisZ;
                     transform.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
                 }
             }
-            List<XYZ> corners = WorldCorners(source);
+            List<XYZ> corners = FootingDrawingStorage.Version(view) >= 2 ? FootingDrawingGeometry.WorldVertices(footing) : WorldCorners(source);
             XYZ x = transform.BasisX.Normalize(), y = transform.BasisY.Normalize(), z = transform.BasisZ.Normalize(), origin = transform.Origin;
             double margin = UnitUtils.ConvertToInternalUnits(marginMm, UnitTypeId.Millimeters);
             view.CropBox = new BoundingBoxXYZ
@@ -339,12 +400,14 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Transform = transform,
                 Min = new XYZ(corners.Min(p => (p-origin).DotProduct(x))-margin,
                     corners.Min(p => (p-origin).DotProduct(y))-margin,
-                    corners.Min(p => (p-origin).DotProduct(z))-margin),
+                    detailed && view is ViewSection ? prior.Min.Z : corners.Min(p => (p-origin).DotProduct(z))-margin),
                 Max = new XYZ(corners.Max(p => (p-origin).DotProduct(x))+margin,
                     corners.Max(p => (p-origin).DotProduct(y))+margin,
                     corners.Max(p => (p-origin).DotProduct(z))+margin)
             };
             view.CropBoxActive = true;
+            if (view is ViewPlan exactPlan && FootingDrawingStorage.Version(view) >= 2)
+                FootingDrawingGeometry.SetPlanCrop(exactPlan, footing, marginMm);
             if (view is ViewPlan plan && role != null &&
                 (role.EndsWith("Top", StringComparison.OrdinalIgnoreCase) || role.EndsWith("Bot", StringComparison.OrdinalIgnoreCase)))
             {

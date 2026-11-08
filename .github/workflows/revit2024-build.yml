@@ -1,0 +1,49 @@
+name: Revit 2024 build and preferences
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: revit2024-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Check preferences and legacy compatibility
+        run: dotnet run --project tests/FootingPreferences/FootingPreferences.csproj --configuration Release
+      - name: Get pinned Revit 2024 compile references
+        shell: pwsh
+        run: |
+          $package = Join-Path $env:RUNNER_TEMP 'revit2024.zip'
+          Invoke-WebRequest 'https://api.nuget.org/v3-flatcontainer/revit_all_main_versions_api_x64/2024.0.0/revit_all_main_versions_api_x64.2024.0.0.nupkg' -OutFile $package
+          if ((Get-FileHash $package -Algorithm SHA256).Hash -ne '89B521D1F331A9AE450210AADD59F680412ED10B68AAFFA7EB5CC1E797D1DA00') { throw 'Reference package checksum mismatch' }
+          $references = Join-Path $env:RUNNER_TEMP 'revit2024'
+          Expand-Archive $package $references
+          "REVIT_REFERENCE_DIR=$references\lib\net48\" >> $env:GITHUB_ENV
+      - name: Build complete add-in against Revit 2024
+        shell: pwsh
+        run: |
+          dotnet build KStruct.csproj --configuration Release "/p:RevitInstallDir=$env:REVIT_REFERENCE_DIR" -bl:revit2024-build.binlog 2>&1 | Tee-Object -FilePath revit2024-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revit2024-build-logs
+          path: |
+            revit2024-build.log
+            revit2024-build.binlog
+      - name: Upload add-in (Revit runtime validation still required)
+        uses: actions/upload-artifact@v4
+        with:
+          name: KStruct-Revit2024
+          path: bin/Release/KStruct.dll
+          if-no-files-found: error

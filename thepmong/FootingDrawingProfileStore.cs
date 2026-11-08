@@ -21,6 +21,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string FoundationTagFamily { get; set; }
         public string FoundationTagType { get; set; }
         public string DimensionTypeName { get; set; }
+        public bool UseDetailedLayout { get; set; }
+        public bool DimensionFourSides { get; set; }
+        public double DimensionOffsetPaperMm { get; set; } = 8;
+        public double DimensionGapPaperMm { get; set; } = 6;
+        public double SheetRightReserveMm { get; set; } = 70;
+        public double SheetBottomReserveMm { get; set; } = 35;
+        public double SheetMarginMm { get; set; } = 10;
+        public double SectionXOffsetMm { get; set; }
+        public double SectionYOffsetMm { get; set; }
+        public bool ReverseSectionX { get; set; }
+        public bool ReverseSectionY { get; set; }
+        public string SourceViewUniqueId { get; set; }
         public string OutputLayers { get; set; } = "Both";
         public string SheetPrefix { get; set; } = "KSMD-";
         public string SheetNamePattern { get; set; } = "Móng đơn - {Mark}";
@@ -82,8 +94,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             string temporary = FilePath + ".tmp";
             using (var stream = File.Create(temporary))
                 new XmlSerializer(typeof(FootingDrawingProfileFile)).Serialize(stream, new FootingDrawingProfileFile { Profiles = profiles.Where(x => x != null).ToList() });
-            if (File.Exists(FilePath)) File.Delete(FilePath);
-            File.Move(temporary, FilePath);
+            if (File.Exists(FilePath)) File.Replace(temporary, FilePath, null);
+            else File.Move(temporary, FilePath);
         }
     }
 }
