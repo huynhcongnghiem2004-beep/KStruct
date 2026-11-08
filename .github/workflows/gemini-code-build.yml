@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
+          persist-credentials: false
 
       - name: Create task branch
         shell: pwsh
@@ -39,7 +40,7 @@ jobs:
           GEMINI_CLI_TRUST_WORKSPACE: "true"
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_cli_version: "0.31.0"
+          gemini_cli_version: "0.67.0"
           prompt: |
             Implement the requested code change in this KStruct repository.
 
@@ -93,7 +94,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat: implement Gemini requested change"
-          git push --set-upstream origin $env:GEMINI_BRANCH
+          $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:GH_TOKEN"))
+          git -c http.extraheader="AUTHORIZATION: basic $basicAuth" push --set-upstream origin $env:GEMINI_BRANCH
           $shortTask = ($env:GEMINI_TASK -replace "[\r\n]+", " ").Trim()
           if ($shortTask.Length -gt 70) { $shortTask = $shortTask.Substring(0, 67) + "..." }
           $title = "Gemini: $shortTask"
