@@ -43,7 +43,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 for(int i=0;i<polygon.Count;i++)
                 {
                     var a=polygon[i];var b=polygon[(i+1)%polygon.Count];
-                    bool insideA=lower?a.Z>=plane:a.Z<=plane,insideB=lower?b.Z>=plane:b.Z<=plane;
+                    bool insideA=lower?a.Z>=plane-1e-9:a.Z<=plane+1e-9,insideB=lower?b.Z>=plane-1e-9:b.Z<=plane+1e-9;
                     if(insideA)output.Add(a);
                     if(insideA!=insideB)
                     {

@@ -41,7 +41,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 BoundingBoxXYZ beamBox=beam.get_BoundingBox(null);
                 if(!Touches(hostBox,beamBox,UnitUtils.ConvertToInternalUnits(10,UnitTypeId.Millimeters)))continue;
-                var triangles=new List<XYZ[]>();Collect(beam.get_Geometry(new Options{View=view}),triangles);
+                var triangles=new List<XYZ[]>();
+                try{Collect(beam.get_Geometry(new Options{View=view}),triangles,view);}
+                catch(Exception ex){warnings.Add("Không cắt được solid dầm "+beam.Id.Value+" theo chiều sâu "+view.Name+": "+ex.Message);continue;}
                 foreach(Curve edge in edges)
                 {
                     XYZ a=project(edge.GetEndPoint(0)),b=project(edge.GetEndPoint(1));double length=a.DistanceTo(b);
@@ -106,17 +108,28 @@ namespace SDK_HD.KStruct.NativeDocumentation
         }
         private static bool Touches(BoundingBoxXYZ a,BoundingBoxXYZ b,double tol)=>a!=null&&b!=null&&
             b.Max.X>=a.Min.X-tol&&b.Min.X<=a.Max.X+tol&&b.Max.Y>=a.Min.Y-tol&&b.Min.Y<=a.Max.Y+tol&&b.Max.Z>=a.Min.Z-tol&&b.Min.Z<=a.Max.Z+tol;
-        private static void Collect(GeometryElement geometry,List<XYZ[]> triangles)
+        private static void Collect(GeometryElement geometry,List<XYZ[]> triangles,View view)
         {
             if(geometry==null)return;
             foreach(GeometryObject item in geometry)
             {
                 if(item is Solid solid&&solid.Volume>1e-9)
                 {
-                    foreach(Face face in solid.Faces){Mesh mesh=face.Triangulate();for(int i=0;i<mesh.NumTriangles;i++)
+                    Solid visible=solid;
+                    if(view is ViewSection)
+                    {
+                        // Clip the solid first, retaining cap faces when both original beam ends lie outside the slab.
+                        BoundingBoxXYZ crop=view.CropBox;XYZ z=crop.Transform.BasisZ.Normalize();
+                        XYZ low=crop.Transform.OfPoint(new XYZ(0,0,crop.Min.Z)),high=crop.Transform.OfPoint(new XYZ(0,0,crop.Max.Z));
+                        visible=BooleanOperationsUtils.CutWithHalfSpace(visible,Plane.CreateByNormalAndOrigin(z,low));
+                        if(visible==null||visible.Volume<=1e-9)continue;
+                        visible=BooleanOperationsUtils.CutWithHalfSpace(visible,Plane.CreateByNormalAndOrigin(-z,high));
+                        if(visible==null||visible.Volume<=1e-9)continue;
+                    }
+                    foreach(Face face in visible.Faces){Mesh mesh=face.Triangulate();for(int i=0;i<mesh.NumTriangles;i++)
                     {MeshTriangle triangle=mesh.get_Triangle(i);triangles.Add(new[]{triangle.get_Vertex(0),triangle.get_Vertex(1),triangle.get_Vertex(2)});}}
                 }
-                else if(item is GeometryInstance instance)Collect(instance.GetInstanceGeometry(),triangles);
+                else if(item is GeometryInstance instance)Collect(instance.GetInstanceGeometry(),triangles,view);
             }
         }
     }

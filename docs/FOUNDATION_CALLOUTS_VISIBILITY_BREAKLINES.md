@@ -56,6 +56,6 @@ Build/test thuật toán không xác nhận hiển thị/mặt che/link marker t
 
 - Cấu hình mới mặc định crop 6 mm thực tế. Preset cũ có giá trị đã lưu được giữ nguyên; kiểm tra ô crop khi nạp preset cũ.
 - Dim mặt bằng luôn tạo hai lớp trên bốn cạnh khi bật tùy chọn. Thiếu reference trung gian thì lớp trong đo hai mép móng và có cảnh báo, không bịa tim cột/cọc. Thiếu reference mép hoặc Revit từ chối dim thì hủy tạo bộ hồ sơ đó.
-- Breakline trong Detail cắt tam giác hình học theo cả hai mặt phẳng giới hạn chiều sâu trước khi chiếu; không dùng toàn bộ tam giác chỉ vì bounding depth giao nhau.
+- Breakline trong Detail cắt solid theo cả hai mặt phẳng giới hạn chiều sâu, giữ mặt nắp của khối dầm xuyên qua vùng nhìn, rồi kiểm tra các tam giác trước khi chiếu; không dùng toàn bộ tam giác chỉ vì bounding depth giao nhau.
 - Mỗi view mới lưu vị trí và góc xoay móng. Cập nhật dịch/xoay Detail hiện hữu, kiểm tra lại hướng nhìn và mặt phẳng cắt rồi mới cập nhật crop và ký hiệu. Nếu API không chấp nhận thao tác thì rollback bộ móng. Detail cũ thiếu dữ liệu vị trí cần tạo lại.
 - Cần chạy Revit 2024 để xác nhận di chuyển/xoay Detail, reference thật của family móng/cột/cọc và hướng mask của family Breakline. Build và các kiểm tra độc lập không thay thế bước này.
