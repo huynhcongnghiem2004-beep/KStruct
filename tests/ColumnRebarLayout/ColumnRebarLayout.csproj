@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3RebarOwnership.cs" Link="V3RebarOwnership.cs" />
+    <Compile Include="Program.cs.txt" />
+  </ItemGroup>
+</Project>

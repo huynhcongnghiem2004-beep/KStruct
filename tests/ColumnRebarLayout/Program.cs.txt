@@ -1,0 +1,72 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using ColumnRebarPro.V3;
+
+static class Program
+{
+    static int assertions;
+    static void Check(bool condition, string message)
+    {
+        assertions++;
+        if (!condition) throw new Exception(message);
+    }
+    static void Reject(Action action)
+    {
+        bool rejected = false;
+        try { action(); } catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "Invalid layout must be rejected");
+    }
+    static List<V3TieBand> Plan(double zone = 500, bool fixedCount = false,
+        bool joint = false, double spacing = 175, double height = 3000) =>
+        V3TieLayoutPlan.Create(height, 30, 8, zone, 100, spacing, fixedCount,
+            6, 9, joint, 400, 80);
+    static double[] Positions(List<V3TieBand> bands) => bands.SelectMany(b =>
+        Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
+    static void Main()
+    {
+        var bands = Plan();
+        var zs = Positions(bands);
+        Check(bands.Count == 3, "Three bands");
+        Check(Math.Abs(zs.First() - 34) < 1e-7 && Math.Abs(zs.Last() - 2966) < 1e-7, "Cover at both ends");
+        Check(zs.Zip(zs.Skip(1), (a,b) => b > a).All(x=>x), "No duplicate boundaries");
+        foreach (var b in bands)
+            Check(b.Count == 1 || (b.End-b.Start)/(b.Count-1) <= b.MaximumSpacing + 1e-7, "Maximum spacing");
+        Check(Positions(Plan(fixedCount:true)).Length == 6 + 9 + 6 - 2, "Fixed counts share boundaries");
+        Check(Plan(zone:0).Count == 1, "Zero end region");
+        Check(Plan(zone:1466).Count == 2, "End regions meet without a duplicate middle");
+        Check(Plan(joint:true).Last().FixedNumber == false, "Joint always uses its spacing");
+        Check(Math.Abs(Positions(Plan(joint:true)).Last() - 3366) < 1e-7, "Joint height is included");
+        Check(Positions(Plan(zone:1466,fixedCount:true)).Length == 11, "Meeting fixed end regions");
+        Check(Plan(zone:1, spacing:10000)[1].Count == 1, "Boundary removal can leave a singleton");
+        foreach (var zone in new[]{0.0, 1.0, 100.0, 500.0, 1466.0})
+        foreach (var space in new[]{10.0, 100.0, 333.0, 5000.0})
+        foreach (var joint in new[]{false, true})
+        {
+            var plan = Plan(zone:zone,spacing:space,joint:joint);
+            var positions = Positions(plan);
+            Check(positions.Zip(positions.Skip(1), (a,b)=> b-a > 1e-7).All(x=>x), "Strictly ordered tie positions");
+            // Spacing across band boundaries is also bounded by the incoming band's spacing.
+            double previous = positions[0];
+            foreach (var band in plan)
+            foreach (var pos in Enumerable.Range(0,band.Count).Select(band.Position))
+            {
+                Check(pos-previous <= band.MaximumSpacing + 1e-7, "Boundary spacing bound");
+                previous = pos;
+            }
+        }
+        Reject(()=>Plan(zone:1467));
+        Reject(()=>Plan(zone:-1));
+        Reject(()=>Plan(spacing:0));
+        Reject(()=>Plan(spacing:double.NaN));
+        Reject(()=>Plan(spacing:double.PositiveInfinity));
+        Reject(()=>Plan(spacing:0.0001));
+        Reject(()=>Plan(height:60));
+        Reject(()=>V3TieLayoutPlan.Create(3000,30,8,500,100,175,true,1,9,false,0,0));
+        Reject(()=>V3TieLayoutPlan.Create(3000,30,8,500,100,175,false,0,0,true,400,0));
+        Check(V3RebarOwnership.Matches(42,"KSTR_V3_42"), "Recognize legacy V3 partition, regardless of column/foundation host");
+        foreach (string partition in new[]{null,"","KSTR_V3_420","KSTR_V3_41","kstr_v3_42","Manual"," KSTR_V3_42"})
+            Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
+        Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
+    }
+}

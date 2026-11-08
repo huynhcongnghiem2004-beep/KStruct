@@ -83,13 +83,23 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            var workArea = SystemParameters.WorkArea;
+            MinWidth = Math.Min(MinWidth, workArea.Width);
+            MinHeight = Math.Min(MinHeight, workArea.Height);
+            Width = Math.Min(Width, workArea.Width);
+            Height = Math.Min(Height, workArea.Height);
             bool anchorEnabled = FoundationAnchorCheck.IsChecked == true;
             FoundationLengthBox.IsEnabled = anchorEnabled;
             FoundationCoverBox.IsEnabled = anchorEnabled;
             var deployment = new V3DeploymentControl();
             DeploymentHost.Children.Add(deployment);
             if (document != null) deployment.Initialize(document);
-            for (int n = 2; n <= 12; n++) { CxBox.Items.Add(n); CyBox.Items.Add(n); }
+            RoutedEventHandler updateCaption = (sender, args) =>
+                RunButton.Content = deployment.IsDeploymentEnabled ? "Tạo thép và bản vẽ" : "Tạo thép 3D";
+            deployment.AddHandler(CheckBox.CheckedEvent, updateCaption);
+            deployment.AddHandler(CheckBox.UncheckedEvent, updateCaption);
+            updateCaption(null, null);
+            for (int n = 2; n <= 20; n++) { CxBox.Items.Add(n); CyBox.Items.Add(n); }
             foreach (BarSizeChoice size in _sizes) { MainBarBox.Items.Add(size); TieBarBox.Items.Add(size); }
             foreach (ColumnSegment s in _segments.OrderByDescending(s => s.BottomMm))
             {
@@ -120,13 +130,16 @@ namespace ColumnRebarPro.V3
 
         private static bool IsUsable(V3RebarConfig c)
         {
-            return c != null && c.Cx >= 2 && c.Cx <= 12 && c.Cy >= 2 && c.Cy <= 12 &&
+            if (c == null || new[] { c.MainDiameter, c.TieDiameter, c.Cover, c.EndZone,
+                c.EndSpacing, c.MidSpacing, c.StarterLength, c.JointBeamHeight, c.JointSpacing }
+                .Any(v => double.IsNaN(v) || double.IsInfinity(v))) return false;
+            return c.Cx >= 2 && c.Cx <= 20 && c.Cy >= 2 && c.Cy <= 20 &&
                 c.MainDiameter >= 6 && c.MainDiameter <= 40 && c.TieDiameter >= 6 && c.TieDiameter <= 40 &&
-                c.Cover > 0 && c.Cover < 300 && c.EndZone >= 0 && c.EndZone < 10000 &&
-                c.EndSpacing > 0 && c.EndSpacing < 2000 && c.MidSpacing > 0 && c.MidSpacing < 2000 &&
-                c.EndTieCount > 0 && c.EndTieCount <= 500 && c.MidTieCount > 0 && c.MidTieCount <= 1000 &&
-                (!c.StarterBars || (c.StarterLength > 0 && c.StarterLength < 10000)) &&
-                c.JointBeamHeight >= 0 && c.JointBeamHeight < 10000 && c.JointSpacing > 0 && c.JointSpacing < 2000;
+                c.Cover > 0 && c.EndZone >= 0 && c.EndSpacing > 0 && c.MidSpacing > 0 &&
+                (c.TieLayout != V3TieLayout.FixedNumber ||
+                    (c.EndTieCount >= 2 && c.EndTieCount <= 1002 && c.MidTieCount >= 2 && c.MidTieCount <= 1002)) &&
+                (!c.StarterBars || c.StarterLength > 0) &&
+                (!c.JointTies || (c.JointBeamHeight > 0 && c.JointSpacing > 0));
         }
 
         private static double ReadPositive(TextBox box, string caption, bool zeroAllowed = false)
@@ -168,7 +181,7 @@ namespace ColumnRebarPro.V3
             StarterCheck.IsChecked = c.StarterBars;
             StarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             CoverBox.Text = c.Cover > 0 ? c.Cover.ToString(CultureInfo.InvariantCulture) : "";
-            ZoneBox.Text = c.EndZone > 0 ? c.EndZone.ToString(CultureInfo.InvariantCulture) : "";
+            ZoneBox.Text = c.EndZone.ToString(CultureInfo.InvariantCulture);
             EndStepBox.Text = c.EndSpacing > 0 ? c.EndSpacing.ToString(CultureInfo.InvariantCulture) : "";
             MidStepBox.Text = c.MidSpacing > 0 ? c.MidSpacing.ToString(CultureInfo.InvariantCulture) : "";
             TieLayoutBox.SelectedIndex = c.TieLayout == V3TieLayout.FixedNumber ? 1 :
@@ -209,8 +222,6 @@ namespace ColumnRebarPro.V3
                 c.TieDiameter = tie.Mm;
                 c.Cover = ReadPositive(CoverBox, "Lớp bảo vệ");
                 c.EndZone = ReadPositive(ZoneBox, "Chiều dài vùng đai đầu", true);
-                c.EndSpacing = ReadPositive(EndStepBox, "Bước đai hai đầu");
-                c.MidSpacing = ReadPositive(MidStepBox, "Bước đai giữa");
                 if (TieLayoutBox.SelectedIndex < 0)
                     throw new InvalidOperationException("Chọn quy tắc bố trí đai theo thiết kế đã duyệt.");
                 c.TieLayout = TieLayoutBox.SelectedIndex == 1 ? V3TieLayout.FixedNumber : V3TieLayout.MaximumSpacing;
@@ -219,6 +230,14 @@ namespace ColumnRebarPro.V3
                     c.EndTieCount = ReadInteger(EndCountBox, "Số đai vùng đầu");
                     c.MidTieCount = ReadInteger(MidCountBox, "Số đai vùng giữa");
                 }
+                else
+                {
+                    c.EndSpacing = ReadPositive(EndStepBox, "Bước đai hai đầu");
+                    c.MidSpacing = ReadPositive(MidStepBox, "Bước đai giữa");
+                }
+                // Inactive spacing values are unused in Fixed Number, but keep the stored profile valid.
+                if (c.EndSpacing <= 0) c.EndSpacing = 1;
+                if (c.MidSpacing <= 0) c.MidSpacing = 1;
                 c.StarterBars = (MainStarterCheck.IsChecked == true || StarterCheck.IsChecked == true);
                 if (c.StarterBars)
                 {
@@ -273,12 +292,17 @@ namespace ColumnRebarPro.V3
 
         private void TieLayoutControlState()
         {
-            StarterLengthBox.IsReadOnly = false;
+            StarterLengthBox.IsEnabled = StarterCheck.IsChecked == true;
             MainStarterLengthBox.IsReadOnly = false;
             MainStarterLengthBox.IsEnabled = MainStarterCheck.IsChecked == true;
             bool enabled = TieLayoutBox.SelectedIndex == 1;
+            EndStepBox.IsEnabled = !enabled;
+            MidStepBox.IsEnabled = !enabled;
             EndCountBox.IsEnabled = enabled;
             MidCountBox.IsEnabled = enabled;
+            CrossAlternateCheck.IsEnabled = CrossCheck.IsChecked == true;
+            JointHeightBox.IsEnabled = JointTiesCheck.IsChecked == true;
+            JointStepBox.IsEnabled = JointTiesCheck.IsChecked == true;
         }
 
         private void FloorList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -301,6 +325,7 @@ namespace ColumnRebarPro.V3
         private void Edit_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            TieLayoutControlState();
             WithoutEvents(() =>
             {
                 // Hai checkbox "thép chờ" ở hai tab là cùng một thiết lập: giữ đồng bộ để bỏ chọn được.
@@ -552,7 +577,7 @@ namespace ColumnRebarPro.V3
 
             // Chiều cao tổng cộng cần vẽ
             double starterMm = c.StarterBars ? c.StarterLength : 0;
-            double totalDrawH = heightMm + beamH + Math.Max(starterMm, upperHeightMm > 0 ? upperHeightMm * 0.4 : 0);
+            double totalDrawH = heightMm + Math.Max(beamH, Math.Max(starterMm, upperHeightMm > 0 ? upperHeightMm * 0.4 : 0));
             double totalDrawW = Math.Max(widthMm, upperWidthMm) + 120;
 
             double pad = 18;
@@ -592,7 +617,7 @@ namespace ColumnRebarPro.V3
             LongSectionCanvas.Children.Add(colRect);
 
             // === Vùng dầm sàn ===
-            if (hasUpper && beamH > 0)
+            if (c.JointTies && beamH > 0)
             {
                 double sTop = mmToY(colH + beamH), sBot = mmToY(colH);
                 double sHalfW = Math.Max(colHalfW, upperWidthMm / 2) + 40;
@@ -613,7 +638,7 @@ namespace ColumnRebarPro.V3
             {
                 double uHalfW = upperWidthMm / 2;
                 upperDrawH = Math.Max(starterMm, upperHeightMm * 0.35);
-                double uBot = colH + beamH;
+                double uBot = colH;
                 double uTop = uBot + upperDrawH;
                 double uLeft = mmToX(-uHalfW), uRight = mmToX(uHalfW);
                 double uTopY = mmToY(uTop), uBotY = mmToY(uBot);
@@ -635,8 +660,8 @@ namespace ColumnRebarPro.V3
             Brush barBrush = Brushes.Red;
             double barThick = 2.8;
 
-            double barBot = c.Cover + c.TieDiameter;
-            double barTop = colH - c.Cover - c.TieDiameter;
+            double barBot = c.Cover + c.MainDiameter / 2;
+            double barTop = colH - c.Cover - c.MainDiameter / 2;
             addLn(mmToX(barXL), mmToY(barBot), mmToX(barXL), mmToY(barTop), barBrush, barThick);
             addLn(mmToX(barXR), mmToY(barBot), mmToX(barXR), mmToY(barTop), barBrush, barThick);
 
@@ -656,36 +681,22 @@ namespace ColumnRebarPro.V3
 
             // === Thép đai ===
             Brush tieBrush = new SolidColorBrush(Color.FromRgb(0, 153, 157));
-            double endZone = c.EndZone;
-            double tieBarBot = barBot;
-            double tieBarTop = barTop;
-
-            double endZoneTop = Math.Min(tieBarBot + endZone, (tieBarBot + tieBarTop) / 2);
-            int endN = c.TieLayout == V3TieLayout.FixedNumber ? c.EndTieCount : Math.Max(2, (int)(endZone / c.EndSpacing));
-            for (int i = 0; i < endN && i < 30; i++)
+            try
             {
-                double z = tieBarBot + endZone * i / Math.Max(1, endN - 1);
-                if (z > endZoneTop) break;
-                addLn(mmToX(-colHalfW + c.Cover), mmToY(z), mmToX(colHalfW - c.Cover), mmToY(z), tieBrush, 1.2);
+                var bands = V3TieLayoutPlan.Create(heightMm, c.Cover, c.TieDiameter,
+                    c.EndZone, c.EndSpacing, c.MidSpacing, c.TieLayout == V3TieLayout.FixedNumber,
+                    c.EndTieCount, c.MidTieCount, c.JointTies, c.JointBeamHeight, c.JointSpacing);
+                foreach (var band in bands)
+                    for (int i = 0; i < band.Count; i++)
+                    {
+                        double z = band.Position(i);
+                        addLn(mmToX(-colHalfW + c.Cover), mmToY(z),
+                            mmToX(colHalfW - c.Cover), mmToY(z), tieBrush, 0.8);
+                    }
             }
-
-            double endZoneBot2 = Math.Max(tieBarTop - endZone, (tieBarBot + tieBarTop) / 2);
-            for (int i = 0; i < endN && i < 30; i++)
+            catch (InvalidOperationException ex)
             {
-                double z = tieBarTop - endZone * i / Math.Max(1, endN - 1);
-                if (z < endZoneBot2) break;
-                addLn(mmToX(-colHalfW + c.Cover), mmToY(z), mmToX(colHalfW - c.Cover), mmToY(z), tieBrush, 1.2);
-            }
-
-            double midBot = endZoneTop, midTop = endZoneBot2;
-            if (midTop > midBot + 10)
-            {
-                int midN = c.TieLayout == V3TieLayout.FixedNumber ? c.MidTieCount : Math.Max(2, (int)((midTop - midBot) / c.MidSpacing));
-                for (int i = 0; i < midN && i < 40; i++)
-                {
-                    double z = midBot + (midTop - midBot) * i / Math.Max(1, midN - 1);
-                    addLn(mmToX(-colHalfW + c.Cover), mmToY(z), mmToX(colHalfW - c.Cover), mmToY(z), tieBrush, 0.8);
-                }
+                addTxt(4, 4, ex.Message, Brushes.Firebrick, 9);
             }
 
             addTxt(cLeft + 3, cBot + 2, row.Segment.LevelName, Brushes.DarkGreen, 9.5);

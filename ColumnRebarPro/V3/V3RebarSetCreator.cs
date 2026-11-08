@@ -10,26 +10,19 @@ namespace ColumnRebarPro.V3
     // They are NOT Autodesk.Revit.DB.Group elements.
     internal static class V3RebarSetCreator
     {
-        private sealed class TieZone
-        {
-            internal double Start, End, Spacing;
-            internal int FixedCount;
-            internal string Name;
-        }
-
         internal static void CreateLongitudinalSets(Document doc, V3SegmentWork item,
             RebarBarType type, V3BuildReport report)
         {
             if (item.Config.Splice != V3SpliceStyle.None || item.Config.StaggerSplices ||
                 item.HasNext || item.HasPrevious || item.TransitionUp != null ||
-                item.TransitionDown != null || item.Config.Splice != V3SpliceStyle.None)
+                item.TransitionDown != null)
                 throw new InvalidOperationException("Không thể tạo nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
             V3Geometry g = item.Geometry;
             V3RebarConfig c = item.Config;
             double inset = V3Units.Ft(c.Cover + c.TieDiameter + c.MainDiameter / 2);
             double hx = g.Width / 2 - inset, hy = g.Depth / 2 - inset;
-            double low = g.Bottom + V3Units.Ft(c.Cover + c.TieDiameter);
-            double high = g.Top - V3Units.Ft(c.Cover + c.TieDiameter);
+            double low = g.Bottom + V3Units.Ft(c.Cover + c.MainDiameter / 2);
+            double high = g.Top - V3Units.Ft(c.Cover + c.MainDiameter / 2);
 
             if (c.StarterBars) high = Math.Max(high, g.Top + V3Units.Ft(c.StarterLength));
 
@@ -72,81 +65,77 @@ namespace ColumnRebarPro.V3
             report.MainBars += count;
         }
 
-        internal static void CreateTies(Document doc, V3SegmentWork item,
-            RebarBarType type, RebarHookType hook, V3BuildReport report)
+        internal static List<V3TieBand> TiePlan(V3SegmentWork item)
         {
-            V3Geometry g = item.Geometry;
-            V3RebarConfig c = item.Config;
-            double tieDiameter = V3Units.Ft(c.TieDiameter);
-            double outer = V3Units.Ft(c.Cover) + tieDiameter / 2;
-            double tx = g.Width / 2 - outer, ty = g.Depth / 2 - outer;
-            double zStart = g.Bottom + outer, zEnd = g.Top - outer;
-            double zEndZone = Math.Min(V3Units.Ft(c.EndZone), (zEnd - zStart) / 2);
+            var c = item.Config;
+            return V3TieLayoutPlan.Create(V3Units.Mm(item.Geometry.Height), c.Cover, c.TieDiameter,
+                c.EndZone, c.EndSpacing, c.MidSpacing, c.TieLayout == V3TieLayout.FixedNumber,
+                c.EndTieCount, c.MidTieCount, c.JointTies, c.JointBeamHeight, c.JointSpacing);
+        }
 
-            var zoneList = new List<TieZone>
+        internal static void CreateTies(Document doc, V3SegmentWork item,
+            RebarBarType type, RebarHookType hook135, RebarHookType hook90, V3BuildReport report)
+        {
+            var g = item.Geometry;
+            var c = item.Config;
+            double inset = V3Units.Ft(c.Cover + c.TieDiameter / 2);
+            double tx = g.Width / 2 - inset, ty = g.Depth / 2 - inset;
+            int level = 0;
+            foreach (var band in TiePlan(item))
             {
-                new TieZone { Start=zStart, End=zStart+zEndZone,
-                    Spacing=V3Units.Ft(c.EndSpacing), FixedCount=c.EndTieCount, Name="chân" },
-                new TieZone { Start=zStart+zEndZone, End=zEnd-zEndZone,
-                    Spacing=V3Units.Ft(c.MidSpacing), FixedCount=c.MidTieCount, Name="giữa" },
-                new TieZone { Start=zEnd-zEndZone, End=zEnd,
-                    Spacing=V3Units.Ft(c.EndSpacing), FixedCount=c.EndTieCount, Name="đầu" }
-            };
-
-            // Tùy chọn bố trí đai qua vùng nút dầm sàn
-            if (c.JointTies && c.JointBeamHeight > 50)
-            {
-                double zJointEnd = zEnd + V3Units.Ft(c.JointBeamHeight);
-                double jSpacing = V3Units.Ft(c.JointSpacing > 0 ? c.JointSpacing : c.EndSpacing);
-                int jCount = (int)Math.Ceiling(V3Units.Ft(c.JointBeamHeight) / jSpacing) + 1;
-                zoneList.Add(new TieZone { Start = zEnd, End = zJointEnd, Spacing = jSpacing, FixedCount = jCount, Name = "nút dầm sàn" });
-            }
-            var zones = zoneList.ToArray();
-
-            // Consecutive zones share end positions. Remove the duplicate in the next zone.
-            double previousEnd = double.NaN;
-            foreach (TieZone zone in zones)
-            {
-                double length = zone.End - zone.Start;
-                if (length < V3Units.Ft(0.1)) continue;
-                int fullCount = c.TieLayout == V3TieLayout.FixedNumber
-                    ? zone.FixedCount
-                    : (int)Math.Ceiling(length / zone.Spacing - 1e-9) + 1;
-                if (fullCount < 2 || fullCount > 1002)
-                    throw new InvalidOperationException("Vùng đai " + zone.Name + " có số vị trí không hợp lệ: " + fullCount);
-
-                double actualSpacing = length / (fullCount - 1);
-                bool skipFirst = !double.IsNaN(previousEnd) &&
-                    Math.Abs(previousEnd - zone.Start) < V3Units.Ft(0.1);
-                double firstZ = zone.Start + (skipFirst ? actualSpacing : 0);
-                int positions = fullCount - (skipFirst ? 1 : 0);
-                previousEnd = zone.End;
-                if (positions <= 0) continue;
-
-                bool makeSet = c.GroupTies && positions >= 2;
-                if (makeSet)
+                double z = g.Bottom + V3Units.Ft(band.Start);
+                double length = V3Units.Ft(band.End - band.Start);
+                if (c.GroupTies && band.Count >= 2)
                 {
-                    Rebar main = CreateOuter(doc, item, type, hook, tx, ty, firstZ);
-                    ApplyLayout(main, c, zone, positions, zone.End - firstZ);
+                    Rebar outer = CreateOuter(doc, item, type, hook135, tx, ty, z);
+                    ApplyBand(outer, band, length);
                     report.TieSets++;
-                    report.Ties += main.NumberOfBarPositions;
-                    if (c.CrossTies)
-                        CreateCrossTiesAt(doc, item, type, hook, tx, ty, firstZ,
-                            positions, zone.End - firstZ, zone, report, true);
+                    report.Ties += outer.NumberOfBarPositions;
                 }
                 else
                 {
-                    for (int i = 0; i < positions; i++)
+                    for (int i = 0; i < band.Count; i++)
                     {
-                        double z = firstZ + (positions == 1 ? 0 : (zone.End-firstZ)*i/(positions-1));
-                        CreateOuter(doc, item, type, hook, tx, ty, z);
+                        CreateOuter(doc, item, type, hook135, tx, ty,
+                            g.Bottom + V3Units.Ft(band.Position(i)));
                         report.Ties++;
-                        if (c.CrossTies)
-                            CreateCrossTiesAt(doc, item, type, hook, tx, ty, z,
-                                1, 0, zone, report, false);
                     }
                 }
+                if (c.CrossTies)
+                {
+                    if (c.GroupTies && !c.CrossTiesAlternating)
+                        CreateCrossLevel(doc, item, type, hook135, hook135, tx, ty, z,
+                            band.Count, length, false, report);
+                    else if (c.GroupTies)
+                    {
+                        // Two interleaved sets preserve alternation along height, including zone boundaries.
+                        for (int parity = 0; parity < 2 && parity < band.Count; parity++)
+                        {
+                            int count = (band.Count - parity + 1) / 2;
+                            double first = band.Position(parity);
+                            double last = band.Position(parity + 2 * (count - 1));
+                            CreateCrossLevel(doc, item, type, hook135, hook90, tx, ty,
+                                g.Bottom + V3Units.Ft(first), count, V3Units.Ft(last - first),
+                                (level + parity) % 2 == 1, report);
+                        }
+                    }
+                    else
+                        for (int i = 0; i < band.Count; i++)
+                            CreateCrossLevel(doc, item, type, hook135,
+                                c.CrossTiesAlternating ? hook90 : hook135, tx, ty,
+                                g.Bottom + V3Units.Ft(band.Position(i)), 1, 0,
+                                c.CrossTiesAlternating && (level + i) % 2 == 1, report);
+                }
+                level += band.Count;
             }
+        }
+
+        private static void ApplyBand(Rebar bar, V3TieBand band, double length)
+        {
+            if (band.FixedNumber) ApplyFixedNumber(bar, band.Count, length, "đai");
+            else
+                using (var accessor = bar.GetShapeDrivenAccessor())
+                    accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(band.MaximumSpacing), length, true, true, true);
         }
 
         private static Rebar CreateOuter(Document doc, V3SegmentWork item,
@@ -187,58 +176,47 @@ namespace ColumnRebarPro.V3
             return bar;
         }
 
-        private static void CreateCrossTiesAt(Document doc, V3SegmentWork item,
-            RebarBarType type, RebarHookType hook, double tx, double ty, double z,
-            int count, double length, TieZone zone, V3BuildReport report, bool grouped)
+        private static void CreateCrossLevel(Document doc, V3SegmentWork item,
+            RebarBarType type, RebarHookType startHook, RebarHookType endHook,
+            double tx, double ty, double z, int count, double length, bool reverse,
+            V3BuildReport report)
         {
-            V3Geometry g = item.Geometry;
-            V3RebarConfig c = item.Config;
-            if (hook == null)
-                throw new InvalidOperationException("Đai phụ cần Rebar Hook Type 135°.");
-            for (int i=1;i<c.Cx-1;i++)
+            var g = item.Geometry;
+            var c = item.Config;
+            double inset = V3Units.Ft(c.Cover + c.TieDiameter + c.MainDiameter / 2);
+            for (int i = 1; i < c.Cx - 1; i++)
             {
-                double mainX = g.Width / 2 - V3Units.Ft(c.Cover + c.TieDiameter + c.MainDiameter / 2);
-                double xx = -mainX + 2*mainX*i/(c.Cx-1);
-                Rebar bar = CreateCross(doc,item,type,hook,g.At(xx,-ty,z),g.At(xx,ty,z),"Cx",i,z);
-                if (grouped) { ApplyLayout(bar,c,zone,count,length); report.CrossTieSets++; }
-                report.CrossTies += grouped ? bar.NumberOfBarPositions : 1;
+                double x = -(g.Width / 2 - inset) + (g.Width - 2 * inset) * i / (c.Cx - 1);
+                CreateCross(doc, item, type, startHook, endHook, g.At(x, -ty, z), g.At(x, ty, z),
+                    count, length, reverse, report);
             }
-            for (int i=1;i<c.Cy-1;i++)
+            for (int i = 1; i < c.Cy - 1; i++)
             {
-                double mainY = g.Depth / 2 - V3Units.Ft(c.Cover + c.TieDiameter + c.MainDiameter / 2);
-                double yy = -mainY + 2*mainY*i/(c.Cy-1);
-                Rebar bar = CreateCross(doc,item,type,hook,g.At(-tx,yy,z),g.At(tx,yy,z),"Cy",i,z);
-                if (grouped) { ApplyLayout(bar,c,zone,count,length); report.CrossTieSets++; }
-                report.CrossTies += grouped ? bar.NumberOfBarPositions : 1;
+                double y = -(g.Depth / 2 - inset) + (g.Depth - 2 * inset) * i / (c.Cy - 1);
+                CreateCross(doc, item, type, startHook, endHook, g.At(-tx, y, z), g.At(tx, y, z),
+                    count, length, reverse, report);
             }
         }
 
-        private static Rebar CreateCross(Document doc, V3SegmentWork item,
-            RebarBarType type, RebarHookType hook, XYZ a, XYZ b,
-            string face, int number, double z)
+        private static void CreateCross(Document doc, V3SegmentWork item,
+            RebarBarType type, RebarHookType startHook, RebarHookType endHook,
+            XYZ a, XYZ b, int count, double length, bool reverse, V3BuildReport report)
         {
-            if ((b-a).GetLength() < V3Units.Ft(80))
-                throw new InvalidOperationException("Đai phụ quá ngắn tại cạnh " + face);
-            try
+            if (startHook == null || endHook == null)
+                throw new InvalidOperationException("Thiếu loại móc đai phụ theo cấu hình.");
+            if (reverse) { var temp = a; a = b; b = temp; }
+            var curves = new List<Curve> { Line.CreateBound(a, b) };
+            var bar = Rebar.CreateFromCurves(doc, RebarStyle.StirrupTie, type, startHook, endHook,
+                item.Column, XYZ.BasisZ, curves, RebarHookOrientation.Left,
+                RebarHookOrientation.Right, true, true);
+            if (bar == null) throw new InvalidOperationException("Không tạo được đai phụ.");
+            V3RebarBuilder.SetPartition(bar, item.Column.Id);
+            if (count >= 2)
             {
-                if (item.Config.CrossTiesAlternating && number % 2 == 1)
-                {
-                    XYZ temp = a; a = b; b = temp;
-                }
-                var lines = new List<Curve> { Line.CreateBound(a,b) };
-                // Cross-tie lies in XY; its normal must be perpendicular to the line.
-                Rebar bar = Rebar.CreateFromCurves(doc,RebarStyle.StirrupTie,type,hook,hook,
-                    item.Column,XYZ.BasisZ,lines,RebarHookOrientation.Left,
-                    RebarHookOrientation.Right,true,true);
-                if (bar == null) throw new InvalidOperationException("CreateFromCurves trả về null.");
-                V3RebarBuilder.SetPartition(bar,V3RebarBuilder.Partition(item.Column.Id));
-                return bar;
+                ApplyFixedNumber(bar, count, length, "đai phụ");
+                report.CrossTieSets++;
             }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Lỗi đai phụ " + face + " #" + number +
-                    " tại Z=" + Math.Round(V3Units.Mm(z)) + " mm. Kiểm tra Hook/Shape: " + ex.Message,ex);
-            }
+            report.CrossTies += count;
         }
 
         private static void ApplyFixedNumber(Rebar rebar, int count, double length, string description)
@@ -257,25 +235,5 @@ namespace ColumnRebarPro.V3
             }
         }
 
-        private static void ApplyLayout(Rebar rebar, V3RebarConfig c, TieZone zone,
-            int positions, double length)
-        {
-            if (positions < 2) return;
-            if (c.TieLayout == V3TieLayout.FixedNumber)
-            {
-                ApplyFixedNumber(rebar,positions,length,"đai vùng " + zone.Name);
-                return;
-            }
-            try
-            {
-                using (RebarShapeDrivenAccessor accessor = rebar.GetShapeDrivenAccessor())
-                    accessor.SetLayoutAsMaximumSpacing(zone.Spacing,length,true,true,true);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Không tạo được Rebar Set Maximum Spacing vùng " +
-                    zone.Name + ": " + ex.Message,ex);
-            }
-        }
     }
 }
