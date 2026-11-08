@@ -115,8 +115,8 @@ namespace ColumnRebarPro.V3
                     throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
                 if (replaceOld && existing.Count > 0) doc.Delete(existing);
 
-                if (work.FoundationHost != null)
-                    V3RebarSetCreator.CreateFoundationAnchorSets(doc, work, mainType, report);
+                if (work.FoundationHost != null || work.BottleneckToUpper)
+                    V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);
                 else if (work.Config.GroupLongBars)
                     V3RebarSetCreator.CreateLongitudinalSets(doc, work, mainType, report);
                 else
@@ -142,7 +142,8 @@ namespace ColumnRebarPro.V3
         private static RebarBarType FindBarType(List<RebarBarType> types, double diameterMm)
         {
             List<RebarBarType> matches = types
-                .Where(t => Math.Abs(V3Units.Mm(t.BarNominalDiameter) - diameterMm) <= .01)
+                .Where(t => !t.Name.StartsWith(V3BottleneckBarType.Prefix, StringComparison.Ordinal) &&
+                    Math.Abs(V3Units.Mm(t.BarNominalDiameter) - diameterMm) <= .01)
                 .ToList();
             if (matches.Count > 1)
                 throw new InvalidOperationException("Có nhiều RebarBarType cùng đường kính " +

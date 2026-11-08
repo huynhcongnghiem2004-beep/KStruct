@@ -184,6 +184,9 @@ namespace ColumnRebarPro.V3
             MainStarterCheck.IsChecked = c.StarterBars;
             MainStarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             StarterCheck.IsChecked = c.StarterBars;
+            BottleneckRibbedCheck.IsChecked = c.BottleneckRibbed;
+            BottleneckClearanceBox.Text = c.BottleneckClearanceMm.ToString(CultureInfo.InvariantCulture);
+            BottleneckSlopeBox.Text = c.BottleneckSlope.ToString(CultureInfo.InvariantCulture);
             StarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             CoverBox.Text = c.Cover > 0 ? c.Cover.ToString(CultureInfo.InvariantCulture) : "";
             ZoneBox.Text = c.EndZone.ToString(CultureInfo.InvariantCulture);
@@ -242,7 +245,10 @@ namespace ColumnRebarPro.V3
                 c.StarterBars = (MainStarterCheck.IsChecked == true || StarterCheck.IsChecked == true);
                 if (c.StarterBars)
                 {
-                    c.StarterLength = ReadPositive(MainStarterLengthBox, "Chiều dài thép chờ theo thiết kế");
+                    c.StarterLength = ReadPositive(MainStarterLengthBox, "Chiều dài chờ từ đỉnh cột dưới");
+                    c.BottleneckClearanceMm = ReadPositive(BottleneckClearanceBox, "Khe hở cổ chai", true);
+                    c.BottleneckSlope = ReadPositive(BottleneckSlopeBox, "Tỷ lệ xiên 1:n");
+                    c.BottleneckRibbed = BottleneckRibbedCheck.IsChecked == true;
                     StarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                     MainStarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                 }
@@ -524,6 +530,31 @@ namespace ColumnRebarPro.V3
             DrawSection();
             DrawLongSection();
             UpdateFoundationAnchorSummary();
+            UpdateStarterConnectionSummary();
+        }
+
+        private void UpdateStarterConnectionSummary()
+        {
+            var row = ActiveRow; var c = ActiveConfig;
+            if (row == null || c == null || StarterConnectionSummary == null) return;
+            int index = _segments.FindIndex(s => s.Id.Value == row.Segment.Id.Value);
+            if (!c.StarterBars || index + 1 >= _segments.Count)
+            {
+                StarterConnectionSummary.Text = "Không có cặp nối tầng trên đang bật tại tầng này.";
+                return;
+            }
+            var upper = _segments[index + 1]; var u = _configs[upper.Id.Value];
+            if (u.MainDiameter <= 0 || u.Cover <= 0 || c.MainDiameter <= 0)
+            {
+                StarterConnectionSummary.Text = "Nhập cấu hình thép tầng trên để tính phần chờ vào cột.";
+                return;
+            }
+            double gap = upper.BottomMm - row.Segment.TopMm;
+            double lap = c.StarterLength - gap - u.Cover - u.MainDiameter / 2;
+            double minimum = gap + u.Cover + u.MainDiameter / 2 + V3BottleneckRules.MinimumLap(Math.Max(c.MainDiameter, u.MainDiameter));
+            StarterConnectionSummary.Text = "Khoảng hở lên " + upper.LevelName + ": " + Math.Round(gap, 1) +
+                " mm. Phần nối thẳng còn lại: " + Math.Round(lap, 1) + " mm. Chiều dài chờ tối thiểu theo giới hạn 20d/250 mm: " +
+                Math.Round(minimum, 1) + " mm; chiều dài tính toán có thể lớn hơn.";
         }
         private void LongSectionCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
@@ -630,10 +661,11 @@ namespace ColumnRebarPro.V3
             double upperWidthMm = hasUpper ? _segments[segIdx + 1].WidthMm : widthMm;
             double upperHeightMm = hasUpper ? (_segments[segIdx + 1].TopMm - _segments[segIdx + 1].BottomMm) : 0;
             double beamH = c.JointBeamHeight;
+            double upperGapMm = hasUpper ? _segments[segIdx + 1].BottomMm - row.Segment.TopMm : 0;
 
             // Chiều cao tổng cộng cần vẽ
             double starterMm = c.StarterBars ? c.StarterLength : 0;
-            double totalDrawH = heightMm + Math.Max(beamH, Math.Max(starterMm, upperHeightMm > 0 ? upperHeightMm * 0.4 : 0));
+            double totalDrawH = heightMm + Math.Max(beamH, Math.Max(starterMm, hasUpper ? upperGapMm + upperHeightMm * 0.4 : 0));
             double totalDrawW = Math.Max(widthMm, upperWidthMm) + 120;
 
             double pad = 18;
@@ -673,9 +705,10 @@ namespace ColumnRebarPro.V3
             LongSectionCanvas.Children.Add(colRect);
 
             // === Vùng dầm sàn ===
-            if (c.JointTies && beamH > 0)
+            double jointDrawHeight = hasUpper ? Math.Max(0, upperGapMm) : (c.JointTies ? beamH : 0);
+            if (jointDrawHeight > 0)
             {
-                double sTop = mmToY(colH + beamH), sBot = mmToY(colH);
+                double sTop = mmToY(colH + jointDrawHeight), sBot = mmToY(colH);
                 double sHalfW = Math.Max(colHalfW, upperWidthMm / 2) + 40;
                 var slabRect = new Rectangle
                 {
@@ -685,7 +718,7 @@ namespace ColumnRebarPro.V3
                 };
                 Canvas.SetLeft(slabRect, mmToX(-sHalfW)); Canvas.SetTop(slabRect, sTop);
                 LongSectionCanvas.Children.Add(slabRect);
-                addTxt(mmToX(sHalfW) + 3, (sTop + sBot) / 2 - 7, "Sàn/Dầm", Brushes.Gray, 9);
+                addTxt(mmToX(sHalfW) + 3, (sTop + sBot) / 2 - 7, hasUpper ? "Hở " + Math.Round(upperGapMm) + " mm" : "Nút dầm/sàn", Brushes.Gray, 9);
             }
 
             // === Đoạn cột tầng trên ===
@@ -693,8 +726,8 @@ namespace ColumnRebarPro.V3
             if (hasUpper)
             {
                 double uHalfW = upperWidthMm / 2;
-                upperDrawH = Math.Max(starterMm, upperHeightMm * 0.35);
-                double uBot = colH;
+                upperDrawH = Math.Min(upperHeightMm, Math.Max(starterMm - upperGapMm, upperHeightMm * 0.35));
+                double uBot = colH + upperGapMm;
                 double uTop = uBot + upperDrawH;
                 double uLeft = mmToX(-uHalfW), uRight = mmToX(uHalfW);
                 double uTopY = mmToY(uTop), uBotY = mmToY(uBot);
@@ -718,21 +751,31 @@ namespace ColumnRebarPro.V3
 
             double barBot = c.Cover + c.MainDiameter / 2;
             double barTop = colH - c.Cover - c.MainDiameter / 2;
-            addLn(mmToX(barXL), mmToY(barBot), mmToX(barXL), mmToY(barTop), barBrush, barThick);
-            addLn(mmToX(barXR), mmToY(barBot), mmToX(barXR), mmToY(barTop), barBrush, barThick);
-
-            // === Thép chờ theo chiều dài nhập từ thiết kế ===
+            double neckShift = hasUpper && c.StarterBars ? c.MainDiameter + c.BottleneckClearanceMm : 0;
+            double neckHeight = neckShift * c.BottleneckSlope;
+            foreach (int side in new[] { -1, 1 })
+            {
+                double x = side < 0 ? barXL : barXR;
+                double shifted = x - side * neckShift;
+                if (neckShift > 0 && neckHeight > 0)
+                {
+                    addLn(mmToX(x), mmToY(barBot), mmToX(x), mmToY(colH - neckHeight), barBrush, barThick);
+                    addLn(mmToX(x), mmToY(colH - neckHeight), mmToX(shifted), mmToY(colH), barBrush, barThick);
+                }
+                else addLn(mmToX(x), mmToY(barBot), mmToX(x), mmToY(barTop), barBrush, barThick);
+                if (c.StarterBars)
+                    addLn(mmToX(shifted), mmToY(neckShift > 0 ? colH : barTop),
+                        mmToX(shifted), mmToY(colH + starterMm), Brushes.OrangeRed, 2.2);
+                if (hasUpper)
+                    addLn(mmToX(x), mmToY(colH + upperGapMm + c.Cover + c.MainDiameter / 2),
+                        mmToX(x), mmToY(colH + upperGapMm + upperDrawH), Brushes.Firebrick, 1.5);
+            }
             if (c.StarterBars)
             {
-                double sEnd = colH + starterMm;
-                addLn(mmToX(barXL), mmToY(barTop), mmToX(barXL), mmToY(sEnd), Brushes.OrangeRed, 2.2);
-                addLn(mmToX(barXR), mmToY(barTop), mmToX(barXR), mmToY(sEnd), Brushes.OrangeRed, 2.2);
-
-                double dimX = mmToX(colHalfW + 30);
+                double sEnd = colH + starterMm, dimX = mmToX(colHalfW + 30);
                 addLn(dimX, mmToY(colH), dimX, mmToY(sEnd), Brushes.DimGray, 0.8);
-                addLn(dimX - 3, mmToY(colH), dimX + 3, mmToY(colH), Brushes.DimGray, 0.8);
-                addLn(dimX - 3, mmToY(sEnd), dimX + 3, mmToY(sEnd), Brushes.DimGray, 0.8);
-                addTxt(dimX + 4, (mmToY(colH) + mmToY(sEnd)) / 2 - 7, "L=" + Math.Round(starterMm) + "mm", Brushes.DimGray, 8.5);
+                addTxt(dimX + 4, (mmToY(colH) + mmToY(sEnd)) / 2 - 7,
+                    "L=" + Math.Round(starterMm) + "mm", Brushes.DimGray, 8.5);
             }
 
             // === Thép đai ===

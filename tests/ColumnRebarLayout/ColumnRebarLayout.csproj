@@ -6,6 +6,9 @@
     <Compile Include="../../ColumnRebarPro/V3/V3AnchorLayoutPlan.cs" Link="V3AnchorLayoutPlan.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3RebarConfig.cs" Link="V3RebarConfig.cs" />
     <Compile Include="AnchorTests.cs.txt" />
+    <Compile Include="../../ColumnRebarPro/V3/V3BottleneckRules.cs" Link="V3BottleneckRules.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3StarterConnection.cs" Link="V3StarterConnection.cs" />
+    <Compile Include="StarterTests.cs.txt" />
     <Compile Include="Program.cs.txt" />
   </ItemGroup>
 </Project>

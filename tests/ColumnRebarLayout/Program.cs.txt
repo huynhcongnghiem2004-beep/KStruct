@@ -68,6 +68,7 @@ static class Program
         foreach (string partition in new[]{null,"","KSTR_V3_420","KSTR_V3_41","kstr_v3_42","Manual"," KSTR_V3_42"})
             Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
         AnchorTests.Run();
+        StarterTests.Run();
         Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
     }
 }

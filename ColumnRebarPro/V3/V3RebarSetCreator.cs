@@ -70,16 +70,26 @@ namespace ColumnRebarPro.V3
             var c = item.Config;
             return V3AnchorLayoutPlan.Create(c.Cx, c.Cy, V3Units.Mm(item.Geometry.Width),
                 V3Units.Mm(item.Geometry.Depth), c.Cover, c.TieDiameter, c.MainDiameter,
-                c.FoundationAnchorDirection);
+                item.FoundationHost == null ? V3AnchorDirection.Inward : c.FoundationAnchorDirection);
         }
 
-        internal static void CreateFoundationAnchorSets(Document doc, V3SegmentWork item,
+        internal static void CreateShapedLongitudinalSets(Document doc, V3SegmentWork item,
             RebarBarType type, V3BuildReport report)
         {
             var g = item.Geometry;
             var c = item.Config;
-            double horizontal = V3Units.Ft(V3AnchorLayoutPlan.HorizontalLength(
+            double horizontal = item.FoundationHost == null ? 0 : V3Units.Ft(V3AnchorLayoutPlan.HorizontalLength(
                 item.FoundationAnchorLengthMm, V3Units.Mm(g.Bottom - item.FoundationBendZ)));
+            if (item.BottleneckToUpper)
+            {
+                type = V3BottleneckBarType.Resolve(doc, type, c);
+                double tangent = V3Units.Ft(V3BottleneckRules.TangentLength(c.MainDiameter,
+                    c.BottleneckClearanceMm, c.BottleneckSlope, V3Units.Mm(type.StandardBendDiameter)));
+                double lapStart = Math.Max(item.BottleneckUpperBarStart, g.Top + tangent);
+                if (V3Units.Mm(g.Top + V3Units.Ft(c.StarterLength) - lapStart) < V3BottleneckRules.MinimumLap(c.MainDiameter) - .1)
+                    throw new InvalidOperationException("Đoạn thẳng nối sau bán kính uốn không đủ chiều dài tối thiểu; tăng chiều dài chờ theo thiết kế.");
+            }
+            double low = item.FoundationHost == null ? g.Bottom + V3Units.Ft(c.Cover + c.MainDiameter / 2) : item.FoundationBendZ;
             double top = c.StarterBars ? g.Top + V3Units.Ft(c.StarterLength) :
                 g.Top - V3Units.Ft(c.Cover + c.MainDiameter / 2);
             foreach (var array in AnchorPlan(item))
@@ -90,15 +100,24 @@ namespace ColumnRebarPro.V3
                 int elements = c.GroupLongBars ? 1 : array.Count;
                 for (int i = 0; i < elements; i++)
                 {
-                    XYZ basePoint = g.At(V3Units.Ft(array.X), V3Units.Ft(array.Y), item.FoundationBendZ) + step * i;
+                    XYZ basePoint = g.At(V3Units.Ft(array.X), V3Units.Ft(array.Y), low) + step * i;
                     XYZ foot = basePoint + hookDirection * horizontal;
-                    var curves = new List<Curve>
+                    var curves = new List<Curve>();
+                    if (item.FoundationHost != null) curves.Add(Line.CreateBound(foot, basePoint));
+                    if (item.BottleneckToUpper)
                     {
-                        Line.CreateBound(foot, basePoint),
-                        Line.CreateBound(basePoint, new XYZ(basePoint.X, basePoint.Y, top))
-                    };
+                        double shift = V3Units.Ft(V3BottleneckRules.Shift(c.MainDiameter, c.BottleneckClearanceMm));
+                        double height = V3Units.Ft(V3BottleneckRules.Height(c.MainDiameter, c.BottleneckClearanceMm, c.BottleneckSlope));
+                        XYZ inward = array.HookX != 0 ? g.X * (array.X <= 0 ? 1 : -1) : g.Y * (array.Y <= 0 ? 1 : -1);
+                        XYZ start = new XYZ(basePoint.X, basePoint.Y, g.Top - height);
+                        XYZ end = new XYZ(basePoint.X, basePoint.Y, g.Top) + inward * shift;
+                        curves.Add(Line.CreateBound(basePoint, start));
+                        curves.Add(Line.CreateBound(start, end));
+                        curves.Add(Line.CreateBound(end, new XYZ(end.X, end.Y, top)));
+                    }
+                    else curves.Add(Line.CreateBound(basePoint, new XYZ(basePoint.X, basePoint.Y, top)));
                     var bar = Rebar.CreateFromCurves(doc, RebarStyle.Standard, type, null, null,
-                        item.FoundationHost, normal, curves, RebarHookOrientation.Left,
+                        item.FoundationHost ?? (Element)item.Column, normal, curves, RebarHookOrientation.Left,
                         RebarHookOrientation.Right, true, true);
                     if (bar == null) throw new InvalidOperationException("Không tạo được thép neo chân L.");
                     V3RebarBuilder.SetPartition(bar, item.Column.Id);
@@ -109,6 +128,7 @@ namespace ColumnRebarPro.V3
                         report.MainSets++;
                     }
                     doc.Regenerate();
+                    if (item.BottleneckToUpper) V3BottleneckBarType.CheckBends(bar, c);
                     if (bar.NumberOfBarPositions != count)
                         throw new InvalidOperationException("Số vị trí neo thực tế khác cấu hình Fixed Number.");
                     if (count >= 2)
