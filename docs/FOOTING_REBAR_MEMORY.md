@@ -13,6 +13,19 @@
 
 Chỉ lưu sau khi tạo thành công: Cancel, từ chối cảnh báo, lỗi lập kế hoạch, hậu kiểm/commit lỗi không ghi cấu hình mới. Metadata trên host/Rebar và việc tạo/thay thép cùng transaction nên Undo/rollback đồng bộ trong model. File mặc định người dùng bên ngoài model không tự quay về khi Undo trong Revit.
 
+## Nút Cập nhật thép móng
+
+Trong **KStruct → Thép móng**, nút **Cập nhật thép móng** nằm ngay sau nút tạo thép. Entry point mới là `SDK_HD.KStruct.FootingRebar.UpdateFootingRebarCommand`, Ribbon ID `KStruct_UpdateFootingRebar`; nút tạo hiện có giữ nguyên ID/entry point.
+
+1. Chọn một móng/đài hoặc một/nhiều nhóm thép KStruct thuộc cùng móng. Nếu chưa chọn, lệnh cho pick móng hoặc nhóm thép đã nhận diện.
+2. Lệnh yêu cầu có cả bộ thép sở hữu và lịch sử cấu hình đúng host. Không có thì báo rõ và dừng, không chuyển sang tạo mới.
+3. Mở cửa sổ **Cập nhật thép móng cọc, móng đơn**, tự nạp thông số host và bật cố định chế độ cập nhật. Có thể đổi đường kính, bước, cover, bật/tắt lớp thép và kiểu/chiều dài neo.
+4. Chiều dài thân thanh/phạm vi phân bố được tính lại từ hình học móng hiện tại và thông số đã nhập; không sửa kích thước bê tông móng, không tự tính thiết kế kết cấu.
+5. Bấm **Cập nhật thép móng** để thay đúng bộ được nhận diện trong một transaction có hậu kiểm. Các nhóm chưa nhận diện trên cùng host được giữ nguyên, không cần chọn tạo bổ sung trong chế độ cập nhật.
+6. Các bảo vệ rollback/không xóa annotation liên quan bên dưới vẫn áp dụng. Chưa hỗ trợ sửa thép legacy không có metadata hoặc tự chuyển reference của tag/dimension sang Rebar mới.
+
+Ca kiểm tra Revit bổ sung: chọn từ host hoặc Rebar, chọn nhiều Rebar cùng host, chọn nhiều host/lệnh khác, host chưa có bộ sở hữu, đổi kích thước host rồi cập nhật, đổi D/bước/neo, Cancel, Undo và cập nhật bộ có annotation. Build và kiểm tra thuật toán không thay thế các ca chạy Revit này.
+
 ## Nhận diện lần tạo trước và tránh trùng
 
 Mỗi nhóm Rebar mới có ToolId, HostUniqueId, ElementUniqueId, RunId, tên nhóm và version. Kiểm tra cả host thực từ GetHostId. Rebar sao chép/rehost hoặc của lệnh khác không được tự nhận là thép sở hữu chỉ do còn metadata cũ.

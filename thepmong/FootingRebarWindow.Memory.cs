@@ -29,6 +29,17 @@ namespace SDK_HD.KStruct.FootingRebar
             if (saved != null) ApplySavedPreference();
         }
 
+        internal void ConfigureForUpdate()
+        {
+            Title = "KStruct - Cập nhật thép móng cọc, móng đơn";
+            ChkReplaceOwned.IsChecked = true;
+            ChkReplaceOwned.IsEnabled = false;
+            ChkAllowAlongside.Visibility = Visibility.Collapsed;
+            BtnAcceptRebar.Content = "Cập nhật thép móng";
+            TxtHistoryStatus.Text += "\nChế độ cập nhật: chỉnh đường kính, bước, cover và neo của bộ đã nhận diện. " +
+                "Chiều dài thanh được tính lại theo kích thước móng hiện tại; không đổi kích thước bê tông móng. Thép khác được giữ nguyên.";
+        }
+
         private void OnReloadRebarClick(object sender, RoutedEventArgs e) => ApplySavedPreference();
 
         private void ApplySavedPreference()

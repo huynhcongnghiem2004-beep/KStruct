@@ -18,11 +18,18 @@ namespace SDK_HD.KStruct.FootingRebar
 
         public Result Execute(ExternalCommandData data, ref string message, ElementSet elements)
         {
-            try { return Run(data); }
+            return ExecuteCore(data, ref message, false);
+        }
+
+        internal static Result ExecuteUpdate(ExternalCommandData data, ref string message) => ExecuteCore(data, ref message, true);
+
+        private static Result ExecuteCore(ExternalCommandData data, ref string message, bool updateOnly)
+        {
+            try { return Run(data, updateOnly); }
             catch (Exception ex) { return global::SDK_HD.KStruct.Helpers.Error(ex, ref message); }
         }
 
-        private static Result Run(ExternalCommandData data)
+        private static Result Run(ExternalCommandData data, bool updateOnly)
         {
             UIDocument uidoc = data.Application.ActiveUIDocument;
             if (uidoc == null || uidoc.Document.IsFamilyDocument) return Result.Cancelled;
@@ -31,20 +38,33 @@ namespace SDK_HD.KStruct.FootingRebar
             // 1. Chọn móng đơn hoặc đài cọc
             FamilyInstance fi = null;
             var selected = uidoc.Selection.GetElementIds();
-            if (selected.Count == 1) fi = doc.GetElement(selected.First()) as FamilyInstance;
+            if (updateOnly && selected.Count > 0)
+            {
+                var hosts = selected.Select(id => ResolveUpdateHost(doc.GetElement(id))).ToList();
+                if (hosts.Any(host => host == null))
+                    return Fail("Chọn đối tượng cập nhật", "Hãy chọn móng hoặc thép do lệnh Thép móng cọc & đơn tạo. Không cập nhật thép thủ công/lệnh khác.");
+                List<FamilyInstance> distinct = hosts.GroupBy(host => host.Id).Select(group => group.First()).ToList();
+                if (distinct.Count != 1)
+                    return Fail("Chọn một móng", "Lệnh cập nhật xử lý một móng mỗi lần. Có thể chọn các nhóm thép thuộc cùng móng đó.");
+                fi = distinct[0];
+            }
+            else if (selected.Count == 1) fi = doc.GetElement(selected.First()) as FamilyInstance;
             if (fi == null || !IsFoundation(fi))
             {
                 try
                 {
                     Reference r = uidoc.Selection.PickObject(
-                        ObjectType.Element, new FoundationFilter(), "Chọn móng đơn hoặc đài cọc");
-                    fi = doc.GetElement(r) as FamilyInstance;
+                        ObjectType.Element, updateOnly ? (ISelectionFilter)new UpdateFilter() : new FoundationFilter(),
+                        updateOnly ? "Chọn móng hoặc nhóm thép KStruct cần cập nhật" : "Chọn móng đơn hoặc đài cọc");
+                    fi = updateOnly ? ResolveUpdateHost(doc.GetElement(r)) : doc.GetElement(r) as FamilyInstance;
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
                     return Result.Cancelled;
                 }
             }
+
+            if (fi == null) return Result.Cancelled;
 
             // 2. Đọc hình học móng
             FootingFrame frame;
@@ -95,6 +115,11 @@ namespace SDK_HD.KStruct.FootingRebar
                 .Where(r => r.GetHostId() == fi.Id).ToList();
             List<Rebar> owned = hosted.Where(r => FootingRebarHistoryStorage.IsOwned(r, fi)).ToList();
             int otherCount = hosted.Count - owned.Count;
+            if (updateOnly && (owned.Count == 0 || hostPreference == null))
+                return Fail("Không có bộ thép để cập nhật",
+                    "Móng cần có thép và thông số đã được lệnh Thép móng cọc & đơn nhận diện. " +
+                    "Thép từ phiên bản cũ, thép thủ công hoặc lệnh khác được giữ nguyên; lệnh cập nhật không tạo mới thay thế." +
+                    (brokenHistory ? "\n" + string.Join("\n", memoryWarnings) : string.Empty));
             FootingRebarPreference restored = hostPreference ?? (!brokenHistory && session?.Remember == true ? session.Preference : null);
             string memorySource = hostPreference != null ? "Đã nạp thông số lần tạo của móng này." :
                 restored != null ? "Đã nạp lần tạo thành công gần nhất của loại móng này trong project." : "Chưa có thông số cũ để nạp; dùng cấu hình ban đầu.";
@@ -105,6 +130,7 @@ namespace SDK_HD.KStruct.FootingRebar
                 restored, memorySource, session?.Remember ?? true, owned.Count, otherCount, hostPreference != null);
             if (data.Application.MainWindowHandle != IntPtr.Zero)
                 new System.Windows.Interop.WindowInteropHelper(settingsWindow).Owner = data.Application.MainWindowHandle;
+            if (updateOnly) settingsWindow.ConfigureForUpdate();
             if (settingsWindow.ShowDialog() != true) return Result.Cancelled;
 
             FootingRebarFullSettings fullSettings = settingsWindow.OutputFull;
@@ -124,7 +150,7 @@ namespace SDK_HD.KStruct.FootingRebar
                 fullSettings.FootingType, modelWithType.Name);
             if (owned.Count > 0 && !settingsWindow.ReplaceOwnedRebar)
                 return Fail("Thép đã tồn tại", "Hãy chọn cập nhật bộ thép đã nhận diện; không tạo trùng.");
-            if (otherCount > 0 && !settingsWindow.AllowAlongsideOtherRebar)
+            if (!updateOnly && otherCount > 0 && !settingsWindow.AllowAlongsideOtherRebar)
                 return Fail("Thép chưa nhận diện", "Giữ nguyên thép hiện có. Chỉ tạo bổ sung khi bạn chủ động chọn cho phép trong cửa sổ.");
 
             // 4. Kiểm tra quy tắc thiết kế theo TCVN 5574:2018 & TCVN 198:1997
@@ -155,7 +181,7 @@ namespace SDK_HD.KStruct.FootingRebar
             var collector = new WarningCollector();
             List<CreatedSet> created;
             List<string> post = new List<string>();
-            string txName = modelWithType.FootingType == FootingType.PileCap
+            string txName = updateOnly ? "KStruct - Cập nhật thép móng cọc, móng đơn" : modelWithType.FootingType == FootingType.PileCap
                 ? "KStruct - Tạo thép đài cọc theo TCVN"
                 : "KStruct - Tạo thép móng đơn theo TCVN";
 
@@ -197,11 +223,11 @@ namespace SDK_HD.KStruct.FootingRebar
                         Preference = settingsWindow.RememberForNextFooting ? FootingRebarPreference.From(fullSettings) : null });
             }
             catch (Exception ex) { collector.Warnings.Add("Đã tạo thép nhưng không lưu được lựa chọn cho móng kế tiếp: " + ex.Message); }
-            if (otherCount > 0) collector.Warnings.Add("Giữ nguyên " + otherCount + " nhóm thép chưa nhận diện; cần kiểm tra khả năng trùng với bộ mới.");
+            if (otherCount > 0 && !updateOnly) collector.Warnings.Add("Giữ nguyên " + otherCount + " nhóm thép chưa nhận diện; cần kiểm tra khả năng trùng với bộ mới.");
 
             // 7. Báo cáo sau khi hậu kiểm thực tế đã đạt trong transaction.
             ShowReport(plan, modelWithType, frame.Source, fullSettings.Cover.HasLeanConcrete, created, collector.Warnings, post,
-                owned.Count > 0 ? "Đã cập nhật bộ thép nhận diện của móng; giữ nguyên thép khác." : "Đã lưu lần tạo và mã nhận diện cho bộ thép mới.");
+                owned.Count > 0 ? "Đã cập nhật bộ thép nhận diện của móng; giữ nguyên " + otherCount + " nhóm thép khác." : "Đã lưu lần tạo và mã nhận diện cho bộ thép mới.");
             return Result.Succeeded;
         }
 
@@ -297,6 +323,20 @@ namespace SDK_HD.KStruct.FootingRebar
                 foreach (string p in postIssues) sb.AppendLine("• " + p);
             }
             TaskDialog.Show("KStruct - Cốt thép móng theo TCVN", sb.ToString());
+        }
+
+        private static FamilyInstance ResolveUpdateHost(Element element)
+        {
+            if (element is FamilyInstance foundation && IsFoundation(foundation)) return foundation;
+            if (element is Rebar bar && bar.Document.GetElement(bar.GetHostId()) is FamilyInstance host &&
+                IsFoundation(host) && FootingRebarHistoryStorage.IsOwned(bar, host)) return host;
+            return null;
+        }
+
+        private sealed class UpdateFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element element) => ResolveUpdateHost(element) != null;
+            public bool AllowReference(Reference reference, XYZ position) => false;
         }
 
         private sealed class FoundationFilter : ISelectionFilter

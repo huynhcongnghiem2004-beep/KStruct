@@ -34,6 +34,17 @@ internal static class Program
             var first = builder.Build(new FootingModel(2400,1800,700), read);
             var changed = builder.Build(new FootingModel(2400,2600,700), read);
             Check(first.Sets.Single(s=>s.Name=="Bottom-X").Count != changed.Sets.Single(s=>s.Name=="Bottom-X").Count, "Restoring settings must use fresh host geometry");
+            var edit = FootingRebarPreference.From(read);
+            edit.BottomX.Diameter = 20; edit.BottomY.Spacing = 125; edit.BottomX.HookLength = 250;
+            var updatedSettings = edit.ToSettings();
+            var resized = builder.Build(new FootingModel(3000,1800,700), updatedSettings);
+            var resizedX = resized.Sets.Single(s=>s.Name=="Bottom-X");
+            var oldX = first.Sets.Single(s=>s.Name=="Bottom-X");
+            Check(resizedX.Diameter == 20 && resizedX.FirstBarPoints.Max(p=>p.X) > oldX.FirstBarPoints.Max(p=>p.X), "Update must apply new diameter and recompute bar length from current host");
+            var sameHostBeforeEdit = builder.Build(new FootingModel(3000,1800,700), read);
+            Check(resized.Sets.Single(s=>s.Name=="Bottom-Y").Count > sameHostBeforeEdit.Sets.Single(s=>s.Name=="Bottom-Y").Count, "Updated spacing must change the distribution on the same host");
+            Check(read.Bottom.AlongX.Diameter == 16 && read.Bottom.AlongX.HookLength == 200, "Editing a restored configuration must not mutate the original history before commit");
+            Check(FootingRebarPreferenceStore.Deserialize(FootingRebarPreferenceStore.Serialize(edit)).BottomX.HookLength == 250, "New anchorage must survive the next restore");
             Check(FootingRebarPreferenceStore.Load("A",FootingType.SpreadFooting,dir) == null,"First run must not invent settings");
             FootingRebarPreferenceStore.Save("A",FootingType.SpreadFooting,new FootingRebarSession { Preference=preference },dir);
             Check(FootingRebarPreferenceStore.Load("A",FootingType.SpreadFooting,dir).Preference.BottomX.Diameter==16,"Successful settings must persist");
