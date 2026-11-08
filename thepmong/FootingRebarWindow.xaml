@@ -13,6 +13,21 @@
         <Border Grid.Column="0" Background="#F8F9FA" BorderBrush="#DEE2E6" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,12,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
+                    <Border Background="#E8F2FF" BorderBrush="#B8D8FC" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Thông số và lần tạo trước" FontWeight="Bold" Foreground="#174A75"/>
+                            <TextBlock x:Name="TxtHistoryStatus" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,6"/>
+                            <Button x:Name="BtnReloadRebar" Content="Nạp lại thông số đã lưu" Click="OnReloadRebarClick" IsEnabled="False" HorizontalAlignment="Left" Padding="8,4"/>
+                            <CheckBox x:Name="ChkRememberRebar" Content="Nhớ thông số cho móng kế tiếp cùng loại" IsChecked="True" Margin="0,8,0,2"/>
+                            <CheckBox x:Name="ChkReplaceOwned" Visibility="Collapsed" Margin="0,6,0,2">
+                                <TextBlock Text="Cập nhật thép KStruct đã tạo" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <CheckBox x:Name="ChkAllowAlongside" Visibility="Collapsed" Margin="0,6,0,2">
+                                <TextBlock Text="Cho phép tạo cạnh thép chưa nhận diện" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <TextBlock Text="Chỉ nhớ thông số sau khi tạo thành công. Hủy không lưu. Thép thủ công/lệnh khác luôn được giữ nguyên." TextWrapping="Wrap" FontSize="10" Foreground="#53677D" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
                     <!-- THÔNG TIN MÓNG & LOẠI MÓNG -->
                     <TextBlock Text="Thông tin cấu kiện móng" FontWeight="Bold" FontSize="14" Foreground="#212529"/>
                     <Grid Margin="0,4,0,6">
@@ -210,7 +225,7 @@
                         </StackPanel>
                     </Expander>
 
-                    <Button Content="Tạo bố trí thép theo TCVN" Click="OnBtnAcceptClick" Height="40" Background="#0D6EFD" Foreground="White" FontWeight="Bold" FontSize="13" Cursor="Hand" Margin="0,8,0,0"/>
+                    <Button x:Name="BtnAcceptRebar" Content="Tạo bố trí thép theo TCVN" Click="OnBtnAcceptClick" Height="40" Background="#0D6EFD" Foreground="White" FontWeight="Bold" FontSize="13" Cursor="Hand" Margin="0,8,0,0"/>
                 </StackPanel>
             </ScrollViewer>
         </Border>

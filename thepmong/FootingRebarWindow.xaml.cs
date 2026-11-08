@@ -15,7 +15,9 @@ namespace SDK_HD.KStruct.FootingRebar
         public BottomLayerSettings OutputBottom { get; private set; }
         public FootingRebarFullSettings OutputFull { get; private set; }
 
-        public FootingRebarWindow(FootingModel model, List<double> availableDiameters, bool hasLeanConcrete)
+        public FootingRebarWindow(FootingModel model, List<double> availableDiameters, bool hasLeanConcrete,
+            FootingRebarPreference saved = null, string historySummary = null, bool remember = true,
+            int ownedCount = 0, int otherCount = 0, bool restoreSavedLean = false)
         {
             InitializeComponent();
             _model = model;
@@ -65,12 +67,13 @@ namespace SDK_HD.KStruct.FootingRebar
                 ExpanderSideTies.IsExpanded = true;
             }
 
+            InitializeHistory(saved, historySummary, remember, ownedCount, otherCount, restoreSavedLean);
             RenderPreview();
         }
 
         private void OnFootingTypeChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (!IsLoaded) return;
+            if (!IsLoaded || _restoringPreference) return;
             bool isPileCap = CboFootingType.SelectedIndex == 1;
             _model = new FootingModel(_model.LengthX, _model.WidthY, _model.Height,
                 isPileCap ? FootingType.PileCap : FootingType.SpreadFooting, _model.Name);
@@ -89,7 +92,7 @@ namespace SDK_HD.KStruct.FootingRebar
 
         private void OnLeanConcreteChanged(object sender, RoutedEventArgs e)
         {
-            if (!IsLoaded) return;
+            if (!IsLoaded || _restoringPreference) return;
             bool hasLean = ChkHasLeanConcrete.IsChecked == true;
             if (hasLean && TxtCoverBottom.Text == "70")
             {
@@ -104,7 +107,7 @@ namespace SDK_HD.KStruct.FootingRebar
 
         private void OnParameterChanged(object sender, RoutedEventArgs e)
         {
-            if (!IsLoaded) return;
+            if (!IsLoaded || _restoringPreference) return;
             RenderPreview();
         }
 
@@ -323,6 +326,12 @@ namespace SDK_HD.KStruct.FootingRebar
 
         private bool TryParseInputs(out FootingRebarFullSettings full)
         {
+            try { return ParseInputs(out full); }
+            catch (ArgumentException) { full = null; return false; }
+        }
+
+        private bool ParseInputs(out FootingRebarFullSettings full)
+        {
             full = null;
             if (!double.TryParse(TxtCoverBottom.Text, out double cb) ||
                 !double.TryParse(TxtCoverSide.Text, out double cs) ||
@@ -334,6 +343,10 @@ namespace SDK_HD.KStruct.FootingRebar
             bool enableX = ChkEnableX.IsChecked == true;
             bool enableY = ChkEnableY.IsChecked == true;
             bool hasLean = ChkHasLeanConcrete.IsChecked == true;
+
+            if (enableX && !(CboDiameterX.SelectedItem is double) || enableY && !(CboDiameterY.SelectedItem is double) ||
+                ChkEnableTop.IsChecked == true && !(CboDiameterTop.SelectedItem is double) ||
+                ChkEnableSideTies.IsChecked == true && !(CboDiameterTie.SelectedItem is double)) return false;
 
             double dx = CboDiameterX.SelectedItem != null ? (double)CboDiameterX.SelectedItem : 12;
             double dy = CboDiameterY.SelectedItem != null ? (double)CboDiameterY.SelectedItem : 12;
@@ -383,6 +396,12 @@ namespace SDK_HD.KStruct.FootingRebar
             double dTie = CboDiameterTie.SelectedItem != null ? (double)CboDiameterTie.SelectedItem : 10;
             double sTie = double.TryParse(TxtSpacingTie.Text, out double stie) ? stie : 200;
 
+            if (!IsFinite(hookLenX) || !IsFinite(hookLenY) || !IsFinite(topHookLen) || hookLenX < 0 || hookLenY < 0 || topHookLen < 0 ||
+                !IsFinite(sx) || !IsFinite(sy) || !IsFinite(sTop) || !IsFinite(sTie) || sx <= 0 || sy <= 0 || sTop <= 0 || sTie <= 0) return false;
+            if (enableTop && !double.TryParse(TxtSpacingTop.Text, out _) || enableTies && !double.TryParse(TxtSpacingTie.Text, out _)) return false;
+            if (hookTypeX != HookTypeOption.None && !double.TryParse(TxtHookLengthX.Text, out _) ||
+                hookTypeY != HookTypeOption.None && !double.TryParse(TxtHookLengthY.Text, out _) ||
+                enableTop && topHookType != HookTypeOption.None && !double.TryParse(TxtTopHookLength.Text, out _)) return false;
             var sideTies = new SideTiesSettings(enableTies, dTie, sTie, true);
 
             full = new FootingRebarFullSettings(_model.FootingType, cover, bottom, top, sideTies);
@@ -393,6 +412,10 @@ namespace SDK_HD.KStruct.FootingRebar
 
         private void OnBtnAcceptClick(object sender, RoutedEventArgs e)
         {
+            if (ChkReplaceOwned.Visibility == Visibility.Visible && !ReplaceOwnedRebar)
+            { MessageBox.Show(this, "Móng đã có thép của lệnh này. Hãy bật Cập nhật để thay bộ đó; lệnh không tự tạo bộ trùng.", "KStruct"); return; }
+            if (ChkAllowAlongside.Visibility == Visibility.Visible && !AllowAlongsideOtherRebar)
+            { MessageBox.Show(this, "Móng có thép chưa nhận diện, có thể là thép tạo bằng phiên bản cũ hoặc thép thủ công. Chỉ bật Cho phép tạo cạnh nếu bạn chủ động muốn giữ thép đó và tạo thêm bộ mới.", "KStruct"); return; }
             if (TryParseInputs(out FootingRebarFullSettings full))
             {
                 OutputFull = full;

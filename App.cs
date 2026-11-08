@@ -47,6 +47,7 @@ namespace SDK_HD.KStruct
                 var footingRebarPanel = app.GetRibbonPanels(tab).FirstOrDefault(p => p.Name == "Thép móng")
                     ?? app.CreateRibbonPanel(tab, "Thép móng");
                 Add(footingRebarPanel, dll, "KStruct_FootingRebar", "Thép móng\ncọc & đơn", typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand), "Footing");
+                Add(footingRebarPanel, dll, "KStruct_UpdateFootingRebar", "Cập nhật\nthép móng", typeof(global::SDK_HD.KStruct.FootingRebar.UpdateFootingRebarCommand), "Footing");
                 Add(footingRebarPanel, dll, "KStruct_CreateStripFootingDrawings", "Lập bản vẽ\nmóng băng", typeof(global::SDK_HD.KStruct.NativeDocumentation.CreateStripFootingDrawingsCommand), "Settings");
                 Add(footingRebarPanel, dll, "KStruct_UpdateStripFootingDrawings", "Cập nhật bản vẽ\nmóng băng", typeof(global::SDK_HD.KStruct.NativeDocumentation.UpdateStripFootingDrawingsCommand), "Settings");
                 Add(footingRebarPanel, dll, "KStruct_CreateIsolatedFootingSheets", "Tạo hồ sơ\nmóng cọc, đơn", typeof(global::SDK_HD.KStruct.NativeDocumentation.FootingDrawingCommand), "Footing");

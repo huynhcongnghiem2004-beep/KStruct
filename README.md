@@ -20,6 +20,8 @@ Kiểm tra độc lập: `dotnet run --project tests/FootingPreferences/FootingP
 
 Giao diện hồ sơ móng, chức năng nhớ lựa chọn và checklist kiểm tra Revit: [hướng dẫn](docs/FOUNDATION_DIALOG_IMPLEMENTATION.md). Build thành công chưa xác nhận hình học/đồ họa trong Revit; thử trên bản sao mô hình trước khi phát hành.
 
+Nhớ thông số lệnh thép móng và nhận diện lần tạo trước: [hướng dẫn](docs/FOOTING_REBAR_MEMORY.md).
+
 ## Codex kiểm tra lại
 
 GitHub Actions tự chạy theo sự kiện đã cấu hình. Workflow này không tự gọi Codex và không cần API key. Codex đọc kết quả và xử lý lỗi trong phiên làm việc được người dùng giao; chưa có dịch vụ Codex chạy nền sau khi phiên kết thúc.

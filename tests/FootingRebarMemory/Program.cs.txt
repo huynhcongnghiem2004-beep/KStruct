@@ -1,0 +1,76 @@
+using System;
+using System.IO;
+using System.Linq;
+using SDK_HD.KStruct.FootingRebar;
+
+internal static class Program
+{
+    private static int checks;
+    private static void Check(bool ok, string message) { if (!ok) throw new Exception(message); checks++; }
+    private static void Reject(Action action, string message)
+    { bool rejected = false; try { action(); } catch { rejected = true; } Check(rejected, message); }
+    private static FootingRebarFullSettings Example(FootingType kind = FootingType.SpreadFooting) => new FootingRebarFullSettings(
+        kind, new CoverSettings(70,50,50,false),
+        new BottomLayerSettings(new BarLayerSettings(true,16,150,hookLength:200,hookType:HookTypeOption.HookUp),
+            new BarLayerSettings(true,14,175)),
+        new TopLayerSettings(true,new BarLayerSettings(true,12,200,hookLength:150,hookType:HookTypeOption.HookDown),
+            new BarLayerSettings(true,12,200,hookLength:150,hookType:HookTypeOption.HookDown)),
+        new SideTiesSettings(true,10,200,true));
+
+    private static void Main()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "KStruct-rebar-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var preference = FootingRebarPreference.From(Example());
+            string xml = FootingRebarPreferenceStore.Serialize(preference);
+            var read = FootingRebarPreferenceStore.Deserialize(xml).ToSettings();
+            Check(read.Cover.Bottom == 70 && read.Cover.Top == 50 && read.Cover.Side == 50 && !read.Cover.HasLeanConcrete, "Cover must round-trip");
+            Check(read.Bottom.AlongX.Diameter == 16 && read.Bottom.AlongY.Diameter == 14 && read.Bottom.AlongX.Spacing == 150 && read.Bottom.AlongY.Spacing == 175, "Independent bottom layers must round-trip");
+            Check(read.Bottom.AlongX.HookType == HookTypeOption.HookUp && read.Bottom.AlongX.HookLength == 200 && read.Bottom.AlongY.HookType == HookTypeOption.None, "Hook direction and length must round-trip");
+            Check(read.Top.Enabled && read.Top.AlongX.HookType == HookTypeOption.HookDown && read.SideTies.Enabled && read.SideTies.Diameter == 10 && read.SideTies.Spacing == 200, "Top/ties must round-trip");
+            var builder = new BottomLayerBuilder();
+            var first = builder.Build(new FootingModel(2400,1800,700), read);
+            var changed = builder.Build(new FootingModel(2400,2600,700), read);
+            Check(first.Sets.Single(s=>s.Name=="Bottom-X").Count != changed.Sets.Single(s=>s.Name=="Bottom-X").Count, "Restoring settings must use fresh host geometry");
+            var edit = FootingRebarPreference.From(read);
+            edit.BottomX.Diameter = 20; edit.BottomY.Spacing = 125; edit.BottomX.HookLength = 250;
+            var updatedSettings = edit.ToSettings();
+            var resized = builder.Build(new FootingModel(3000,1800,700), updatedSettings);
+            var resizedX = resized.Sets.Single(s=>s.Name=="Bottom-X");
+            var oldX = first.Sets.Single(s=>s.Name=="Bottom-X");
+            Check(resizedX.Diameter == 20 && resizedX.FirstBarPoints.Max(p=>p.X) > oldX.FirstBarPoints.Max(p=>p.X), "Update must apply new diameter and recompute bar length from current host");
+            var sameHostBeforeEdit = builder.Build(new FootingModel(3000,1800,700), read);
+            Check(resized.Sets.Single(s=>s.Name=="Bottom-Y").Count > sameHostBeforeEdit.Sets.Single(s=>s.Name=="Bottom-Y").Count, "Updated spacing must change the distribution on the same host");
+            Check(read.Bottom.AlongX.Diameter == 16 && read.Bottom.AlongX.HookLength == 200, "Editing a restored configuration must not mutate the original history before commit");
+            Check(FootingRebarPreferenceStore.Deserialize(FootingRebarPreferenceStore.Serialize(edit)).BottomX.HookLength == 250, "New anchorage must survive the next restore");
+            Check(FootingRebarPreferenceStore.Load("A",FootingType.SpreadFooting,dir) == null,"First run must not invent settings");
+            FootingRebarPreferenceStore.Save("A",FootingType.SpreadFooting,new FootingRebarSession { Preference=preference },dir);
+            Check(FootingRebarPreferenceStore.Load("A",FootingType.SpreadFooting,dir).Preference.BottomX.Diameter==16,"Successful settings must persist");
+            Check(FootingRebarPreferenceStore.Load("B",FootingType.SpreadFooting,dir)==null,"Projects must be isolated");
+            Check(FootingRebarPreferenceStore.Load("A",FootingType.PileCap,dir)==null,"Pile cap and spread footing defaults must be isolated");
+            FootingRebarPreferenceStore.Save("A",FootingType.PileCap,new FootingRebarSession {Preference=FootingRebarPreference.From(Example(FootingType.PileCap))},dir);
+            Check(FootingRebarPreferenceStore.Load("A",FootingType.SpreadFooting,dir).Preference.FootingType==FootingType.SpreadFooting,"Saving pile cap must retain spread footing defaults");
+            FootingRebarPreferenceStore.Save("A",FootingType.SpreadFooting,new FootingRebarSession {Remember=false,Preference=preference},dir);
+            var off=FootingRebarPreferenceStore.Load("A",FootingType.SpreadFooting,dir);
+            Check(!off.Remember && off.Preference==null,"Opt-out must clear project defaults");
+            Check(Directory.GetFiles(dir,"*.tmp").Length==0,"Atomic saves must clean up temp files");
+            Reject(()=>FootingRebarPreferenceStore.Save("X",FootingType.PileCap,new FootingRebarSession {Preference=preference},dir),"Wrong footing type must be rejected");
+            Reject(()=>FootingRebarPreferenceStore.Deserialize(xml.Replace("<Version>1</Version>","<Version>99</Version>")),"Future versions must be rejected");
+            Reject(()=>FootingRebarPreferenceStore.Deserialize("<broken>"),"Corrupt snapshots must be reported");
+            preference.BottomX.HookLength=double.NaN;
+            Reject(()=>FootingRebarPreferenceStore.Serialize(preference),"Non-finite saved dimensions must be rejected");
+            Reject(()=>FootingRebarPreferenceStore.Deserialize("<!DOCTYPE x [<!ENTITY v SYSTEM 'file:///not-read'>]><FootingRebarPreference>&v;</FootingRebarPreference>"),"DTD/external entities must be rejected");
+            string tool=FootingRebarOwnership.ToolId;
+            Check(FootingRebarOwnership.IsOwned("bar-1","host-1","bar-1","host-1",tool,1),"Exact managed rebar must be recognized");
+            Check(!FootingRebarOwnership.IsOwned("bar-copy","host-1","bar-1","host-1",tool,1),"Copied rebar must not be silently adopted");
+            Check(!FootingRebarOwnership.IsOwned("bar-1","host-2","bar-1","host-1",tool,1),"Rehosted/copied host rebar must not be deleted");
+            Check(!FootingRebarOwnership.IsOwned("bar-1","host-1","bar-1","host-1","OtherCommand",1),"Other commands must not be adopted");
+            Check(!FootingRebarOwnership.IsOwned("bar-1","host-1",null,null,null,0),"Legacy/manual rebar must remain unmanaged");
+            Check(!FootingRebarOwnership.IsOwned("bar-1","host-1","bar-1","host-1",tool,2),"Unknown ownership versions must be preserved");
+            Console.WriteLine("PASS: " + checks + " rebar memory, geometry replay and ownership checks");
+        }
+        finally {Directory.Delete(dir,true);}
+    }
+}
