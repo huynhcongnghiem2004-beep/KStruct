@@ -76,7 +76,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 if (!names.Contains(view.Name)) names.Add(view.Name);
                 index++;
             }
-            if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p);
+            if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p, warnings);
             else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
             return sheet;
         }

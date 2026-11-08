@@ -111,7 +111,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 ui.Selection.SetElementIds(createdSheets);
                 string report = "Đã tạo hồ sơ cho " + (footings.Count - skipped.Count) + "/" + footings.Count + " móng.";
                 if (skipped.Count > 0) report += "\nBỏ qua:\n" + string.Join("\n", skipped.Take(10));
-                if (warnings.Count > 0) report += "\nCần kiểm tra annotation/template (" + warnings.Count + "):\n" + string.Join("\n", warnings.Distinct().Take(10));
+                if (warnings.Count > 0) report += "\nCần kiểm tra bố cục/annotation/template (" + warnings.Count + "):\n" + string.Join("\n", warnings.Distinct().Take(10));
                 TaskDialog.Show("KStruct - Hồ sơ móng", report);
                 return Result.Succeeded;
             }
