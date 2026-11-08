@@ -42,4 +42,4 @@ jobs:
         shell: bash
         run: |
           echo '### Repository checks' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Documentation and whitespace checks completed. Application build/test is not configured because this repository has no application source yet.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Documentation and whitespace checks completed. Application compilation and preference tests run separately in the Revit 2024 build workflow.' >> "$GITHUB_STEP_SUMMARY"

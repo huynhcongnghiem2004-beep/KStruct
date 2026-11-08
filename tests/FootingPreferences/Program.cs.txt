@@ -1,0 +1,44 @@
+using System;
+using System.IO;
+using System.Linq;
+using SDK_HD.KStruct.NativeDocumentation;
+
+internal static class Program
+{
+    private static int checks;
+    private static void Check(bool condition, string message)
+    { if (!condition) throw new Exception(message); checks++; }
+    private static void Main()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "KStruct-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            Check(FootingDrawingSessionStore.Load("project-A", directory) == null, "First run must not invent settings");
+            var profile = new FootingDrawingProfile { Name = "Sample", CropMarginMm = 6, OutputLayers = "Bot", PlanScale = 50,
+                DimensionFourSides = true, UseDetailedLayout = true, SectionXOffsetMm = -125,
+                ReverseSectionY = true, SectionDepthMm = 1800, ExistingSheetUniqueId = "sheet-A", SourceViewUniqueId = "source-A" };
+            FootingDrawingSessionStore.Save("project-A", new FootingDrawingSession { Profile = profile }, directory);
+            var read = FootingDrawingSessionStore.Load("project-A", directory);
+            Check(read.Remember && read.Profile.CropMarginMm == 6 && read.Profile.OutputLayers == "Bot", "Selections must round-trip");
+            Check(read.Profile.PlanScale == 50 && read.Profile.DimensionFourSides && read.Profile.SectionXOffsetMm == -125 && read.Profile.ReverseSectionY && read.Profile.SectionDepthMm == 1800, "View/dimension options must round-trip");
+            Check(read.Profile.ExistingSheetUniqueId == "sheet-A" && read.Profile.SourceViewUniqueId == "source-A", "View/sheet identities must round-trip");
+            Check(FootingDrawingSessionStore.Load("project-B", directory) == null, "Projects must be isolated");
+            FootingDrawingSessionStore.Save("project-A", new FootingDrawingSession { Remember = false, Profile = null }, directory);
+            Check(!FootingDrawingSessionStore.Load("project-A", directory).Remember, "Remember opt-out must persist");
+            Check(FootingDrawingSessionStore.Load("project-A", directory).Profile == null, "Opt-out must clear old selections");
+            Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Atomic save must not leave temporary files");
+            string legacy = Path.Combine(directory, "legacy.xml");
+            File.WriteAllText(legacy, "<FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>Legacy</Name><CropMarginMm>300</CropMarginMm><PlanScale>20</PlanScale></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
+            var old = FootingDrawingProfileStore.Import(legacy).Single();
+            Check(old.CropMarginMm == 300 && !old.UseDetailedLayout && !old.DimensionFourSides, "Legacy preset must retain crop/layout behavior");
+            FootingDrawingProfileStore.Export(legacy, new[] { profile });
+            Check(FootingDrawingProfileStore.Import(legacy).Single().DimensionFourSides, "Named presets must support new options");
+            File.WriteAllText(FootingDrawingSessionStore.PathFor("broken", directory), "<broken>");
+            bool failed = false; try { FootingDrawingSessionStore.Load("broken", directory); } catch (InvalidOperationException) { failed = true; }
+            Check(failed, "Corrupt settings must surface to the UI warning handler");
+            Console.WriteLine("PASS: " + checks + " preference persistence and compatibility checks");
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+}

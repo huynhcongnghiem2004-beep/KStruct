@@ -27,15 +27,22 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return schema;
         }
 
-        internal static void Mark(Element element, string hostUniqueId, string role, double cropMarginMm = 300)
+        internal static void Mark(Element element, string hostUniqueId, string role, double cropMarginMm = 300, int version = 1)
         {
             Schema current = GetSchema();
             var entity = new Entity(current);
             entity.Set(current.GetField("HostUniqueId"), hostUniqueId ?? string.Empty);
             entity.Set(current.GetField("Role"), role ?? string.Empty);
-            entity.Set(current.GetField("Version"), 1);
+            entity.Set(current.GetField("Version"), version);
             entity.Set(current.GetField("CropMarginMm"), cropMarginMm, UnitTypeId.Millimeters);
             element.SetEntity(entity);
+        }
+
+        internal static int Version(Element element)
+        {
+            if (element == null) return 0;
+            Entity entity = element.GetEntity(GetSchema());
+            return entity.IsValid() ? entity.Get<int>(GetSchema().GetField("Version")) : 0;
         }
 
         internal static bool TryRead(Element element, out string hostUniqueId, out string role, out double cropMarginMm)
