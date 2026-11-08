@@ -95,7 +95,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var layers = new WrapPanel(); layers.Children.Add(_bottomLayer); layers.Children.Add(_topLayer); view.Children.Add(layers);
             _detailA.Margin = new Thickness(0, 0, 14, 0);
             var detailChoices = new WrapPanel(); detailChoices.Children.Add(_detailA); detailChoices.Children.Add(_detailB);
-            view.Children.Add(detailChoices); view.Children.Add(Note("Detail được chọn sẽ tham chiếu từ callout móng.")); view.Children.Add(_callouts);
+            view.Children.Add(detailChoices); view.Children.Add(Note("Hiển thị ký hiệu gốc của Detail trên callout móng; không tạo Reference Other View.")); view.Children.Add(_callouts);
             Populate(_sourcePlan, new FilteredElementCollector(_doc).OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
                 .Where(v => !v.IsTemplate && (v.ViewType == ViewType.EngineeringPlan || v.ViewType == ViewType.FloorPlan))
                 .Select(v => new Item { Text = v.Name, Element = v }), null, true);

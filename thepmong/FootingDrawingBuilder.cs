@@ -42,7 +42,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (p.HasDetails)
             {
                 if (!p.CreateCallouts || !outputs.Any(o => o.View is ViewPlan plan && plan.IsCallout))
-                    throw new InvalidOperationException("Mặt cắt cần callout móng làm view tham chiếu.");
+                    throw new InvalidOperationException("Mặt cắt cần callout móng để hiển thị ký hiệu gốc.");
                 List<ViewSection> details = CreateDetails(doc, footing, config, names, warnings);
                 linkedDetails.AddRange(details);
                 int detailIndex = 0;
@@ -70,13 +70,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
-                if (view is ViewPlan callout && linkedDetails.Count > 0) FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails);
                 FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
                 FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedDetails : null);
                 FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
                 if (!names.Contains(view.Name)) names.Add(view.Name);
                 index++;
             }
+            // Save every view/link first so Top and Bot callouts can share the native Detail markers.
+            if (linkedDetails.Count > 0)
+                foreach (ViewPlan callout in outputs.Select(output => output.View).OfType<ViewPlan>())
+                    FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails, warnings);
             if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p, warnings);
             else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
             return sheet;

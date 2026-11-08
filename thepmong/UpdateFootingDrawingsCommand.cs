@@ -91,7 +91,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                                 targetHost == footing.UniqueId && section.ViewType == ViewType.Detail &&
                                                 (targetRole.StartsWith("Detail-", StringComparison.Ordinal) || targetRole.StartsWith("Section-", StringComparison.Ordinal))).ToList();
                                         if (targets.Count == 0 || targets.Count != targetIds.Count) throw new InvalidOperationException("Thiếu Detail View liên kết hoặc bộ cũ dùng Section View; hãy tạo lại hồ sơ bằng Detail.");
-                                        FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets);
+                                        FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets, warnings);
                                     }
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
                                     FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
@@ -115,7 +115,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                     if (tx.Commit() != TransactionStatus.Committed) throw new InvalidOperationException("Revit không commit được cập nhật.");
                 }
-                string report = "Đã cập nhật crop/view range của " + updated + " view; làm mới ký hiệu mặt cắt/Breakline có mã sở hữu. Tag/dimension và ký hiệu khác được giữ nguyên.";
+                string report = "Đã cập nhật crop/view range của " + updated + " view; khôi phục ký hiệu Detail gốc, gỡ reference phụ của KStruct và làm mới Breakline có mã sở hữu. Tag/dimension và ký hiệu khác được giữ nguyên.";
                 if (warnings.Count > 0) report += "\nCảnh báo:\n" + string.Join("\n", warnings.Distinct().Take(10));
                 if (skipped.Count > 0) report += "\nBỏ qua:\n" + string.Join("\n", skipped.Take(10));
                 TaskDialog.Show("KStruct - Cập nhật hồ sơ móng", report);
