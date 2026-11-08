@@ -1,0 +1,57 @@
+using System;
+using System.Linq;
+using SDK_HD.KStruct.NativeDocumentation;
+
+internal static class Program
+{
+    private static int checks;
+    private static void Check(bool ok,string text){if(!ok)throw new Exception(text);checks++;}
+    private static bool Near(double a,double b)=>Math.Abs(a-b)<1e-7;
+    private static DrawingPoint2 P(double x,double y)=>new DrawingPoint2(x,y);
+    private static void Main()
+    {
+        var range=FootingDrawingMath.Range(-6,-3,-5.9,-3.2,100,0.2);
+        Check(range.Top>range.Cut&&range.Cut>range.Bottom&&range.Bottom>range.Depth,"Planes must retain valid structural-plan order");
+        Check(range.Top+100>-3&&range.Bottom+100< -6,"Range must cover below-level footing and bars in world coordinates");
+        var otherLevel=FootingDrawingMath.Range(-6,-3,-5.9,-3.2,-2,0.2);
+        Check(Near(otherLevel.Top-2,range.Top+100)&&Near(otherLevel.Bottom-2,range.Bottom+100),"Shared/reference level offsets must not move the visible world range");
+        var shifted=FootingDrawingMath.Range(494,497,494.1,496.8,600,0.2);
+        Check(Near(shifted.Top,range.Top)&&Near(shifted.Depth,range.Depth),"Project translation must not change offsets");
+        var extended=FootingDrawingMath.Range(0,3,-0.1,4,0,0.2);
+        Check(extended.Top>4&&extended.Bottom< -0.1,"Range must include anchorage beyond nominal host elevation");
+        var flat=FootingDrawingMath.Range(0,0,0,0,0,0.1);
+        Check(flat.Top>flat.Cut&&flat.Bottom>flat.Depth,"Flat input still needs a non-zero valid range");
+        bool rejected=false;try{FootingDrawingMath.Range(3,0,0,3,0,0.1);}catch(ArgumentException){rejected=true;}Check(rejected,"Inverted host bounds must fail");
+        rejected=false;try{FootingDrawingMath.Range(0,3,0,double.NaN,0,0.1);}catch(ArgumentException){rejected=true;}Check(rejected,"Non-finite inputs must fail");
+        rejected=false;try{FootingDrawingMath.Range(0,3,0,3,0,0);}catch(ArgumentException){rejected=true;}Check(rejected,"Zero range padding must fail");
+        var a=P(0,0);var b=P(10,0);
+        var first=FootingDrawingMath.ClipTriangle(a,b,P(3,-1),P(7,-1),P(7,1));
+        var second=FootingDrawingMath.ClipTriangle(a,b,P(3,-1),P(7,1),P(3,1));
+        Check(first.HasValue&&second.HasValue,"Both real solid triangles must intersect the boundary");
+        var merged=FootingDrawingMath.Merge(new[]{first.Value,second.Value});
+        Check(merged.Count==1&&Near(merged[0].Start,.3)&&Near(merged[0].End,.7),"Triangulation must create one break across the actual beam width");
+        var mirrored=FootingDrawingMath.ClipTriangle(a,b,P(7,1),P(7,-1),P(3,-1));
+        Check(mirrored.HasValue&&Near(mirrored.Value.Start,first.Value.Start)&&Near(mirrored.Value.End,first.Value.End),"Triangle winding must not change the cut");
+        Check(!FootingDrawingMath.ClipTriangle(a,b,P(3,2),P(7,2),P(7,4)).HasValue,"A beam away from the crop boundary needs no marker");
+        Check(!FootingDrawingMath.ClipTriangle(a,b,P(5,0),P(4,1),P(6,1)).HasValue,"Corner-only contact must not create a zero-length marker");
+        Check(!FootingDrawingMath.ClipTriangle(a,b,P(3,0),P(5,0),P(7,0)).HasValue,"Projected degenerate faces must be ignored");
+        var vertical=FootingDrawingMath.Merge(new[]{
+            FootingDrawingMath.ClipTriangle(P(0,0),P(0,10),P(-1,2),P(1,2),P(1,4)).Value,
+            FootingDrawingMath.ClipTriangle(P(0,0),P(0,10),P(-1,2),P(1,4),P(-1,4)).Value});
+        Check(vertical.Count==1&&Near(vertical[0].Start,.2)&&Near(vertical[0].End,.4),"Section beam depth must be clipped in view-plane coordinates");
+        var gaps=FootingDrawingMath.Merge(new[]{new DrawingInterval(.1,.2),new DrawingInterval(.7,.8)});
+        Check(gaps.Count==2,"Separated beam silhouettes must not be bridged by a guessed convex hull");
+        Check(FootingDrawingMath.Merge(new[]{first.Value,first.Value,second.Value}).Count==1,"Repeated solid faces must not duplicate break marks");
+        Func<DrawingPoint2,DrawingPoint2> rotate=p=>P(100+p.X*Math.Cos(.7)-p.Y*Math.Sin(.7),-40+p.X*Math.Sin(.7)+p.Y*Math.Cos(.7));
+        var rotated=FootingDrawingMath.ClipTriangle(rotate(a),rotate(b),rotate(P(3,-1)),rotate(P(7,-1)),rotate(P(7,1)));
+        Check(rotated.HasValue&&Near(rotated.Value.Start,first.Value.Start)&&Near(rotated.Value.End,first.Value.End),"Rotated/translated views must retain the same beam intersection");
+        Check(FootingDrawingMath.InteriorOnLeft(P(10,0),P(10,10),P(5,5)),"Right crop edge must keep mask pointing outward");
+        Check(!FootingDrawingMath.InteriorOnLeft(P(10,10),P(10,0),P(5,5)),"Reversed crop winding must reverse mask direction");
+        var slab=FootingDrawingMath.ClipDepth(new[]{new DrawingPoint3(0,0,-10),new DrawingPoint3(10,0,10),new DrawingPoint3(0,10,10)},0,1);
+        Check(slab.Count==4&&slab.All(p=>p.Z>=0&&p.Z<=1),"Slanted beam faces must be clipped to both depth planes before projection");
+        Check(slab.All(p=>p.X+p.Y>=5-1e-7&&p.X+p.Y<=5.5+1e-7),"Depth clipping must discard silhouette outside the slab, not keep the whole overlapping triangle");
+        Check(FootingDrawingMath.ClipDepth(new[]{new DrawingPoint3(0,0,2),new DrawingPoint3(1,0,2),new DrawingPoint3(0,1,3)},0,1).Count==0,"Faces completely outside depth must disappear");
+        Check(FootingDrawingMath.ClipDepth(new[]{new DrawingPoint3(0,0,.5),new DrawingPoint3(1,0,.5),new DrawingPoint3(0,1,.5)},0,1).Count==3,"Faces inside depth must stay unchanged");
+        Console.WriteLine("PASS: "+checks+" foundation view-range and beam-boundary geometry checks");
+    }
+}

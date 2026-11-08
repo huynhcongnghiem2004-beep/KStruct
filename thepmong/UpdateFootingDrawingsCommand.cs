@@ -45,8 +45,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 }
                 if (footings.Count == 0) return Result.Cancelled;
 
+                footings = footings.GroupBy(f => f.Id).Select(group => group.First()).ToList();
                 int updated = 0;
                 var skipped = new List<string>();
+                var warnings = new List<string>();
                 using (var tx = new Transaction(doc, "KStruct - Cập nhật hồ sơ móng"))
                 {
                     tx.Start();
@@ -54,7 +56,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     {
                         List<View> views = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>()
                             .Where(v => !v.IsTemplate && FootingDrawingStorage.TryRead(v, out string host, out string role, out double margin) &&
-                                host == footing.UniqueId && role != "Sheet").ToList();
+                                host == footing.UniqueId && role != "Sheet" &&
+                                (FootingDrawingStorage.Version(v) < 3 || FootingDrawingDetailState.OwnsView(v, footing))).ToList();
                         if (views.Count == 0)
                         {
                             // Legacy sections created before view metadata used the numeric ElementId in their names.
@@ -72,7 +75,26 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                 {
                                     double margin = 300;
                                     FootingDrawingStorage.TryRead(view, out string ignoredHost, out string role, out margin);
-                                    FootingDrawingBuilder.UpdateCrop(view, footing, margin, role);
+                                    FootingDrawingProfile pose=FootingDrawingDetailState.Read(view,footing,out IList<string> linked);
+                                    if(pose!=null)FootingDrawingBuilder.FollowHostPose(view,footing,pose);
+                                    FootingDrawingBuilder.UpdateCrop(view, footing, margin, role, warnings);
+                                }
+                                doc.Regenerate();
+                                foreach (View view in views)
+                                {
+                                    FootingDrawingProfile options = FootingDrawingDetailState.Read(view, footing, out IList<string> targetIds);
+                                    if (options == null) continue;
+                                    if (view is ViewPlan callout && options.CreateSections)
+                                    {
+                                        var targets = targetIds.Select(id => doc.GetElement(id)).OfType<ViewSection>()
+                                            .Where(section => FootingDrawingStorage.TryRead(section, out string targetHost, out string targetRole, out double targetMargin) &&
+                                                targetHost == footing.UniqueId && section.ViewType == ViewType.Detail &&
+                                                (targetRole.StartsWith("Detail-", StringComparison.Ordinal) || targetRole.StartsWith("Section-", StringComparison.Ordinal))).ToList();
+                                        if (targets.Count == 0 || targets.Count != targetIds.Count) throw new InvalidOperationException("Thiếu Detail View liên kết hoặc bộ cũ dùng Section View; hãy tạo lại hồ sơ bằng Detail.");
+                                        FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets);
+                                    }
+                                    FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
+                                    FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
                                 }
                                 doc.Regenerate();
                                 if (sub.Commit() != TransactionStatus.Committed) throw new InvalidOperationException("Revit không chấp nhận crop mới.");
@@ -93,7 +115,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                     if (tx.Commit() != TransactionStatus.Committed) throw new InvalidOperationException("Revit không commit được cập nhật.");
                 }
-                string report = "Đã cập nhật crop của " + updated + " view. Tag/dimension liên kết và chỉnh sửa tay được giữ nguyên.";
+                string report = "Đã cập nhật crop/view range của " + updated + " view; làm mới ký hiệu mặt cắt/Breakline có mã sở hữu. Tag/dimension và ký hiệu khác được giữ nguyên.";
+                if (warnings.Count > 0) report += "\nCảnh báo:\n" + string.Join("\n", warnings.Distinct().Take(10));
                 if (skipped.Count > 0) report += "\nBỏ qua:\n" + string.Join("\n", skipped.Take(10));
                 TaskDialog.Show("KStruct - Cập nhật hồ sơ móng", report);
                 return Result.Succeeded;
