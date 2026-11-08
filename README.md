@@ -33,3 +33,5 @@ Thép chờ qua khoảng hở dầm/sàn và nhấn cổ chai: [hướng dẫn](
 ## Codex kiểm tra lại
 
 GitHub Actions tự chạy theo sự kiện đã cấu hình. Workflow này không tự gọi Codex và không cần API key. Codex đọc kết quả và xử lý lỗi trong phiên làm việc được người dùng giao; chưa có dịch vụ Codex chạy nền sau khi phiên kết thúc.
+
+Cột/dầm chỉ dùng Rebar Shape và Hook có sẵn: [quy tắc và kiểm tra](docs/EXISTING_PROJECT_REBAR.md).

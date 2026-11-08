@@ -19,8 +19,9 @@ khoảng hở dầm/sàn 400 mm. Luồng mới xét chiều dài thép thực th
   Độ dịch và chiều cao nhấn tính riêng từng thanh; chiều cao = độ dịch × n, mặc định 1:6.
   Khe hở và tỷ lệ này là thông số dựng hình, không gán cho TCVN 5574.
 - Chỉ ghép Fixed Number khi đường thanh phẳng, cùng hình dạng và phân bố đều theo
-  phương vuông góc mặt phẳng. Thanh khác hình tách riêng; neo L kết hợp nhấn khác mặt
-  phẳng dùng FreeForm có cung uốn. Không ép các thanh khác hình vào một set.
+  phương vuông góc mặt phẳng. Thanh khác hình tách riêng. Theo yêu cầu chỉ dùng shape
+  có sẵn, neo L kết hợp nhấn khác mặt phẳng hiện bị chặn; không chuyển sang FreeForm.
+  Không ép các thanh khác hình vào một set.
 - Tab Thép chờ/Neo móng có bảng thông số hai tầng, kết quả ghép và lỗi cụ thể.
   Preview chiếu các vị trí ghép theo trục X cột dưới, có thể chồng hình; hiển thị khoảng
   hở và vị trí cột trên. Hình uốn cuối phải kiểm tra trên Rebar trong mô hình.

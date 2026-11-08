@@ -116,6 +116,7 @@ namespace ColumnRebarPro.V3
                     {
                         V3StarterConnection.Resolve(job.Works);
                         V3RebarValidator.Preflight(job.Works);
+                        V3RebarBuilder.ValidateProjectTypes(doc,job.Works);
                         valid.Add(job);
                     }
                     catch (Exception ex) { failures.Add(job.Label + ": " + ex.Message); }

@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Xml.Serialization;
+using ColumnRebarPro.V3;
+
+static class HookTests
+{
+    static int checks;
+    static void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
+    static void Reject(Action f,string fragment){bool ok=false;try{f();}catch(InvalidOperationException e){ok=e.Message.Contains(fragment);}Check(ok,fragment);}
+    static V3HookChoice Hook(string id,double angle=135,bool tie=true,bool allowed=true)=>new V3HookChoice {
+        Id=id,Label="Standard - 135 deg",Angle=angle*Math.PI/180,TieStyle=tie,Allowed=allowed};
+    internal static void Run()
+    {
+        var hooks=new List<V3HookChoice>{Hook("standard",135,false),Hook("tie")};
+        Check(V3HookSelection.Resolve(hooks,"",135,true).Id=="tie","Use API style, not the misleading hook name");
+        hooks.Add(Hook("seismic"));hooks.Add(Hook("other",135,false));hooks.Add(Hook("blocked",135,true,false));hooks.Add(Hook("90",90));
+        Reject(()=>V3HookSelection.Resolve(hooks,"",135,true),"Chọn một loại");
+        Check(V3HookSelection.Resolve(hooks,"seismic",135,true).Id=="seismic","Explicit selection works with six loaded hook types");
+        Check(V3HookSelection.Resolve(hooks,"90",90,true).Id=="90","90 degree hook has independent selection");
+        foreach(var id in new[]{"standard","blocked","90","deleted"})
+            Reject(()=>V3HookSelection.Resolve(hooks,id,135,true),"Chọn lại");
+        Check(V3HookSelection.Resolve(hooks,"deleted",90,false)==null,"Closed ties do not require unused hooks");
+        Reject(()=>V3HookSelection.Resolve(new V3HookChoice[0],"",135,true),"chưa có móc");
+        var c=new V3RebarConfig{TieHook135UniqueId="seismic",TieHook90UniqueId="90"};
+        var serializer=new XmlSerializer(typeof(V3RebarConfig));string xml;
+        using(var w=new StringWriter()){serializer.Serialize(w,c);xml=w.ToString();}
+        using(var r=new StringReader(xml))
+        {var copy=(V3RebarConfig)serializer.Deserialize(r);Check(copy.TieHook135UniqueId=="seismic"&&copy.TieHook90UniqueId=="90","Save/reopen preserves both exact hook identities");}
+        Check(c.Copy().TieHook135UniqueId=="seismic","Apply-to-all retains explicit hook choice");
+        Console.WriteLine($"PASS: {checks} existing hook selection checks");
+    }
+}
