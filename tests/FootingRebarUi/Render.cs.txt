@@ -61,6 +61,18 @@ internal static class Render
         window.Activate(); diameter.Focus();
         diameter.IsDropDownOpen=true; window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{}));
         if (!diameter.IsDropDownOpen || diameter.Items.Count==0) throw new InvalidOperationException("Diameter dropdown is unavailable");
-        diameter.IsDropDownOpen=false; window.Close();
+        diameter.IsDropDownOpen=false;
+        var spacing=(TextBox)window.FindName("TxtSpacingX");
+        string original=spacing.Text;
+        spacing.Text="không hợp lệ";
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
+        if(accept.IsEnabled || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Visible)
+            throw new InvalidOperationException("Invalid input must show an inline explanation and block submission");
+        spacing.Text=original;
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
+        if(!accept.IsEnabled || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Collapsed ||
+            !((TextBlock)window.FindName("TxtConfigurationSummary")).Text.Contains("Đáy X"))
+            throw new InvalidOperationException("Corrected input must restore preview summary and submission");
+        window.Close();
     }
 }

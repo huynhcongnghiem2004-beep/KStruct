@@ -65,9 +65,9 @@
                             </ScrollViewer>
             </DockPanel>
         </Border>
-        <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="420" MinWidth="360"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*" MinWidth="420"/></Grid.ColumnDefinitions>
+        <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="440" MinWidth="360"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*" MinWidth="420"/></Grid.ColumnDefinitions>
             <Border Style="{StaticResource Card}"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <StackPanel Margin="0,0,0,10"><DockPanel><Border DockPanel.Dock="Right" Background="#EFF6FF" CornerRadius="4" Padding="6,2"><TextBlock Text="{Binding SelectedItem.Content, ElementName=CboFootingType}" Foreground="#315BA8" FontSize="10"/></Border><TextBlock Text="CẤU KIỆN ĐANG CHỌN" FontSize="10" Foreground="#94A3B8" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel><TextBlock x:Name="TxtHostName" Text="Móng từ mô hình" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" Margin="0,4,0,6"/><Grid Margin="0,4,0,6">
+                <StackPanel Margin="0,0,0,10"><DockPanel><Border DockPanel.Dock="Right" Background="#EFF6FF" CornerRadius="4" Padding="6,2"><TextBlock Text="{Binding SelectedItem.Content, ElementName=CboFootingType}" Foreground="#315BA8" FontSize="10"/></Border><TextBlock Text="CẤU KIỆN ĐANG CHỌN" FontSize="10" Foreground="#64748B" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel><TextBlock x:Name="TxtHostName" Text="Móng từ mô hình" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" Margin="0,4,0,6"/><Grid Margin="0,4,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
@@ -91,8 +91,8 @@
 
                     </StackPanel>
                 <TabControl x:Name="InputTabs" Grid.Row="1" SelectedIndex="0">
-                    <TabItem Header="Cốt thép"><ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,7,0"><StackPanel>
-                        <TextBlock Text="Thép đáy · Phương X" Style="{StaticResource SectionTitle}"/><CheckBox x:Name="ChkEnableX" Content="Bố trí thép đáy X" IsChecked="True" Checked="OnParameterChanged" Unchecked="OnParameterChanged" />
+                    <TabItem Header="1 · Cốt thép"><ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,7,0"><StackPanel>
+                        <Border Background="#EFF6FF" CornerRadius="6" Padding="10,8" Margin="0,0,0,6"><TextBlock Text="THÉP ĐÁY · PHƯƠNG X" FontWeight="SemiBold" Foreground="#1D4ED8"/></Border><CheckBox x:Name="ChkEnableX" Content="Bố trí thép đáy X" IsChecked="True" Checked="OnParameterChanged" Unchecked="OnParameterChanged" />
                     <Grid Margin="0,4,0,2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -104,7 +104,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
                             <TextBlock Text="Khoảng cách a (mm)" FontSize="12" />
-                            <TextBox x:Name="TxtSpacingX" Text="150" TextChanged="OnParameterChanged" />
+                            <TextBox x:Name="TxtSpacingX" ToolTip="Khoảng cách tối đa giữa các thanh đáy phương X, đơn vị mm." Text="150" TextChanged="OnParameterChanged" />
                         </StackPanel>
                     </Grid>
                     <Grid Margin="0,2,0,4">
@@ -122,13 +122,13 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
                             <TextBlock Text="Đoạn neo L (mm):" FontSize="12" Foreground="#475569" />
-                            <TextBox x:Name="TxtHookLengthX" Text="200" TextChanged="OnParameterChanged" />
+                            <TextBox x:Name="TxtHookLengthX" ToolTip="Chiều dài đoạn neo phương X, đơn vị mm." Text="200" TextChanged="OnParameterChanged" />
                         </StackPanel>
                     </Grid>
 
 
                         <Border Height="1" Background="#E2E8F0" Margin="0,12,0,14"/>
-                        <TextBlock Text="Thép đáy · Phương Y" Style="{StaticResource SectionTitle}"/><CheckBox x:Name="ChkEnableY" Content="Bố trí thép đáy Y" IsChecked="True" Checked="OnParameterChanged" Unchecked="OnParameterChanged" />
+                        <Border Background="#FFF1F2" CornerRadius="6" Padding="10,8" Margin="0,0,0,6"><TextBlock Text="THÉP ĐÁY · PHƯƠNG Y" FontWeight="SemiBold" Foreground="#BE123C"/></Border><CheckBox x:Name="ChkEnableY" Content="Bố trí thép đáy Y" IsChecked="True" Checked="OnParameterChanged" Unchecked="OnParameterChanged" />
                     <Grid Margin="0,4,0,2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -140,7 +140,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
                             <TextBlock Text="Khoảng cách a (mm)" FontSize="12" />
-                            <TextBox x:Name="TxtSpacingY" Text="150" TextChanged="OnParameterChanged" />
+                            <TextBox x:Name="TxtSpacingY" ToolTip="Khoảng cách tối đa giữa các thanh đáy phương Y, đơn vị mm." Text="150" TextChanged="OnParameterChanged" />
                         </StackPanel>
                     </Grid>
                     <Grid Margin="0,2,0,4">
@@ -158,7 +158,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
                             <TextBlock Text="Đoạn neo L (mm):" FontSize="12" Foreground="#475569" />
-                            <TextBox x:Name="TxtHookLengthY" Text="200" TextChanged="OnParameterChanged" />
+                            <TextBox x:Name="TxtHookLengthY" ToolTip="Chiều dài đoạn neo phương Y, đơn vị mm." Text="200" TextChanged="OnParameterChanged" />
                         </StackPanel>
                     </Grid>
 
@@ -172,7 +172,7 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="2">
-                                    <TextBlock Text="Đường kính Top (mm)" FontSize="12" />
+                                    <TextBlock Text="Đường kính (mm)" FontSize="12" />
                                     <ComboBox x:Name="CboDiameterTop" SelectionChanged="OnParameterChanged" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="2">
@@ -186,7 +186,7 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="2">
-                                    <TextBlock Text="Kiểu bẻ móc neo Top:" FontSize="12" Foreground="#475569" />
+                                    <TextBlock Text="Kiểu neo lớp trên:" FontSize="12" Foreground="#475569" />
                                     <ComboBox x:Name="CboTopHook" SelectionChanged="OnParameterChanged">
                                         <ComboBoxItem Content="Neo xuống 90°" />
                                         <ComboBoxItem Content="Neo lên 90°" />
@@ -223,7 +223,7 @@
 
 
                     </StackPanel></ScrollViewer></TabItem>
-                    <TabItem Header="Bảo vệ"><ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,7,0"><StackPanel><StackPanel Margin="0,2,0,6">
+                    <TabItem Header="2 · Bảo vệ"><ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,7,0"><StackPanel><StackPanel Margin="0,2,0,6">
                         <TextBlock Text="Loại giải pháp móng:" FontSize="12" FontWeight="SemiBold" Foreground="#475569" />
                         <ComboBox x:Name="CboFootingType" SelectionChanged="OnFootingTypeChanged" Margin="0,2,0,0">
                             <ComboBoxItem Content="Móng đơn" />
@@ -238,23 +238,23 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="2">
-                            <TextBlock Text="Đáy (Bottom)" FontSize="12" />
+                            <TextBlock Text="Đáy (mm)" FontSize="12" />
                             <TextBox x:Name="TxtCoverBottom" Text="70" TextChanged="OnParameterChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
-                            <TextBlock Text="Cạnh (Side)" FontSize="12" />
+                            <TextBlock Text="Cạnh (mm)" FontSize="12" />
                             <TextBox x:Name="TxtCoverSide" Text="50" TextChanged="OnParameterChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Margin="2">
-                            <TextBlock Text="Đỉnh (Top)" FontSize="12" />
+                            <TextBlock Text="Đỉnh (mm)" FontSize="12" />
                             <TextBox x:Name="TxtCoverTop" Text="50" TextChanged="OnParameterChanged" />
                         </StackPanel>
                     </Grid>
 
                     <Border Background="#F1F5F9" CornerRadius="6" Padding="10" Margin="0,12,0,0"><TextBlock Text="Đơn vị: mm. Kích thước móng được đọc từ mô hình; lớp bảo vệ áp dụng cho bộ thép đang tạo hoặc cập nhật." TextWrapping="Wrap" FontSize="12" Foreground="#64748B"/></Border></StackPanel></ScrollViewer></TabItem>
-                    <TabItem Header="Tùy chọn"><ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,7,0"><StackPanel><TextBlock Text="Lựa chọn cho lần kế tiếp" Style="{StaticResource SectionTitle}"/><CheckBox x:Name="ChkRememberRebar" Content="Nhớ thông số cho móng kế tiếp cùng loại" IsChecked="True" Margin="0,8,0,2" />
+                    <TabItem Header="3 · Lưu lựa chọn"><ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,7,0"><StackPanel><TextBlock Text="Lựa chọn cho lần kế tiếp" Style="{StaticResource SectionTitle}"/><CheckBox x:Name="ChkRememberRebar" ToolTip="Lưu cấu hình sau khi tạo/cập nhật thành công; Hủy không ghi đè lựa chọn cũ." Content="Nhớ thông số cho móng kế tiếp cùng loại" IsChecked="True" Margin="0,8,0,2" />
                             <TextBlock Text="Chỉ lưu sau khi tạo thành công. Hủy sẽ giữ nguyên cấu hình đã lưu." TextWrapping="Wrap" FontSize="12" Foreground="#64748B" Margin="0,4,0,16"/><Button x:Name="BtnReloadRebar" Content="Nạp lại thông số đã lưu" Click="OnReloadRebarClick" IsEnabled="False" HorizontalAlignment="Left" Padding="8,4" />
-                            <TextBlock Text="Thông số kiểm tra: TCVN 5574:2018 / TCVN 198:1997" TextWrapping="Wrap" Foreground="#94A3B8" FontSize="11" Margin="0,18,0,0"/></StackPanel></ScrollViewer></TabItem>
+                            <TextBlock Text="Thông số kiểm tra: TCVN 5574:2018 / TCVN 198:1997" TextWrapping="Wrap" Foreground="#64748B" FontSize="11" Margin="0,18,0,0"/></StackPanel></ScrollViewer></TabItem>
                 </TabControl>
                 <Border Grid.Row="2" Background="#FFF7E8" CornerRadius="7" Padding="10" Margin="0,12,0,0"><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Visibility, ElementName=ChkReplaceOwned}" Value="Visible"><Setter Property="Visibility" Value="Visible"/></DataTrigger><DataTrigger Binding="{Binding Visibility, ElementName=ChkAllowAlongside}" Value="Visible"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style><StackPanel><TextBlock Text="BỘ THÉP HIỆN CÓ" FontSize="10" FontWeight="SemiBold" Foreground="#926118"/><CheckBox x:Name="ChkReplaceOwned" Visibility="Collapsed" Margin="0,6,0,2">
                                 <TextBlock Text="Cập nhật thép KStruct đã tạo" TextWrapping="Wrap" />
@@ -265,13 +265,21 @@
                             </StackPanel></Border>
             </Grid></Border>
             <Border Grid.Column="2" Style="{StaticResource Card}" Padding="20"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Xem trước bố trí thép" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Mặt cắt dọc móng · Thông số thay đổi trực tiếp theo dữ liệu nhập" FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0"/></StackPanel><Border Grid.Column="1" Background="#F1F5F9" CornerRadius="5" Padding="9,4" VerticalAlignment="Top"><TextBlock Text="mm" FontSize="12" Foreground="#64748B"/></Border></Grid>
+                <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Xem trước bố trí thép" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="Sơ đồ mặt cắt · Cập nhật theo thông số nhập" FontSize="12" Foreground="#64748B" Margin="0,4,0,0"/></StackPanel><Border Grid.Column="1" Background="#F1F5F9" CornerRadius="5" Padding="9,4" VerticalAlignment="Top"><TextBlock Text="mm" FontSize="12" Foreground="#64748B"/></Border></Grid>
                 <Border Grid.Row="1" Background="#F8FAFD" BorderBrush="#EDF2F7" BorderThickness="1" CornerRadius="8" Padding="10"><Viewbox Stretch="Uniform"><Canvas x:Name="PreviewCanvas" Width="640" Height="420"><Canvas.Background><DrawingBrush TileMode="Tile" Viewport="0,0,20,20" ViewportUnits="Absolute"><DrawingBrush.Drawing><GeometryDrawing Brush="#FAFCFF"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,20,20"/></GeometryDrawing.Geometry></GeometryDrawing></DrawingBrush.Drawing></DrawingBrush></Canvas.Background></Canvas></Viewbox></Border>
-                <StackPanel Grid.Row="2" Margin="0,14,0,0"><TextBlock x:Name="TxtPreviewInfo" TextWrapping="Wrap" FontSize="12" Foreground="#64748B" Margin="0,0,0,10"/>
-                    <WrapPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#0D6EFD" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đáy X" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#DC3545" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đáy Y" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#FD7E14" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Thép trên" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#6F42C1" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đai hông" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,0,4"><Border Width="9" Height="9" Background="#D6A52D" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Bê tông lót" FontSize="12"/></StackPanel></WrapPanel>
+                <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                    <Border Background="#EFF6FF" CornerRadius="7" Padding="12,10" Margin="0,0,0,12"><StackPanel>
+                        <TextBlock Text="CẤU HÌNH ĐANG CHỌN" FontSize="10" FontWeight="SemiBold" Foreground="#1D4ED8" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="TxtConfigurationSummary" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="#1E3A8A"/>
+                    </StackPanel></Border>
+                    <Border x:Name="InputStatusBanner" Visibility="Collapsed" Background="#FFF7ED" CornerRadius="6" Padding="10" Margin="0,0,0,10">
+                        <TextBlock x:Name="TxtInputStatus" TextWrapping="Wrap" Foreground="#9A3412" FontSize="12"/>
+                    </Border>
+                    <TextBlock x:Name="TxtPreviewInfo" TextWrapping="Wrap" FontSize="12" Foreground="#64748B" Margin="0,0,0,10"/>
+                    <WrapPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#4169E1" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đáy X" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#DC143C" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đáy Y" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#FF8C00" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Thép trên" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#800080" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đai hông" FontSize="12"/></StackPanel><StackPanel Orientation="Horizontal" Margin="0,4,0,4"><Border Width="9" Height="9" Background="#DAA520" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Bê tông lót" FontSize="12"/></StackPanel></WrapPanel>
                 </StackPanel>
             </Grid></Border>
         </Grid>
-        <Grid Grid.Row="3" Margin="0,16,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="KSTRUCT  /  THÉP MÓNG" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" VerticalAlignment="Center"/><Button Grid.Column="1" Content="Hủy" IsCancel="True" MinWidth="90" Margin="0,0,10,0"/><Button x:Name="BtnAcceptRebar" Grid.Column="2" Content="Tạo thép móng" Click="OnBtnAcceptClick" Style="{StaticResource PrimaryButton}"/></Grid>
+        <Grid Grid.Row="3" Margin="0,16,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Nhập thông số → kiểm tra sơ đồ → tạo thép" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" VerticalAlignment="Center"/><Button Grid.Column="1" Content="Hủy" IsCancel="True" MinWidth="90" Margin="0,0,10,0"/><Button x:Name="BtnAcceptRebar" Grid.Column="2" Content="Tạo thép móng" Click="OnBtnAcceptClick" Style="{StaticResource PrimaryButton}"/></Grid>
     </Grid>
 </Window>

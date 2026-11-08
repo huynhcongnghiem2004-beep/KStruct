@@ -72,3 +72,6 @@ Cần kiểm tra trên bản sao mô hình Revit 2024:
 6. Undo/Redo, lưu/đóng/mở RVT, worksharing/host không có quyền sửa, đường kính bị xóa hoặc metadata/file lỗi.
 
 Các kiểm tra thuần và build không thay thế việc chạy Revit; chức năng không tự xác nhận hồ sơ thiết kế kết cấu.
+
+Giao diện bổ sung tiêu đề đánh số cho ba tab, nền nhóm X/Y theo màu trên sơ đồ và tóm tắt cấu hình đang chọn. Đơn vị lớp bảo vệ ghi trực tiếp trên nhãn. Khi chưa đọc được dữ liệu nhập, vùng xem trước giải thích cách sửa và nút tạo/cập nhật tạm khóa; sửa dữ liệu xong sẽ tự mở lại. Kiểm tra này dùng cùng bộ đọc dữ liệu sẵn có, không thay thế kiểm tra hình học trong Revit.
+Harness WPF kiểm tra thêm nhập sai → hiện hướng dẫn/khóa nút → sửa lại → khôi phục nút và tóm tắt, ngoài chụp ba tab ở chế độ tạo/cập nhật và cửa sổ thu gọn.

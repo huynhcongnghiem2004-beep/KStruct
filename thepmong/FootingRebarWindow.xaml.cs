@@ -120,7 +120,22 @@ namespace SDK_HD.KStruct.FootingRebar
         private void RenderPreview()
         {
             PreviewCanvas.Children.Clear();
-            if (!TryParseInputs(out FootingRebarFullSettings full)) return;
+            bool valid = TryParseInputs(out FootingRebarFullSettings full);
+            InputStatusBanner.Visibility = valid ? Visibility.Collapsed : Visibility.Visible;
+            BtnAcceptRebar.IsEnabled = valid;
+            if (!valid)
+            {
+                TxtInputStatus.Text = "Chưa đủ dữ liệu để xem trước. Kiểm tra các ô trong tab Cốt thép và Bảo vệ: chọn ít nhất một phương đáy, đường kính và khoảng cách phải lớn hơn 0; lớp bảo vệ và đoạn neo không được âm.";
+                TxtConfigurationSummary.Text = "Đang nhập thông số…";
+                TxtPreviewInfo.Text = "Sơ đồ sẽ xuất hiện khi dữ liệu nhập hợp lệ.";
+                return;
+            }
+            var summary = new List<string>();
+            if (full.Bottom.AlongX.Enabled) summary.Add($"Đáy X: Ø{full.Bottom.AlongX.Diameter:0.#} a{full.Bottom.AlongX.Spacing:0.#}");
+            if (full.Bottom.AlongY.Enabled) summary.Add($"Đáy Y: Ø{full.Bottom.AlongY.Diameter:0.#} a{full.Bottom.AlongY.Spacing:0.#}");
+            if (ChkEnableTop.IsChecked == true) summary.Add($"Trên: Ø{CboDiameterTop.SelectedItem} a{TxtSpacingTop.Text}");
+            if (ChkEnableSideTies.IsChecked == true) summary.Add($"Đai hông: Ø{CboDiameterTie.SelectedItem} a{TxtSpacingTie.Text}");
+            TxtConfigurationSummary.Text = string.Join("   ·   ", summary);
 
             try
             {
