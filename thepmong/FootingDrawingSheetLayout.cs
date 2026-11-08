@@ -34,10 +34,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 XYZ center = new XYZ((x0+x1)/2, (y0+y1)/2, 0);
                 Viewport viewport = Viewport.Create(doc, sheet.Id, views[i].Id, center);
                 doc.Regenerate();
+                FootingDrawingViewportTitles.Center(viewport, warnings);
                 Outline extent = Extent(viewport);
                 XYZ extentCenter = (extent.MinimumPoint + extent.MaximumPoint) * 0.5;
                 viewport.SetBoxCenter(viewport.GetBoxCenter() + center - new XYZ(extentCenter.X, extentCenter.Y, 0));
-                doc.Regenerate(); extent = Extent(viewport);
+                doc.Regenerate();
+                FootingDrawingViewportTitles.Center(viewport, warnings);
+                extent = Extent(viewport);
                 if (extent.MinimumPoint.X < x0 || extent.MaximumPoint.X > x1 || extent.MinimumPoint.Y < y0 || extent.MaximumPoint.Y > y1)
                     warnings.Add("Đã đặt view " + views[i].Name + " lên sheet " + sheet.SheetNumber + " ở tỷ lệ 1:" + views[i].Scale + "; view hoặc tiêu đề vượt ô bố trí. Có thể kéo lại viewport/tiêu đề sau khi tạo.");
                 if (occupied.Any(o => Intersects(extent, o, gap / 2)))

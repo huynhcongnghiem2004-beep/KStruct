@@ -30,7 +30,7 @@ internal static class Program
                 var sessionAxes=FootingDrawingSessionStore.Load("axes",directory).Profile;
                 Check(sessionAxes.WantsDetailA==a && sessionAxes.WantsDetailB==b,"Remember per-axis selections for next run");
             }
-            var profile = new FootingDrawingProfile { Name = "Sample", HostPoseRecorded = true, HostPoseX = 120, HostPoseY = -40, HostPoseZ = -6, HostPoseAngle = 0.7, DetailTypeName = "Chi tiết đứng", CropMarginMm = 6, OutputLayers = "Bot", PlanScale = 50,
+            var profile = new FootingDrawingProfile { Name = "Sample", RebarMultiTagTypeName = "Móng - MultiTag", RebarMultiTagTypeUniqueId = "mra-type-01", HostPoseRecorded = true, HostPoseX = 120, HostPoseY = -40, HostPoseZ = -6, HostPoseAngle = 0.7, DetailTypeName = "Chi tiết đứng", CropMarginMm = 6, OutputLayers = "Bot", PlanScale = 50,
                 DimensionFourSides = true, UseDetailedLayout = true, SectionXOffsetMm = -125,
                 ReverseSectionY = true, BreakLineFamily = "Breakline", BreakLineType = "Line", BreakLinePaddingPaperMm = 1.5,
                 ReverseBreakLineMask = true, ApplyViewTemplatesOnce = true, SectionDepthMm = 1800, ExistingSheetUniqueId = "sheet-A", SourceViewUniqueId = "source-A" };
@@ -40,6 +40,7 @@ internal static class Program
             Check(read.Remember && read.Profile.CropMarginMm == 6 && read.Profile.OutputLayers == "Bot", "Selections must round-trip");
             Check(read.Profile.PlanScale == 50 && read.Profile.DimensionFourSides && read.Profile.SectionXOffsetMm == -125 && read.Profile.ReverseSectionY && read.Profile.SectionDepthMm == 1800, "View/dimension options must round-trip");
             Check(read.Profile.BreakLineFamily == "Breakline" && read.Profile.BreakLineType == "Line" && read.Profile.BreakLinePaddingPaperMm == 1.5 && read.Profile.ReverseBreakLineMask, "Breakline selections must round-trip");
+            Check(read.Profile.RebarMultiTagTypeName == "Móng - MultiTag" && read.Profile.RebarMultiTagTypeUniqueId == "mra-type-01", "MultiTag type and project identity must round-trip independently of single tag fields");
             Check(read.Profile.DetailTypeName == "Chi tiết đứng", "Detail View Type selection must round-trip independently of the legacy Section Type");
             Check(read.Profile.ApplyViewTemplatesOnce, "Local template application choice must round-trip");
             Check(read.Profile.ExistingSheetUniqueId == "sheet-A" && read.Profile.SourceViewUniqueId == "source-A", "View/sheet identities must round-trip");
@@ -49,8 +50,9 @@ internal static class Program
             Check(FootingDrawingSessionStore.Load("project-A", directory).Profile == null, "Opt-out must clear old selections");
             Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Atomic save must not leave temporary files");
             string legacy = Path.Combine(directory, "legacy.xml");
-            File.WriteAllText(legacy, "<FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>Legacy</Name><SectionTypeName>Old section</SectionTypeName><CropMarginMm>300</CropMarginMm><PlanScale>20</PlanScale></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
+            File.WriteAllText(legacy, "<FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>Legacy</Name><SectionTypeName>Old section</SectionTypeName><RebarTagType>Old single tag</RebarTagType><CropMarginMm>300</CropMarginMm><PlanScale>20</PlanScale></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
             var old = FootingDrawingProfileStore.Import(legacy).Single();
+            Check(old.RebarTagType == "Old single tag" && old.RebarMultiTagTypeName == null && old.RebarMultiTagTypeUniqueId == null, "Legacy single tag selection must not be silently reused as a MultiTag type");
             Check(old.SectionTypeName == "Old section" && old.DetailTypeName == null, "Legacy section type must not be silently relabeled as a Detail Type");
             Check(old.CreateDetailA==null && old.CreateDetailB==null && old.WantsDetailA && old.WantsDetailB,"Legacy enabled profiles without axis flags must still create both views");
             Check(!old.HostPoseRecorded, "Legacy profiles must not invent a host pose");

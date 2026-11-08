@@ -42,7 +42,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (p.HasDetails)
             {
                 if (!p.CreateCallouts || !outputs.Any(o => o.View is ViewPlan plan && plan.IsCallout))
-                    throw new InvalidOperationException("Mặt cắt cần callout móng làm view tham chiếu.");
+                    throw new InvalidOperationException("Mặt cắt cần callout móng để hiển thị ký hiệu gốc.");
                 List<ViewSection> details = CreateDetails(doc, footing, config, names, warnings);
                 linkedDetails.AddRange(details);
                 int detailIndex = 0;
@@ -70,13 +70,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
-                if (view is ViewPlan callout && linkedDetails.Count > 0) FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails);
                 FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
                 FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedDetails : null);
                 FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
                 if (!names.Contains(view.Name)) names.Add(view.Name);
                 index++;
             }
+            // Save every view/link first so Top and Bot callouts can share the native Detail markers.
+            if (linkedDetails.Count > 0)
+                foreach (ViewPlan callout in outputs.Select(output => output.View).OfType<ViewPlan>())
+                    FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails, warnings);
             if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p, warnings);
             else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
             return sheet;
@@ -247,21 +250,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                 }
             }
-            if (config.RebarTagType != null)
-            {
-                bool top = role.IndexOf("Top", StringComparison.OrdinalIgnoreCase) >= 0;
-                bool bot = role.IndexOf("Bot", StringComparison.OrdinalIgnoreCase) >= 0;
-                List<Rebar> bars = GetHostedBars(doc, footing).Where(x => !top && !bot || IsLayer(x, hostBox, top)).OrderBy(x => x.Id.Value).ToList();
-                XYZ up = view.UpDirection.Normalize();
-                double offset = UnitUtils.ConvertToInternalUnits(80, UnitTypeId.Millimeters);
-                for (int i = 0; i < bars.Count; i++)
-                {
-                    BoundingBoxXYZ bb = bars[i].get_BoundingBox(view) ?? bars[i].get_BoundingBox(null);
-                    if (bb == null) continue;
-                    XYZ head = SafeCenter(bb) + up * (offset * (1 + (i % 3)));
-                    TryTag(doc, config.RebarTagType, view, bars[i], head, warnings);
-                }
-            }
+            FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
         }
 
         private static void CreateHostDimensions(Document doc, FamilyInstance footing, View view, DimensionType type, BoundingBoxXYZ box, IList<string> warnings)
@@ -436,7 +425,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 FitViewportToCell(doc, views[i], viewport, targetWidth, targetHeight, warnings);
                 viewport.SetBoxCenter(center);
                 doc.Regenerate();
-                CenterViewportTitleRef(viewport, warnings);
+                FootingDrawingViewportTitles.Center(viewport, warnings);
                 doc.Regenerate();
             }
         }
@@ -472,27 +461,6 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
-        private static void CenterViewportTitleRef(Viewport viewport, IList<string> warnings)
-        {
-            try
-            {
-                Outline box = viewport.GetBoxOutline();
-                Outline label = viewport.GetLabelOutline();
-                if (box == null || label == null) return;
-
-                double boxCenterX = (box.MinimumPoint.X + box.MaximumPoint.X) / 2.0;
-                double labelCenterX = (label.MinimumPoint.X + label.MaximumPoint.X) / 2.0;
-                double deltaX = boxCenterX - labelCenterX;
-                if (Math.Abs(deltaX) <= 0.001) return;
-
-                XYZ offset = viewport.LabelOffset;
-                viewport.LabelOffset = new XYZ(offset.X + deltaX, offset.Y, offset.Z);
-            }
-            catch (Exception ex)
-            {
-                warnings.Add("Không thể căn giữa Title Ref theo viewport: " + ex.Message);
-            }
-        }
         private static double locationZ(FamilyInstance fi) => (fi.Location as LocationPoint)?.Point.Z ?? 0;
         private static XYZ SafeCenter(BoundingBoxXYZ box) => new XYZ((box.Min.X+box.Max.X)/2, (box.Min.Y+box.Max.Y)/2, (box.Min.Z+box.Max.Z)/2);
         private static List<XYZ> WorldCorners(BoundingBoxXYZ box)

@@ -65,11 +65,17 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return new FilteredElementCollector(view.Document).WherePasses(new ExtensibleStorageFilter(AnnotationId))
                 .WhereElementIsNotElementType().Where(e=>{Entity data=e.GetEntity(schema);return Matches(data,schema,e,host,view)&&data.Get<string>(schema.GetField("Kind"))==kind;}).ToList();
         }
-        internal static void Clear(View view,FamilyInstance host,string kind)
+        internal static void Clear(View view,FamilyInstance host,string kind,string source=null)
         {
-            var owned=new HashSet<ElementId>(Annotations(view,host,kind).Select(e=>e.Id));if(owned.Count==0)return;
+            var owned=new HashSet<ElementId>(Annotations(view,host,kind).Where(e=>source==null||SourceId(e)==source).Select(e=>e.Id));if(owned.Count==0)return;
             var removed=view.Document.Delete(owned.ToList());
             if(removed.Any(id=>!owned.Contains(id)))throw new InvalidOperationException("Cập nhật ký hiệu sẽ ảnh hưởng đối tượng khác; đã hủy để giữ hồ sơ.");
+        }
+        internal static string SourceId(Element element)
+        {
+            Schema schema=Schema.Lookup(AnnotationId);if(schema==null)return null;
+            Entity data=element.GetEntity(schema);
+            return data.IsValid()?data.Get<string>(schema.GetField("SourceUniqueId")):null;
         }
         private static Entity Base(Schema schema,Element element,FamilyInstance host,View view)
         {

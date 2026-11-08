@@ -25,6 +25,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
     }
     internal static class FootingDrawingMath
     {
+        internal static DrawingPoint2 TitleOffsetShift(double sheetDeltaX,int quarterTurns)
+        {
+            if(double.IsNaN(sheetDeltaX)||double.IsInfinity(sheetDeltaX)||quarterTurns < -1||quarterTurns > 1)
+                throw new ArgumentException("Invalid viewport title shift");
+            double angle=quarterTurns*Math.PI/2;
+            return new DrawingPoint2(sheetDeltaX*Math.Cos(angle),-sheetDeltaX*Math.Sin(angle));
+        }
         internal static DrawingViewRange Range(double hostBottom, double hostTop, double barBottom, double barTop, double levelElevation, double padding)
         {
             if (new[]{hostBottom,hostTop,barBottom,barTop,levelElevation,padding}.Any(x=>double.IsNaN(x)||double.IsInfinity(x)) ||

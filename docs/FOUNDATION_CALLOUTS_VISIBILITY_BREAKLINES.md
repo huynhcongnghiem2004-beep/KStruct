@@ -1,14 +1,16 @@
 # Callout, hiển thị thép và Breakline dầm — Revit 2024
 
-## Callout mặt bằng → mặt cắt trên callout → Reference Detail
+## Callout mặt bằng → ký hiệu gốc của Detail A–A/B–B
 
-Luồng tạo hồ sơ: tạo callout mặt bằng thép trước, tạo **Detail View A–A/B–B** thuộc `ViewFamily.Detail` bằng `ViewSection.CreateDetail`, rồi đặt ký hiệu mặt cắt trên chính callout tham chiếu tới các Detail View đó. Không tạo view đích thuộc `ViewFamily.Section`.
+Tạo callout mặt bằng trước, rồi tạo Detail View thuộc `ViewFamily.Detail` bằng `ViewSection.CreateDetail`. Hiển thị ký hiệu gốc của các Detail trên callout, không gọi `CreateReferenceSection` hoặc tạo Reference Other View. Revit API dùng lớp `ViewSection` cho cả Detail và Section; view đích vẫn được kiểm tra là `ViewType.Detail`.
 
-Revit API dùng lớp `ViewSection` cho cả Detail và Section; bản sửa kiểm tra `ViewType.Detail` của view đích. Hàm `CreateReferenceSection` được dùng để đặt **ký hiệu mặt cắt trên mặt bằng callout**, không tạo Section View mới. View đích vẫn là Detail. Không dùng reference callout hình chữ nhật để thay đường cắt A–A/B–B.
+Lưu đầy đủ metadata và liên kết trước khi điều chỉnh ký hiệu. Hai callout thép trên/dưới cùng bộ hồ sơ có thể hiển thị cùng ký hiệu gốc. Ký hiệu gốc của Detail do lệnh sở hữu được ẩn trong các ViewPlan khác để không xuất hiện dư trên mặt bằng tổng hoặc callout khác. Không ẩn/xóa reference thủ công, không sửa các ký hiệu của view ngoài bộ hồ sơ.
 
-UI chỉ liệt kê **Detail Type**, lưu riêng `DetailTypeName`. Trường `SectionTypeName` cũ được giữ để đọc preset XML, nhưng không tự nhận Section Type cũ thành Detail Type có cùng tên. Preset cũ cần chọn lại Detail Type khi bật mặt cắt. Nếu project thiếu Detail Type, lệnh báo thiếu; không tự tạo Section View thay thế.
+Khi cập nhật hồ sơ cũ, gỡ các reference phụ được đánh dấu DetailReference của KStruct trên callout và bỏ ẩn ký hiệu gốc; giữ Detail, viewport, dim/tag và reference thủ công. Nếu xóa reference gây cascade sang đối tượng không thuộc lệnh, rollback như cơ chế bảo vệ sẵn có.
 
-Các view mới lưu đúng cặp Detail đích theo từng bộ hồ sơ. Khi cập nhật, kiểm tra view đích vẫn là Detail và đúng host; không nối tùy ý view của bộ khác hoặc chuyển Section cũ thành Detail ngầm. Ký hiệu tham chiếu có parent là callout và mở đúng Detail View trên sheet. Không giả lập thuộc tính ParentView trong Project Browser; kiểu đầu/ký hiệu do Detail View Family Type/family của dự án quyết định.
+Lệnh bật category ký hiệu trên callout và điều chỉnh ngưỡng ẩn theo tỷ lệ của Detail khi tham số cho phép. Không giả lập Parent View bằng cách ghi tên/giá trị enum suy đoán. `CreateDetail` không nhận parent view ID; vì vậy cần kiểm tra Show in/Parent View, crop và template trực tiếp trong Revit 2024. Nếu collector chưa trả về ký hiệu gốc, lệnh báo cảnh báo và không tạo reference phụ để che lỗi.
+
+UI chỉ liệt kê Detail Type, lưu riêng DetailTypeName. SectionTypeName cũ chỉ dùng đọc XML; không tự đổi Section Type thành Detail. Lựa chọn A–A/B–B độc lập vẫn được giữ.
 
 ## View range và hiển thị cốt thép
 
@@ -66,6 +68,16 @@ View hoặc tiêu đề vượt ô bố trí, hoặc có khả năng chồng n�
 
 ## Chọn riêng Detail A–A và B–B
 
-Hai checkbox độc lập cho phép tạo chỉ A–A, chỉ B–B, cả hai hoặc chỉ mặt bằng khi tắt cả hai. Mỗi Detail được chọn vẫn tham chiếu từ callout; chọn một Detail sẽ bật callout và ít nhất một mặt bằng. Offset và đảo hướng của mặt cắt bị tắt sẽ khóa nhập. Preview mặt bằng/sheet, tạo view, mã vai trò X/Y và danh sách liên kết chỉ dùng những Detail được chọn; chỉ B–B vẫn mang vai trò Detail-Y.
+Hai checkbox độc lập cho phép tạo chỉ A–A, chỉ B–B, cả hai hoặc chỉ mặt bằng khi tắt cả hai. Mỗi Detail được chọn vẫn dùng ký hiệu gốc trên callout; chọn một Detail sẽ bật callout và ít nhất một mặt bằng. Offset và đảo hướng của mặt cắt bị tắt sẽ khóa nhập. Preview mặt bằng/sheet, tạo view, mã vai trò X/Y và danh sách liên kết chỉ dùng những Detail được chọn; chỉ B–B vẫn mang vai trò Detail-Y.
 
 Lựa chọn A/B được lưu trong preset và lựa chọn lần trước. Preset cũ chưa có hai trường mới dùng công tắc CreateSections cũ: bật tạo cả hai, tắt không tạo Detail nào. Type, template, tỷ lệ và chiều sâu nhìn hiện vẫn dùng chung cho các Detail được bật.
+
+## MultiTag thép móng và căn Title Ref
+
+Bộ chọn thép sử dụng Multi-Rebar Annotation Type thuộc category Rebar, có TagTypeId và DimensionStyleId hợp lệ (Linear/LinearFixed). Tag đơn cũ chỉ giữ để đọc XML; không tự dùng ID/tag type đơn làm MultiTag. Lưu tên và UniqueId loại MultiTag cho lần sau. Khi cập nhật dữ liệu cũ chưa có lựa chọn, chỉ tự chọn nếu project có duy nhất một loại hợp lệ; nhiều loại hoặc thiếu loại thì cảnh báo chọn lại.
+
+Mỗi Rebar Set thuộc đúng móng, hiện trong view và đúng lớp Top/Bot của mặt bằng được tạo một MultiReferenceAnnotation. View Detail dùng các set hiện trong mặt cắt. Thử phương phân bố thực tế, phương vuông góc đoạn thanh và phương ngang/dọc view; dùng bộ kiểm tra reference của Revit trước khi tạo. Không thay thế bằng tag đơn khi MultiTag thất bại. Annotation crop được mở rộng theo số nhóm ở đơn vị giấy, crop mô hình 6 mm không đổi.
+
+MRA và tag/dimension con có mã sở hữu theo view/móng/Rebar nguồn. Cập nhật thay riêng annotation của từng set trong subtransaction; lỗi thì rollback giữ annotation cũ cho set đó. Tag đơn cũ và tag thủ công không có metadata mới được giữ nguyên, cần kiểm tra nếu còn chồng với MultiTag mới. Thiếu reference hợp lệ, family tag hoặc Rebar không hiện được báo theo view/ID thép; cần kiểm tra thực tế trong Revit.
+
+Title Ref được căn theo tâm ngang của bounding outline title so với viewport. Chỉ đổi LabelOffset, không đổi family, độ dài line title hay tỷ lệ view. Hàm dùng chung cho cả layout mới/cũ và cập nhật, đọc lại sau Regenerate và xử lý offset theo phép xoay viewport. Cần xác nhận native layout cho viewport xoay và family title đặc biệt trong Revit 2024.
