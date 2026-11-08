@@ -34,8 +34,8 @@ internal static class Render
         var window = new FootingRebarWindow(model,new List<double>{10,12,14,16,18,20,22,25},true,null,
             "Dữ liệu mẫu để kiểm tra giao diện WPF. Kích thước và cấu hình có thể chỉnh trong mô hình Revit.",true,update?4:0,0,false);
         if (update) window.ConfigureForUpdate();
-        window.Width=width; window.Height=height; window.Left=0; window.Top=0; window.ShowActivated=false;
-        window.Show(); window.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{})); window.UpdateLayout();
+        window.Width=width; window.Height=height; window.Left=0; window.Top=0; window.ShowActivated=true;
+        window.Show(); window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
         var root=(FrameworkElement)window.Content;
         var accept=(Button)window.FindName("BtnAcceptRebar");
         Rect bounds=accept.TransformToAncestor(root).TransformBounds(new Rect(accept.RenderSize));
@@ -44,16 +44,22 @@ internal static class Render
         foreach (int index in new[]{0,1,2})
         {
             ((TabControl)window.FindName("InputTabs")).SelectedIndex=index;
-            window.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{})); window.UpdateLayout();
-            var bitmap=new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth),(int)Math.Ceiling(root.ActualHeight),96,96,PixelFormats.Pbgra32);
-            bitmap.Render(root);
+            window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
+            int pixelsWide=(int)Math.Ceiling(root.ActualWidth+root.Margin.Left+root.Margin.Right);
+            int pixelsHigh=(int)Math.Ceiling(root.ActualHeight+root.Margin.Top+root.Margin.Bottom);
+            var bitmap=new RenderTargetBitmap(pixelsWide,pixelsHigh,96,96,PixelFormats.Pbgra32);
+            var background=new DrawingVisual();
+            using (DrawingContext drawing=background.RenderOpen()) drawing.DrawRectangle(window.Background,null,new Rect(0,0,pixelsWide,pixelsHigh));
+            bitmap.Render(background); bitmap.Render(root);
             var encoder=new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using(var file=File.Create(Path.Combine(output,name+"-tab"+index+".png"))) encoder.Save(file);
         }
         // Exercise the real ComboBox template/pop-up; no Revit document is needed for these controls.
-        ((TabControl)window.FindName("InputTabs")).SelectedIndex=0; window.UpdateLayout();
+        ((TabControl)window.FindName("InputTabs")).SelectedIndex=0;
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
         var diameter=(ComboBox)window.FindName("CboDiameterX");
-        diameter.IsDropDownOpen=true; window.Dispatcher.Invoke(DispatcherPriority.Render,new Action(()=>{}));
+        window.Activate(); diameter.Focus();
+        diameter.IsDropDownOpen=true; window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{}));
         if (!diameter.IsDropDownOpen || diameter.Items.Count==0) throw new InvalidOperationException("Diameter dropdown is unavailable");
         diameter.IsDropDownOpen=false; window.Close();
     }

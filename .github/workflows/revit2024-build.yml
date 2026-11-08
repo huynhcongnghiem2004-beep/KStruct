@@ -41,7 +41,10 @@ jobs:
           dotnet build tests/FootingRebarUi/FootingRebarUi.csproj --configuration Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $process = Start-Process -FilePath (Join-Path $PWD 'tests/FootingRebarUi/bin/Release/net48/FootingRebarUi.exe') -ArgumentList 'ui-previews' -WorkingDirectory $PWD.Path -Wait -PassThru
-          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path ui-previews/render-error.txt) { Get-Content ui-previews/render-error.txt }
+            exit $process.ExitCode
+          }
       - name: Upload WPF interface previews
         if: always()
         uses: actions/upload-artifact@v4
