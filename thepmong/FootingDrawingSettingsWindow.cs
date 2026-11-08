@@ -15,7 +15,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
     {
         internal FootingDrawingProfile Profile { get; set; }
         internal ViewFamilyType PlanType { get; set; }
-        internal ViewFamilyType SectionType { get; set; }
+        internal ViewFamilyType DetailType { get; set; }
         internal FamilySymbol TitleBlock { get; set; }
         internal View PlanTemplate { get; set; }
         internal View SectionTemplate { get; set; }
@@ -40,7 +40,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly ViewPlan _parent;
         private readonly ComboBox _profiles = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _planType = new ComboBox { MinWidth = 260 };
-        private readonly ComboBox _sectionType = new ComboBox { MinWidth = 260 };
+        private readonly ComboBox _detailType = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _titleBlock = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _planTemplate = new ComboBox { MinWidth = 150 };
         private readonly ComboBox _sectionTemplate = new ComboBox { MinWidth = 260 };
@@ -106,8 +106,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Populate(_planType, new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
                 .Where(x => (x.ViewFamily == ViewFamily.StructuralPlan || x.ViewFamily == ViewFamily.FloorPlan))
                 .Select(x => new Item { Text = x.Name + " | " + x.ViewFamily, Element = x }), "StructuralPlan");
-            Populate(_sectionType, new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
-                .Where(x => x.ViewFamily == ViewFamily.Section).Select(x => new Item { Text = x.Name, Element = x }), null);
+            Populate(_detailType, new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+                .Where(x => x.ViewFamily == ViewFamily.Detail).Select(x => new Item { Text = x.Name, Element = x }), null);
             Populate(_titleBlock, new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_TitleBlocks).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
                 .Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null);
             Populate(_planTemplate, Templates(doc).Select(x => new Item { Text = x.Name + " | " + x.ViewType, Element = x }), null, true);
@@ -129,7 +129,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _newSheet.Unchecked += (s, e) => _existingSheet.IsEnabled = true;
             foreach (CheckBox check in new[] { _topLayer, _bottomLayer, _callouts, _sections, _dimensions, _tags })
             { check.Checked += (s, e) => RefreshPreviews(); check.Unchecked += (s, e) => RefreshPreviews(); }
-            foreach (ComboBox combo in new[] { _planType, _sectionType, _planTemplate, _sectionTemplate, _dimension, _rebarTag, _foundationTag })
+            foreach (ComboBox combo in new[] { _planType, _detailType, _planTemplate, _sectionTemplate, _dimension, _rebarTag, _foundationTag })
                 combo.SelectionChanged += (s, e) => RefreshPreviews();
             _planScale.TextChanged += (s, e) => RefreshPreviews();
             _sectionScale.TextChanged += (s, e) => RefreshPreviews();
@@ -138,7 +138,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Content = BuildMockupLayout(footings ?? new List<FamilyInstance>());
             RefreshProfiles();
             if (_planType.Items.Count > 0) _planType.SelectedIndex = 0;
-            if (_sectionType.Items.Count > 0) _sectionType.SelectedIndex = 0;
+            if (_detailType.Items.Count > 0) _detailType.SelectedIndex = 0;
             if (_titleBlock.Items.Count > 0) _titleBlock.SelectedIndex = 0;
             if (_dimension.Items.Count > 1) _dimension.SelectedIndex = 1;
             _dimensions.IsChecked = Selected(_dimension) != null;
@@ -278,7 +278,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private FootingDrawingProfile ReadProfile(string name = null) => new FootingDrawingProfile
         {
             Name = name ?? string.Empty,
-            PlanTypeName = TypeName(Selected(_planType)), SectionTypeName = TypeName(Selected(_sectionType)),
+            PlanTypeName = TypeName(Selected(_planType)), DetailTypeName = TypeName(Selected(_detailType)),
             TitleBlockFamily = FamilyName(Selected(_titleBlock)), TitleBlockType = TypeName(Selected(_titleBlock)),
             PlanTemplateName = TypeName(Selected(_planTemplate)), SectionTemplateName = TypeName(Selected(_sectionTemplate)),
             RebarTagFamily = FamilyName(Selected(_rebarTag)), RebarTagType = TypeName(Selected(_rebarTag)),
@@ -286,6 +286,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
             SheetPrefix = _sheetPrefix.Text.Trim(), SheetNamePattern = _sheetName.Text.Trim(), ViewNamePattern = _viewName.Text.Trim(),
             PlanScale = ParseInt(_planScale.Text, 20), SectionScale = ParseInt(_sectionScale.Text, 20), CropMarginMm = ParseDouble(_cropMargin.Text, 6),
+            ApplyViewTemplatesOnce = _templateOnce.IsChecked == true,
+            CreateBeamBreakLines = _beamBreaks.IsChecked == true, BreakLineFamily = FamilyName(Selected(_breakLine)), BreakLineType = TypeName(Selected(_breakLine)),
+            BreakLinePaddingPaperMm = ParseDouble(_breakPadding.Text, 1), ReverseBreakLineMask = _reverseBreak.IsChecked == true,
             UseDetailedLayout = true, DimensionFourSides = _fourSides.IsChecked == true,
             DimensionOffsetPaperMm = ParseDouble(_dimOffset.Text, 8), DimensionGapPaperMm = ParseDouble(_dimGap.Text, 6),
             SectionDepthMm = ParseDouble(_sectionDepth.Text, 1200),
@@ -299,6 +302,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         };
         private void ApplyProfile(FootingDrawingProfile p)
         {
+            _templateOnce.IsChecked = p.ApplyViewTemplatesOnce;
+            _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
+            _breakPadding.Text = p.BreakLinePaddingPaperMm.ToString("0.##"); SelectByPair(_breakLine, p.BreakLineFamily, p.BreakLineType);
             _fourSides.IsChecked = p.DimensionFourSides;
             _dimOffset.Text = p.DimensionOffsetPaperMm.ToString("0.##"); _dimGap.Text = p.DimensionGapPaperMm.ToString("0.##");
             _sectionDepth.Text = p.SectionDepthMm.ToString("0.##");
@@ -308,7 +314,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _sheetMargin.Text = p.SheetMarginMm.ToString("0.##");
             if (!string.IsNullOrWhiteSpace(p.SourceViewUniqueId))
                 _sourcePlan.SelectedItem = _sourcePlan.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.SourceViewUniqueId);
-            SelectBy(_planType, p.PlanTypeName); SelectBy(_sectionType, p.SectionTypeName);
+            SelectBy(_planType, p.PlanTypeName); SelectBy(_detailType, p.DetailTypeName);
+            if (string.IsNullOrWhiteSpace(p.DetailTypeName) && !string.IsNullOrWhiteSpace(p.SectionTypeName)) _detailType.SelectedIndex = -1;
             SelectByPair(_titleBlock, p.TitleBlockFamily, p.TitleBlockType);
             SelectBy(_planTemplate, p.PlanTemplateName); SelectBy(_sectionTemplate, p.SectionTemplateName);
             SelectByPair(_rebarTag, p.RebarTagFamily, p.RebarTagType); SelectByPair(_foundationTag, p.FoundationTagFamily, p.FoundationTagType);
@@ -326,11 +333,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _existingSheet.IsEnabled = !p.PlaceOnNewSheet;
             var missing = new List<string>();
             if (!string.IsNullOrWhiteSpace(p.PlanTypeName) && Selected(_planType) == null) missing.Add("View Type mặt bằng");
-            if (!string.IsNullOrWhiteSpace(p.SectionTypeName) && Selected(_sectionType) == null) missing.Add("View Type mặt cắt");
+            if (!string.IsNullOrWhiteSpace(p.DetailTypeName ?? p.SectionTypeName) && Selected(_detailType) == null) missing.Add("Detail Type");
             if (!string.IsNullOrWhiteSpace(p.PlanTemplateName) && Selected(_planTemplate) == null) missing.Add("Template mặt bằng");
             if (!string.IsNullOrWhiteSpace(p.SectionTemplateName) && Selected(_sectionTemplate) == null) missing.Add("Template mặt cắt");
             if (!string.IsNullOrWhiteSpace(p.RebarTagType) && Selected(_rebarTag) == null) missing.Add("Tag thép");
             if (!string.IsNullOrWhiteSpace(p.FoundationTagType) && Selected(_foundationTag) == null) missing.Add("Tag móng");
+            if (!string.IsNullOrWhiteSpace(p.BreakLineType) && Selected(_breakLine) == null) missing.Add("Family Breakline");
             if (!string.IsNullOrWhiteSpace(p.DimensionTypeName) && Selected(_dimension) == null) missing.Add("Dimension Type");
             if (p.PlaceOnNewSheet && Selected(_titleBlock) == null) missing.Add("Title Block");
             if (p.CreateCallouts && Selected(_sourcePlan) == null) missing.Add("View nguồn");
@@ -391,11 +399,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Hãy tích chọn ít nhất một móng.", "Thiếu móng"); return; }
             if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true && _sections.IsChecked != true)
             { MessageBox.Show(this, "Hãy chọn ít nhất một mặt bằng hoặc mặt cắt.", "Thiếu view"); return; }
+            if (_sections.IsChecked == true && (_callouts.IsChecked != true || (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true)))
+            { MessageBox.Show(this, "Mặt cắt cần callout móng. Hãy bật Callout và chọn thép trên hoặc dưới.", "Thiếu callout"); return; }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
             { MessageBox.Show(this, "Hãy chọn mặt bằng nguồn hoặc tắt callout để tạo plan độc lập.", "Thiếu view nguồn"); return; }
-            if (!(Selected(_planType) is ViewFamilyType plan) || !(Selected(_sectionType) is ViewFamilyType section) || (_newSheet.IsChecked == true && !(Selected(_titleBlock) is FamilySymbol)))
-            { MessageBox.Show(this, "Cần chọn View Type mặt bằng, View Type mặt cắt và Title Block khi tạo sheet mới.", "Thiếu cấu hình", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            ViewFamilyType detail = Selected(_detailType) as ViewFamilyType;
+            if (!(Selected(_planType) is ViewFamilyType plan) || (_sections.IsChecked == true && detail == null) || (_newSheet.IsChecked == true && !(Selected(_titleBlock) is FamilySymbol)))
+            { MessageBox.Show(this, "Cần chọn View Type mặt bằng, Detail Type và Title Block khi tạo sheet mới.", "Thiếu cấu hình", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            if (_sections.IsChecked == true && detail.ViewFamily != ViewFamily.Detail)
+            { MessageBox.Show(this, "Cần chọn Detail Type, không dùng Section Type.", "Sai loại view"); return; }
             if (_callouts.IsChecked == true && source != null && plan.ViewFamily != (_doc.GetElement(source.GetTypeId()) as ViewFamilyType)?.ViewFamily)
             { MessageBox.Show(this, "Callout phải dùng View Type cùng họ với mặt bằng nguồn.", "View Type không tương thích", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             int planScale = ParseInt(_planScale.Text, -1), sectionScale = ParseInt(_sectionScale.Text, -1);
@@ -416,7 +429,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             FootingDrawingProfile profile = ReadProfile();
             Configuration = new FootingDrawingConfiguration
             {
-                Profile = profile, PlanType = plan, SectionType = section, TitleBlock = Selected(_titleBlock) as FamilySymbol,
+                Profile = profile, PlanType = plan, DetailType = detail, TitleBlock = Selected(_titleBlock) as FamilySymbol,
                 PlanTemplate = Selected(_planTemplate) as View, SectionTemplate = Selected(_sectionTemplate) as View,
                 RebarTagType = Selected(_rebarTag) as ElementType, FoundationTagType = Selected(_foundationTag) as ElementType,
                 DimensionType = Selected(_dimension) as DimensionType, ExistingSheet = Selected(_existingSheet) as ViewSheet,

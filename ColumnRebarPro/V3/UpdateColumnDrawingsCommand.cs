@@ -45,7 +45,7 @@ namespace ColumnRebarPro.V3
 
                 DeploymentSettingsFile deployment = V3DeploymentControl.LoadSavedSettings(doc);
                 if (deployment == null)
-                    throw new InvalidOperationException("Project chưa lưu thiết lập triển khai. Mở lệnh Cốt thép cột & triển khai V3, cấu hình tab Triển khai và xác nhận để lưu thiết lập trước.");
+                    throw new InvalidOperationException("Project chưa lưu thiết lập triển khai. Mở lệnh Tạo thép cột, cấu hình tab Triển khai và xác nhận để lưu thiết lập trước.");
 
                 var jobs = new List<DrawingJob>();
                 var seen = new HashSet<ElementId>();
@@ -132,8 +132,7 @@ namespace ColumnRebarPro.V3
         {
             string partition = V3RebarBuilder.Partition(columnId);
             return new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
-                .Any(bar => bar.GetHostId() == columnId &&
-                    bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == partition);
+                .Any(bar => bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == partition);
         }
 
         private static string GetLabel(IList<V3SegmentWork> works)
