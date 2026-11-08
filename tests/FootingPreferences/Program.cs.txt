@@ -16,6 +16,20 @@ internal static class Program
         {
             Check(FootingDrawingSessionStore.Load("project-A", directory) == null, "First run must not invent settings");
             Check(new FootingDrawingProfile().CropMarginMm == 6, "New configuration must default to six model millimeters");
+            Check(new FootingDrawingProfile().WantsDetailA && new FootingDrawingProfile().WantsDetailB, "Default settings keep both Detail views enabled");
+            Check(!new FootingDrawingProfile {CreateSections=false}.HasDetails, "Legacy disabled switch must disable both axes");
+            foreach(bool a in new[]{false,true}) foreach(bool b in new[]{false,true})
+            {
+                var axes=new FootingDrawingProfile {Name="Axes",CreateSections=!a,CreateDetailA=a,CreateDetailB=b};
+                string axesFile=Path.Combine(directory,"axes.xml");
+                FootingDrawingProfileStore.Export(axesFile,new[]{axes});
+                var restored=FootingDrawingProfileStore.Import(axesFile).Single();
+                Check(restored.WantsDetailA==a && restored.WantsDetailB==b && restored.HasDetails==(a||b),
+                    "Independent A/B flags must round-trip and override the legacy aggregate switch");
+                FootingDrawingSessionStore.Save("axes",new FootingDrawingSession {Profile=axes},directory);
+                var sessionAxes=FootingDrawingSessionStore.Load("axes",directory).Profile;
+                Check(sessionAxes.WantsDetailA==a && sessionAxes.WantsDetailB==b,"Remember per-axis selections for next run");
+            }
             var profile = new FootingDrawingProfile { Name = "Sample", HostPoseRecorded = true, HostPoseX = 120, HostPoseY = -40, HostPoseZ = -6, HostPoseAngle = 0.7, DetailTypeName = "Chi tiết đứng", CropMarginMm = 6, OutputLayers = "Bot", PlanScale = 50,
                 DimensionFourSides = true, UseDetailedLayout = true, SectionXOffsetMm = -125,
                 ReverseSectionY = true, BreakLineFamily = "Breakline", BreakLineType = "Line", BreakLinePaddingPaperMm = 1.5,
@@ -38,6 +52,7 @@ internal static class Program
             File.WriteAllText(legacy, "<FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>Legacy</Name><SectionTypeName>Old section</SectionTypeName><CropMarginMm>300</CropMarginMm><PlanScale>20</PlanScale></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
             var old = FootingDrawingProfileStore.Import(legacy).Single();
             Check(old.SectionTypeName == "Old section" && old.DetailTypeName == null, "Legacy section type must not be silently relabeled as a Detail Type");
+            Check(old.CreateDetailA==null && old.CreateDetailB==null && old.WantsDetailA && old.WantsDetailB,"Legacy enabled profiles without axis flags must still create both views");
             Check(!old.HostPoseRecorded, "Legacy profiles must not invent a host pose");
             Check(old.CropMarginMm == 300 && !old.UseDetailedLayout && !old.DimensionFourSides, "Legacy preset must retain crop/layout behavior");
             FootingDrawingProfileStore.Export(legacy, new[] { profile });

@@ -87,13 +87,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _topLayer.Content = "Thép trên"; _bottomLayer.Content = "Thép dưới";
             _callouts.Content = "Callout từ view nguồn (tắt: plan độc lập)";
             _callouts.IsEnabled = true;
-            _sections.Content = "Detail A–A/B–B tham chiếu từ callout";
-            _sections.Checked += (s,e) => { _callouts.IsChecked = true; if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true) _bottomLayer.IsChecked = true; };
+            foreach(CheckBox detail in new[]{_detailA,_detailB})
+                detail.Checked += (s,e) => { _callouts.IsChecked = true; if (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true) _bottomLayer.IsChecked = true; };
             _dimensions.Content = "Tạo kích thước liên kết mô hình";
             var tabs = new TabControl();
             var view = new StackPanel();
             var layers = new WrapPanel(); layers.Children.Add(_bottomLayer); layers.Children.Add(_topLayer); view.Children.Add(layers);
-            view.Children.Add(_sections); view.Children.Add(_callouts);
+            _detailA.Margin = new Thickness(0, 0, 14, 0);
+            var detailChoices = new WrapPanel(); detailChoices.Children.Add(_detailA); detailChoices.Children.Add(_detailB);
+            view.Children.Add(detailChoices); view.Children.Add(Note("Detail được chọn sẽ tham chiếu từ callout móng.")); view.Children.Add(_callouts);
             Populate(_sourcePlan, new FilteredElementCollector(_doc).OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
                 .Where(v => !v.IsTemplate && (v.ViewType == ViewType.EngineeringPlan || v.ViewType == ViewType.FloorPlan))
                 .Select(v => new Item { Text = v.Name, Element = v }), null, true);
@@ -222,12 +224,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
         {
             foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
             {
+                if ((!AnyDetailSelected && box == _sectionDepth) ||
+                    (box == _sectionXOffset && _detailA.IsChecked != true) ||
+                    (box == _sectionYOffset && _detailB.IsChecked != true)) continue;
                 double value = ParseDouble(box.Text, double.NaN);
                 if (double.IsNaN(value) || double.IsInfinity(value) ||
                     (box != _sectionXOffset && box != _sectionYOffset && value < 0))
                 { MessageBox.Show(this, "Offset phải hữu hạn; khoảng cách dim và lề sheet không được âm.", "Thông số chưa hợp lệ"); box.Focus(); return false; }
             }
-            if (_sections.IsChecked == true && ParseDouble(_sectionDepth.Text, 0) <= 0)
+            if (AnyDetailSelected && ParseDouble(_sectionDepth.Text, 0) <= 0)
             { MessageBox.Show(this, "Chiều sâu nhìn phải lớn hơn 0.", "Chiều sâu mặt cắt"); return false; }
             if (_dimensions.IsChecked == true && _fourSides.IsChecked == true &&
                 (ParseDouble(_dimOffset.Text, 0) <= 0 || ParseDouble(_dimGap.Text, 0) <= 0))
@@ -288,13 +293,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var cropRect = new System.Windows.Shapes.Rectangle { Width = pw + 2 * crop, Height = ph + 2 * crop,
                 Stroke = Brush("#006CD8"), StrokeDashArray = new DoubleCollection { 4, 2 } };
             Canvas.SetLeft(cropRect, left - crop); Canvas.SetTop(cropRect, top - crop); canvas.Children.Add(cropRect);
-            double dx = UnitUtils.ConvertToInternalUnits(ParseDouble(_sectionXOffset.Text, 0), UnitTypeId.Millimeters) * factor;
-            double dy = UnitUtils.ConvertToInternalUnits(ParseDouble(_sectionYOffset.Text, 0), UnitTypeId.Millimeters) * factor;
-            if (_sections.IsChecked == true)
+            double dx = _detailA.IsChecked == true ? UnitUtils.ConvertToInternalUnits(ParseDouble(_sectionXOffset.Text, 0), UnitTypeId.Millimeters) * factor : 0;
+            double dy = _detailB.IsChecked == true ? UnitUtils.ConvertToInternalUnits(ParseDouble(_sectionYOffset.Text, 0), UnitTypeId.Millimeters) * factor : 0;
+            if (_detailA.IsChecked == true)
             {
                 DrawLine(canvas, left - 12, 165 - dx, left + pw + 12, 165 - dx, Brushes.Red, true);
-                DrawLine(canvas, 250 + dy, top - 12, 250 + dy, top + ph + 12, Brushes.Red, true);
                 Label(canvas, left - 22, 145 - dx, _reverseX.IsChecked == true ? "A ↓" : "A ↑", Brushes.Red);
+            }
+            if (_detailB.IsChecked == true)
+            {
+                DrawLine(canvas, 250 + dy, top - 12, 250 + dy, top + ph + 12, Brushes.Red, true);
                 Label(canvas, 255 + dy, top - 25, _reverseY.IsChecked == true ? "B ←" : "B →", Brushes.Red);
             }
             if (_dimensions.IsChecked == true)
@@ -327,7 +335,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var titles = new List<string>();
             if (_bottomLayer.IsChecked == true) titles.Add("THÉP DƯỚI  1:" + _planScale.Text);
             if (_topLayer.IsChecked == true) titles.Add("THÉP TRÊN  1:" + _planScale.Text);
-            if (_sections.IsChecked == true) { titles.Add("A–A  1:" + _sectionScale.Text); titles.Add("B–B  1:" + _sectionScale.Text); }
+            if (_detailA.IsChecked == true) titles.Add("A–A  1:" + _sectionScale.Text);
+            if (_detailB.IsChecked == true) titles.Add("B–B  1:" + _sectionScale.Text);
             for (int i = 0; i < titles.Count; i++)
             {
                 double x = 30 + i % 2 * 165, y = 35 + i / 2 * 120;

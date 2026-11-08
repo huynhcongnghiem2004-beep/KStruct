@@ -32,21 +32,22 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     throw new InvalidOperationException("View Type mặt bằng không hợp lệ.");
             }
             if (p.CreateCallouts && parent == null) throw new InvalidOperationException("Callout cần chạy từ mặt bằng Revit.");
-            if (!top && !bot && !p.CreateSections) throw new InvalidOperationException("Cần bật callout hoặc mặt cắt.");
+            if (!top && !bot && !p.HasDetails) throw new InvalidOperationException("Cần bật callout hoặc mặt cắt.");
 
             if (bot) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, false, warnings), Role = "Plan-Bot" });
             if (top) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, true, warnings), Role = "Plan-Top" });
-            if (p.CreateSections && (config.DetailType == null || config.DetailType.ViewFamily != ViewFamily.Detail))
+            if (p.HasDetails && (config.DetailType == null || config.DetailType.ViewFamily != ViewFamily.Detail))
                 throw new InvalidOperationException("Hãy chọn View Family Type thuộc Detail. Lệnh không tạo Section View thay thế.");
             var linkedDetails = new List<ViewSection>();
-            if (p.CreateSections)
+            if (p.HasDetails)
             {
                 if (!p.CreateCallouts || !outputs.Any(o => o.View is ViewPlan plan && plan.IsCallout))
                     throw new InvalidOperationException("Mặt cắt cần callout móng làm view tham chiếu.");
                 List<ViewSection> details = CreateDetails(doc, footing, config, names, warnings);
                 linkedDetails.AddRange(details);
-                outputs.Add(new ViewOutput { View = details[0], Role = "Detail-X" });
-                outputs.Add(new ViewOutput { View = details[1], Role = "Detail-Y" });
+                int detailIndex = 0;
+                if (p.WantsDetailA) outputs.Add(new ViewOutput { View = details[detailIndex++], Role = "Detail-X" });
+                if (p.WantsDetailB) outputs.Add(new ViewOutput { View = details[detailIndex], Role = "Detail-Y" });
             }
 
             ViewSheet sheet = config.ExistingSheet;
@@ -139,6 +140,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var result = new List<ViewSection>();
             for (int i = 0; i < 2; i++)
             {
+                if (i == 0 ? !config.Profile.WantsDetailA : !config.Profile.WantsDetailB) continue;
                 XYZ direction = i == 0 ? xAxis : yAxis;
                 XYZ right = XYZ.BasisZ.CrossProduct(direction).Normalize();
                 Transform transform = Transform.Identity;
@@ -176,6 +178,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var result = new List<ViewSection>();
             for (int i = 0; i < 2; i++)
             {
+                if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
                 XYZ right = (i == 0 ? axes.BasisX : axes.BasisY).Normalize();
                 bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
                 if (reverse) right = -right;

@@ -55,7 +55,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public int SectionScale { get; set; } = 20;
         public double CropMarginMm { get; set; } = 6;
         public bool CreateCallouts { get; set; } = true;
-        public bool CreateSections { get; set; } = true;
+        public bool CreateSections { get; set; } = true; // Legacy switch, used when per-axis options are absent.
+        public bool? CreateDetailA { get; set; }
+        public bool? CreateDetailB { get; set; }
+        [XmlIgnore] public bool WantsDetailA => CreateDetailA ?? CreateSections;
+        [XmlIgnore] public bool WantsDetailB => CreateDetailB ?? CreateSections;
+        [XmlIgnore] public bool HasDetails => WantsDetailA || WantsDetailB;
         public bool CreateDimensions { get; set; } = true;
         public bool CreateTags { get; set; } = true;
         public bool PlaceOnNewSheet { get; set; } = true;
