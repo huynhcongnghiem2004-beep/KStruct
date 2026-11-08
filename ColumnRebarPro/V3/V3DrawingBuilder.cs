@@ -392,7 +392,7 @@ namespace ColumnRebarPro.V3
             foreach (Element element in new FilteredElementCollector(doc, view.Id).OfClass(typeof(Rebar)))
             {
                 var bar = element as Rebar;
-                if (bar == null || bar.GetHostId() != work.Column.Id) continue;
+                if (bar == null) continue;
                 Parameter p = bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM);
                 if (p == null || p.AsString() != partition) continue;
                 result.Add(bar);

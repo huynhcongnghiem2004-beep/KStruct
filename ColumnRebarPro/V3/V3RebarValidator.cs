@@ -22,7 +22,7 @@ namespace ColumnRebarPro.V3
                 if (c.TieStyle == V3TieStyle.Unspecified || c.TieLayout == V3TieLayout.Unspecified)
                     throw new InvalidOperationException("Chọn hình dạng đai và quy tắc bố trí đai theo thiết kế đã duyệt.");
                 double[] values = { g.Width, g.Depth, g.Bottom, g.Top, c.MainDiameter,
-                    c.TieDiameter, c.Cover, c.EndZone, c.EndSpacing, c.MidSpacing, c.LapLength, c.StarterLength };
+                    c.TieDiameter, c.Cover, c.EndZone, c.EndSpacing, c.MidSpacing, c.LapLength, c.StarterLength, c.JointBeamHeight, c.JointSpacing };
                 if (values.Any(v => double.IsNaN(v) || double.IsInfinity(v)))
                     throw new InvalidOperationException("Kích thước và cấu hình thép phải là số hữu hạn.");
                 if (V3Units.Mm(g.Height) <= 2 * (c.Cover + c.TieDiameter))
@@ -37,6 +37,10 @@ namespace ColumnRebarPro.V3
                 if (c.TieLayout == V3TieLayout.FixedNumber &&
                     (c.EndTieCount < 2 || c.MidTieCount < 2 || c.EndTieCount > 1002 || c.MidTieCount > 1002))
                     throw new InvalidOperationException("Số vị trí đai theo vùng phải từ 2 đến 1002.");
+                if (c.JointTies && (!c.StarterBars || c.JointBeamHeight <= 0 || c.JointSpacing <= 0 ||
+                    c.StarterLength < c.JointBeamHeight))
+                    throw new InvalidOperationException("Đai nút phía trên đỉnh cột cần thép chờ dài ít nhất bằng chiều cao nút đã nhập.");
+                V3RebarSetCreator.TiePlan(item);
                 double a = V3Units.Mm(g.Width), b = V3Units.Mm(g.Depth), h = V3Units.Mm(g.Height);
                 double availableX = a - 2 * (c.Cover + c.TieDiameter + c.MainDiameter / 2);
                 double availableY = b - 2 * (c.Cover + c.TieDiameter + c.MainDiameter / 2);

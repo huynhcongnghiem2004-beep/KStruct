@@ -18,6 +18,7 @@ namespace ColumnRebarPro.V3
             public List<V3SegmentWork> Works;
             public V3DrawingBuilder Drawings;
             public bool ReplaceOld;
+            public bool OpenAnchorModel;
             public string Label;
         }
 
@@ -154,6 +155,7 @@ namespace ColumnRebarPro.V3
 
                 var reports = new List<V3BuildReport>();
                 int sheetCount = 0;
+                ElementId modelPreviewId = ElementId.InvalidElementId;
 
                 using (var group = new TransactionGroup(doc, "KStruct V3 - Cốt thép nhiều tuyến cột"))
                 {
@@ -177,10 +179,32 @@ namespace ColumnRebarPro.V3
 
                                 job.Drawings.UseSheetIdentity(job.Works, j, jobs.Count);
                                 var sheets = job.Drawings.Build(doc, job.Works);
-                                sheetCount += sheets.Count;
+                                ElementId preview = ElementId.InvalidElementId;
+                                if (job.OpenAnchorModel && job.Works[0].FoundationHost != null)
+                                {
+                                    using (var sub = new SubTransaction(doc))
+                                    {
+                                        sub.Start();
+                                        try
+                                        {
+                                            preview = V3AnchorModelView.Create(doc, job.Works[0]);
+                                            if (sub.Commit() != TransactionStatus.Committed)
+                                                throw new InvalidOperationException("Không lưu được view kiểm tra neo.");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            if (sub.GetStatus() == TransactionStatus.Started) sub.RollBack();
+                                            preview = ElementId.InvalidElementId;
+                                            report.Warnings.Add("Không tạo được view 3D kiểm tra: " + ex.Message);
+                                        }
+                                    }
+                                }
 
                                 if (transaction.Commit() != TransactionStatus.Committed)
                                     throw new InvalidOperationException("Revit không chấp nhận thay đổi.");
+                                sheetCount += sheets.Count;
+                                if (modelPreviewId == ElementId.InvalidElementId && preview != ElementId.InvalidElementId)
+                                    modelPreviewId = preview;
                                 reports.Add(report);
                             }
                             catch (Exception ex)
@@ -201,6 +225,16 @@ namespace ColumnRebarPro.V3
                     summary = "Không tạo được tuyến nào.\n\n" + string.Join("\n", failures);
                     TaskDialog.Show("KStruct V3 - Lỗi", summary);
                     return Result.Failed;
+                }
+
+                if (modelPreviewId != ElementId.InvalidElementId)
+                {
+                    try
+                    {
+                        ui.ActiveView = (View3D)doc.GetElement(modelPreviewId);
+                        ui.GetOpenUIViews().FirstOrDefault(v => v.ViewId == modelPreviewId)?.ZoomToFit();
+                    }
+                    catch (Exception ex) { reports[0].Warnings.Add("Thép đã tạo; mở view KSTR_V3_NEO_L thủ công: " + ex.Message); }
                 }
 
                 var stackNames = jobs.Select(j => j.Label).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -399,6 +433,7 @@ namespace ColumnRebarPro.V3
                 Stack = stack,
                 Works = works,
                 ReplaceOld = window.ReplaceOld,
+                OpenAnchorModel = window.OpenAnchorModel,
                 Drawings = new V3DrawingBuilder(window.DeploymentSettings),
                 Label = mark
             };

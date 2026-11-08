@@ -22,6 +22,10 @@ Giao diện hồ sơ móng, chức năng nhớ lựa chọn và checklist kiểm
 
 Nhớ thông số lệnh thép móng và nhận diện lần tạo trước: [hướng dẫn](docs/FOOTING_REBAR_MEMORY.md).
 
+Phân vùng đai, nhóm thép, ghi đè và hồ sơ cột V3: [hướng dẫn và checklist Revit](DRAWING_V3.md).
+
+Neo chân L Fixed Number, hướng chân neo và view 3D kiểm tra: [hướng dẫn](docs/COLUMN_L_ANCHOR.md).
+
 Callout, view range cốt thép và Breakline dầm: [hướng dẫn](docs/FOUNDATION_CALLOUTS_VISIBILITY_BREAKLINES.md).
 
 ## Codex kiểm tra lại

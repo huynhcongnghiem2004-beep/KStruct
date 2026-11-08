@@ -41,7 +41,6 @@ namespace SDK_HD.KStruct
                 Add(columnRebarSplit, dll, "KStruct_RoundColumnRebar", "Thép cột tròn", typeof(global::SDK_HD.KStruct.NativeRebar.RoundColumnRebarCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_CreateColumnDrawingsNative", "Tạo bộ bản vẽ thép cột", typeof(global::ColumnRebarPro.V3.CreateColumnDrawingsCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_UpdateColumnDrawings", "Cập nhật bản vẽ V3", typeof(global::ColumnRebarPro.V3.UpdateColumnDrawingsCommand), "RebarColumnV3");
-                Add(columnRebarSplit, dll, "KStruct_RefreshColumnDrawingsNative", "Làm mới bản vẽ cột", typeof(global::ColumnRebarPro.V3.RefreshColumnDrawingsCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_StructuralPlanDimensionNative", "Dim cột/dầm/móng theo lưới", typeof(global::ColumnRebarPro.V3.V3StructuralPlanDimensionCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_ColumnRebarSchedule", "Thống kê cốt thép", typeof(global::SDK_HD.KStruct.NativeRebar.RebarScheduleCommand), "RebarColumnV3");
                 var footingRebarPanel = app.GetRibbonPanels(tab).FirstOrDefault(p => p.Name == "Thép móng")

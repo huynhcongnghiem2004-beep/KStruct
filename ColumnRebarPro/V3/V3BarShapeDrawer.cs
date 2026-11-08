@@ -26,15 +26,13 @@ namespace ColumnRebarPro.V3
 
         private List<BarShape> CollectBarShapes(Document doc, IList<V3SegmentWork> works)
         {
-            var hostIds = new HashSet<ElementId>(works.Select(w => w.Column.Id));
+            var partitions = new HashSet<string>(works.Select(w => V3RebarBuilder.Partition(w.Column.Id)));
             var map = new Dictionary<string, BarShape>();
             double minExtent = V3Units.Ft(300);   // loại đai / đai phụ (không có phương đứng)
             foreach (var r in new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>())
             {
-                ElementId host = r.GetHostId();
-                if (!hostIds.Contains(host)) continue;
                 var part = r.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM);
-                if (part == null || part.AsString() != V3RebarBuilder.Partition(host)) continue;
+                if (part == null || !partitions.Contains(part.AsString())) continue;
 
                 IList<Curve> curves;
                 try { curves = r.GetCenterlineCurves(false, true, true, MultiplanarOption.IncludeOnlyPlanarCurves, 0); }
@@ -62,7 +60,9 @@ namespace ColumnRebarPro.V3
 
                 var type = doc.GetElement(r.GetTypeId()) as RebarBarType;
                 double dia = type == null ? 0 : Math.Round(V3Units.Mm(type.BarNominalDiameter));
-                double length = Math.Round(V3Units.Mm(curves.Sum(c => c.Length)));
+                var lengthParameter = r.get_Parameter(BuiltInParameter.REBAR_ELEM_LENGTH);
+                double length = Math.Round(V3Units.Mm(lengthParameter != null && lengthParameter.HasValue
+                    ? lengthParameter.AsDouble() : curves.Sum(c => c.Length)));
                 string key = dia.ToString(CultureInfo.InvariantCulture) + "|" + string.Join(";",
                     local.Select(p => Math.Round(V3Units.Mm(p.X)).ToString(CultureInfo.InvariantCulture) + "," +
                                       Math.Round(V3Units.Mm(p.Z)).ToString(CultureInfo.InvariantCulture)));

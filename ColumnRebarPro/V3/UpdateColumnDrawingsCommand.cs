@@ -132,8 +132,7 @@ namespace ColumnRebarPro.V3
         {
             string partition = V3RebarBuilder.Partition(columnId);
             return new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
-                .Any(bar => bar.GetHostId() == columnId &&
-                    bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == partition);
+                .Any(bar => bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == partition);
         }
 
         private static string GetLabel(IList<V3SegmentWork> works)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
 
 namespace ColumnRebarPro.V3
 {
@@ -18,13 +19,27 @@ namespace ColumnRebarPro.V3
             foreach(var w in works)
                 foreach(double a in new[]{-w.Geometry.Width/2,w.Geometry.Width/2})
                     foreach(double b in new[]{-w.Geometry.Depth/2,w.Geometry.Depth/2})points.Add(w.Geometry.At(a,b,0)-new XYZ(origin.X,origin.Y,0));
+            double bottom=works.Min(w=>w.Geometry.Bottom);
+            double top=works.Max(w=>w.Geometry.Top+V3Units.Ft(w.Config.StarterBars?w.Config.StarterLength:0));
+            var partitions=new HashSet<string>(works.Select(w=>V3RebarBuilder.Partition(w.Column.Id)));
+            foreach(var bar in new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>())
+            {
+                if(!partitions.Contains(bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString()))continue;
+                var box=bar.get_BoundingBox(null);if(box==null)continue;
+                foreach(double bx in new[]{box.Min.X,box.Max.X})
+                foreach(double by in new[]{box.Min.Y,box.Max.Y})
+                foreach(double bz in new[]{box.Min.Z,box.Max.Z})
+                {
+                    XYZ p=box.Transform.OfPoint(new XYZ(bx,by,bz));
+                    points.Add(p-new XYZ(origin.X,origin.Y,0));bottom=Math.Min(bottom,p.Z);top=Math.Max(top,p.Z);
+                }
+            }
             double minX=points.Min(p=>p.DotProduct(x)),maxX=points.Max(p=>p.DotProduct(x));
             double minY=points.Min(p=>p.DotProduct(y)),maxY=points.Max(p=>p.DotProduct(y));
             var aggregate=new V3Geometry {
                 Center=new XYZ(origin.X,origin.Y,0)+x*((minX+maxX)/2)+y*((minY+maxY)/2),X=x,Y=y,
-                Width=maxX-minX,Depth=maxY-minY,Bottom=works.Min(w=>w.Geometry.Bottom),Top=works.Max(w=>w.Geometry.Top)
+                Width=maxX-minX,Depth=maxY-minY,Bottom=bottom,Top=top
             };
-            double top=works.Max(w=>w.Geometry.Top+V3Units.Ft(w.Config.StarterBars?w.Config.StarterLength:0));
             var overview=new V3SegmentWork {Column=first.Column,Segment=first.Segment,Geometry=aggregate,Config=first.Config};
             var longitudinal=Section(doc,overview,"Long",aggregate.Bottom,top);
             string mark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();

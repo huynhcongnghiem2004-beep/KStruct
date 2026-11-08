@@ -66,6 +66,8 @@ namespace ColumnRebarPro.V3
             "LongBreakLine"
         };
 
+        public bool IsDeploymentEnabled => EnableCheck.IsChecked == true;
+
         public V3DeploymentControl() { InitializeComponent(); }
 
         public void Initialize(Document doc)
@@ -73,10 +75,11 @@ namespace ColumnRebarPro.V3
             if (_ready) return;
 
             var sections = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+                .Where(t => t.ViewFamily == ViewFamily.Section || t.ViewFamily == ViewFamily.Detail)
                 .Cast<Element>().ToList();
 
             var templates = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>()
-                .Where(v => v.IsTemplate).Cast<Element>().ToList();
+                .Where(v => v.IsTemplate && (v.ViewType == ViewType.Section || v.ViewType == ViewType.Detail)).Cast<Element>().ToList();
 
             var dimensions = new FilteredElementCollector(doc).OfClass(typeof(DimensionType)).Cast<DimensionType>()
                 .Where(t => t.StyleType == DimensionStyleType.Linear).Cast<Element>().ToList();
@@ -102,7 +105,7 @@ namespace ColumnRebarPro.V3
                     picker.IsEditable = true;
                     picker.IsTextSearchEnabled = true;
                     picker.StaysOpenOnEdit = true;
-                    picker.ToolTip = "Hiển thị tất cả loại trong project. Gõ tên để tìm nhanh.";
+                    picker.ToolTip = "Chỉ hiển thị loại mặt cắt Section/Detail. Gõ tên để tìm nhanh.";
                 }
 
                 Fill((ComboBox)FindName(prefix + "Dimension"), dimensions, true);

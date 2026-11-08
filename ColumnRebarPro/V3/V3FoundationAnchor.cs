@@ -10,21 +10,25 @@ namespace ColumnRebarPro.V3
         internal bool Enabled;
         internal double CoverMm;
         internal double AnchorLengthMm;
+        internal V3AnchorDirection Direction;
     }
 
     internal static class V3FoundationAnchor
     {
         internal static void Attach(Document doc, V3SegmentWork bottomWork, V3FoundationAnchorSettings settings)
         {
-            if (settings == null || !settings.Enabled) return;
             if (bottomWork == null || bottomWork.Column == null)
                 throw new InvalidOperationException("Không xác định được cột chân tuyến để neo xuống móng.");
-            if (settings.AnchorLengthMm <= 0 || settings.CoverMm <= 0)
+            bottomWork.Config.FoundationAnchorEnabled = settings != null && settings.Enabled;
+            if (settings == null || !settings.Enabled) return;
+            if (!Enum.IsDefined(typeof(V3AnchorDirection), settings.Direction) ||
+                double.IsNaN(settings.AnchorLengthMm) || double.IsInfinity(settings.AnchorLengthMm) ||
+                double.IsNaN(settings.CoverMm) || double.IsInfinity(settings.CoverMm) ||
+                settings.AnchorLengthMm <= 0 || settings.CoverMm <= 0)
                 throw new InvalidOperationException("Nhập chiều dài neo và lớp bảo vệ đáy móng theo thiết kế đã duyệt.");
 
-            BoundingBoxXYZ columnBox = bottomWork.Column.get_BoundingBox(null);
             XYZ center = bottomWork.Geometry.Center;
-            double xyTol = V3Units.Ft(50), zTol = V3Units.Ft(150);
+            double xyTol = V3Units.Ft(50), zTol = V3Units.Ft(1);
             var candidates = new FilteredElementCollector(doc)
                 .OfCategory(BuiltInCategory.OST_StructuralFoundation)
                 .WhereElementIsNotElementType()
@@ -39,25 +43,27 @@ namespace ColumnRebarPro.V3
             if (candidates.Count == 0)
                 throw new InvalidOperationException("Không tìm thấy móng Structural Foundation ngay dưới cột chân tuyến. Kiểm tra vị trí và cao độ cột/móng.");
 
+            if (candidates.Count > 1)
+                throw new InvalidOperationException("Có nhiều móng tại chân cột; cần xử lý mô hình để xác định duy nhất móng nhận neo.");
             FamilyInstance footing = candidates[0].Foundation;
-            Parameter thickness = footing.LookupParameter("Foundation Thickness");
-            if ((thickness == null || !thickness.HasValue) && footing.Symbol != null)
-                thickness = footing.Symbol.LookupParameter("Foundation Thickness");
-            if (thickness == null || !thickness.HasValue || thickness.StorageType != StorageType.Double || thickness.AsDouble() <= 0)
-                throw new InvalidOperationException("Móng cần có tham số Foundation Thickness để xác định đoạn neo an toàn.");
-
+            BoundingBoxXYZ box = candidates[0].Box;
             double cover = V3Units.Ft(settings.CoverMm);
             double barRadius = V3Units.Ft(bottomWork.Config.MainDiameter / 2.0);
-            double zBend = bottomWork.Geometry.Bottom - thickness.AsDouble() + cover + barRadius;
+            double zBend = box.Min.Z + cover + barRadius;
             double vertical = bottomWork.Geometry.Bottom - zBend;
-            if (vertical <= cover + barRadius || vertical > thickness.AsDouble())
+            if (vertical <= cover + barRadius)
                 throw new InvalidOperationException("Chiều dày móng không đủ để đặt chân neo L với cover đã chọn.");
+            V3AnchorLayoutPlan.HorizontalLength(settings.AnchorLengthMm, V3Units.Mm(vertical));
 
             bottomWork.FoundationHost = footing;
-            bottomWork.FoundationBottom = bottomWork.Geometry.Bottom - thickness.AsDouble();
+            bottomWork.FoundationBottom = box.Min.Z;
             bottomWork.FoundationBendZ = zBend;
             bottomWork.FoundationCoverMm = settings.CoverMm;
             bottomWork.FoundationAnchorLengthMm = settings.AnchorLengthMm;
+            bottomWork.Config.FoundationAnchorLength = settings.AnchorLengthMm;
+            bottomWork.Config.FoundationAnchorCover = settings.CoverMm;
+            bottomWork.Config.FoundationAnchorDirection = settings.Direction;
+            V3AnchorGeometryCheck.Validate(doc, bottomWork);
         }
     }
 }

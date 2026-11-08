@@ -76,8 +76,7 @@ namespace ColumnRebarPro.V3
                         if (config == null)
                             throw new InvalidOperationException("Cột " + column.Id.Value + " chưa có cấu hình KStruct V3 đã lưu. Hãy tạo thép bằng KStruct trước.");
                         bool hasKStructBars = new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
-                            .Any(r => r.GetHostId() == column.Id &&
-                                string.Equals(r.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString(),
+                            .Any(r => string.Equals(r.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString(),
                                     V3RebarBuilder.Partition(column.Id), StringComparison.Ordinal));
                         if (!hasKStructBars)
                             throw new InvalidOperationException("Cột " + column.Id.Value + " chưa có thép KStruct V3 để triển khai.");
