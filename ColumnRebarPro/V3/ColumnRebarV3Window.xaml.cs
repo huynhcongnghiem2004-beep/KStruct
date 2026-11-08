@@ -46,7 +46,6 @@ namespace ColumnRebarPro.V3
         private readonly Dictionary<long, V3RebarConfig> _configs = new Dictionary<long, V3RebarConfig>();
         private readonly ObservableCollection<FloorRow> _rows = new ObservableCollection<FloorRow>();
         private readonly List<BarSizeChoice> _sizes;
-        private List<V3HookChoice> _projectHooks = new List<V3HookChoice>();
         private long? _activeId;
         private bool _loading = true;
 
@@ -91,7 +90,6 @@ namespace ColumnRebarPro.V3
                 }
             }
 
-            if(document != null) _projectHooks = V3ProjectRebar.Hooks(document);
             InitializeComponent();
             var workArea = SystemParameters.WorkArea;
             MinWidth = Math.Min(MinWidth, workArea.Width);
@@ -180,12 +178,64 @@ namespace ColumnRebarPro.V3
         }
         private void LoadHookBox(ComboBox box,string selected,double degrees)
         {
+            var hooks = V3ProjectRebar.Hooks(_document, SelectedTieBarType());
             var choices=new List<V3HookChoice> {new V3HookChoice {Id="",Label="Tự chọn nếu chỉ có một loại phù hợp"}};
-            choices.AddRange(_projectHooks.Where(h=>h.TieStyle && Math.Abs(h.Angle-degrees*Math.PI/180)<1e-6));
+            choices.AddRange(hooks.Where(h=>h.TieStyle && h.Allowed &&
+                Math.Abs(h.Angle-degrees*Math.PI/180)<1e-6));
             if(!string.IsNullOrEmpty(selected) && !choices.Any(h=>h.Id==selected))
                 choices.Add(new V3HookChoice {Id=selected,Label="Móc đã lưu không còn hợp lệ — chọn lại"});
             box.ItemsSource=choices;
             box.SelectedItem=choices.FirstOrDefault(h=>h.Id==(selected??"")) ?? choices[0];
+        }
+
+        private Autodesk.Revit.DB.Structure.RebarBarType SelectedBarType(ComboBox diameterBox)
+        {
+            if (_document == null) return null;
+            var size = diameterBox.SelectedItem as BarSizeChoice;
+            if (size == null) return null;
+            var matches = new Autodesk.Revit.DB.FilteredElementCollector(_document)
+                .OfClass(typeof(Autodesk.Revit.DB.Structure.RebarBarType))
+                .Cast<Autodesk.Revit.DB.Structure.RebarBarType>()
+                .Where(type => !type.Name.StartsWith(V3BottleneckBarType.Prefix, StringComparison.Ordinal) &&
+                    Math.Abs(V3Units.Mm(type.BarNominalDiameter) - size.Mm) <= .01)
+                .ToList();
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
+        private Autodesk.Revit.DB.Structure.RebarBarType SelectedTieBarType()
+        {
+            return SelectedBarType(TieBarBox);
+        }
+
+        private void RefreshTypeChoices(V3RebarConfig config)
+        {
+            if (config == null) return;
+            var mainType = SelectedBarType(MainBarBox);
+            var tieType = SelectedTieBarType();
+            LoadHookBox(TieHook135Box, config.TieHook135UniqueId, 135);
+            LoadHookBox(TieHook90Box, config.TieHook90UniqueId, 90);
+            LoadShapeBox(LongitudinalShapeBox, V3RebarShapeFactory.Choices(_document, mainType,
+                V3RebarShapeGroup.Longitudinal, config.TieStyle, false), config.LongitudinalShapeUniqueId);
+            LoadShapeBox(AnchorShapeBox, V3RebarShapeFactory.Choices(_document, mainType,
+                V3RebarShapeGroup.Anchor, config.TieStyle, false), config.AnchorShapeUniqueId);
+            LoadShapeBox(OuterTieShapeBox, V3RebarShapeFactory.Choices(_document, tieType,
+                V3RebarShapeGroup.OuterTie, config.TieStyle, false), config.OuterTieShapeUniqueId);
+            LoadShapeBox(CrossTieShapeBox, V3RebarShapeFactory.Choices(_document, tieType,
+                V3RebarShapeGroup.CrossTie, config.TieStyle, config.CrossTiesAlternating),
+                config.CrossTieShapeUniqueId);
+        }
+
+        private static void LoadShapeBox(ComboBox box, IEnumerable<V3RebarShapeChoice> shapes, string selected)
+        {
+            var choices = new List<V3RebarShapeChoice> {
+                new V3RebarShapeChoice { UniqueId = "", Label = "— Chọn Rebar Shape có sẵn —" }
+            };
+            choices.AddRange(shapes);
+            if (!string.IsNullOrEmpty(selected) && !choices.Any(s => s.UniqueId == selected))
+                choices.Add(new V3RebarShapeChoice { UniqueId = selected,
+                    Label = "Shape đã lưu không còn phù hợp — chọn lại" });
+            box.ItemsSource = choices;
+            box.SelectedItem = choices.FirstOrDefault(s => s.UniqueId == (selected ?? "")) ?? choices[0];
         }
 
         private void LoadActive()
@@ -215,8 +265,7 @@ namespace ColumnRebarPro.V3
                 c.TieLayout == V3TieLayout.MaximumSpacing ? 0 : -1;
             EndCountBox.Text = c.EndTieCount > 0 ? c.EndTieCount.ToString(CultureInfo.InvariantCulture) : "";
             MidCountBox.Text = c.MidTieCount > 0 ? c.MidTieCount.ToString(CultureInfo.InvariantCulture) : "";
-            LoadHookBox(TieHook135Box,c.TieHook135UniqueId,135);
-            LoadHookBox(TieHook90Box,c.TieHook90UniqueId,90);
+            RefreshTypeChoices(c);
             CrossCheck.IsChecked = c.CrossTies;
             CrossAlternateCheck.IsChecked = c.CrossTiesAlternating;
             JointTiesCheck.IsChecked = c.JointTies;
@@ -284,6 +333,10 @@ namespace ColumnRebarPro.V3
                 }
                 c.TieHook135UniqueId = (TieHook135Box.SelectedItem as V3HookChoice)?.Id ?? "";
                 c.TieHook90UniqueId = (TieHook90Box.SelectedItem as V3HookChoice)?.Id ?? "";
+                c.LongitudinalShapeUniqueId = (LongitudinalShapeBox.SelectedItem as V3RebarShapeChoice)?.UniqueId ?? "";
+                c.AnchorShapeUniqueId = (AnchorShapeBox.SelectedItem as V3RebarShapeChoice)?.UniqueId ?? "";
+                c.OuterTieShapeUniqueId = (OuterTieShapeBox.SelectedItem as V3RebarShapeChoice)?.UniqueId ?? "";
+                c.CrossTieShapeUniqueId = (CrossTieShapeBox.SelectedItem as V3RebarShapeChoice)?.UniqueId ?? "";
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
                 c.JointTies = JointTiesCheck.IsChecked == true;
@@ -374,12 +427,17 @@ namespace ColumnRebarPro.V3
 
             });
             SaveActive(false);
+            if (ReferenceEquals(sender, TieBarBox) || ReferenceEquals(sender, MainBarBox) ||
+                ReferenceEquals(sender, HookRadio) || ReferenceEquals(sender, LoopRadio) ||
+                ReferenceEquals(sender, CrossAlternateCheck))
+                RefreshTypeChoices(ActiveConfig);
             UpdateFoundationAnchorSummary();
         }
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
             SaveActive(false);
+            RefreshTypeChoices(ActiveConfig);
         }
         private void Text_LostFocus(object sender, RoutedEventArgs e)
         {

@@ -430,6 +430,11 @@ namespace SDK_HD.KStruct.NativeRebar
                 TcvnAreaRatio = Number(tcvnAreaRatioBox.Text, 1.0), TcvnAlpha = Number(tcvnAlphaBox.Text, 1.0),
                 TopStartHook = ((HookChoice)topStartHook.SelectedItem)?.Type, TopEndHook = ((HookChoice)topEndHook.SelectedItem)?.Type,
                 BottomStartHook = ((HookChoice)bottomStartHook.SelectedItem)?.Type, BottomEndHook = ((HookChoice)bottomEndHook.SelectedItem)?.Type,
+                TieShape = defaults?.TieShape, TopBarShape = defaults?.TopBarShape, BottomBarShape = defaults?.BottomBarShape,
+                TieStartHook = defaults?.TieStartHook, TieEndHook = defaults?.TieEndHook,
+                TopLayer2Shape = defaults?.TopLayer2Shape, TopLayer3Shape = defaults?.TopLayer3Shape,
+                BottomLayer2Shape = defaults?.BottomLayer2Shape, BottomLayer3Shape = defaults?.BottomLayer3Shape,
+                SideBarShape = defaults?.SideBarShape,
                 PreviewBeamLengthMm = defaults?.PreviewBeamLengthMm ?? 0, PreviewBeamWidthMm = defaults?.PreviewBeamWidthMm ?? 0,
                 PreviewBeamHeightMm = defaults?.PreviewBeamHeightMm ?? 0, PreviewSupports = defaults?.PreviewSupports ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSupport>(),
                 PreviewBeamSections = defaults?.PreviewBeamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>(),
@@ -1237,6 +1242,11 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 CoverMm = Number(cover.Text, 30), LongitudinalLayerSpacingMm = Number(gap.Text, 30), TieSpacingMm = Number(tieSpacing.Text, 150),
                 UseZonedTies = zoned, TieEndZoneLengthMm = Number(zoneLength.Text, 1000), TieEndSpacingMm = Number(endSpacing.Text, 100), TieMiddleSpacingMm = Number(middleSpacing.Text, 200),
                 TopStartHook = defaults?.TopStartHook, TopEndHook = defaults?.TopEndHook, BottomStartHook = defaults?.BottomStartHook, BottomEndHook = defaults?.BottomEndHook,
+                TieShape = defaults?.TieShape, TopBarShape = defaults?.TopBarShape, BottomBarShape = defaults?.BottomBarShape,
+                TieStartHook = defaults?.TieStartHook, TieEndHook = defaults?.TieEndHook,
+                TopLayer2Shape = defaults?.TopLayer2Shape, TopLayer3Shape = defaults?.TopLayer3Shape,
+                BottomLayer2Shape = defaults?.BottomLayer2Shape, BottomLayer3Shape = defaults?.BottomLayer3Shape,
+                SideBarShape = defaults?.SideBarShape,
                 PreviewBeamLengthMm = defaults?.PreviewBeamLengthMm ?? 0, PreviewBeamWidthMm = defaults?.PreviewBeamWidthMm ?? 0,
                 PreviewBeamHeightMm = defaults?.PreviewBeamHeightMm ?? 0, PreviewSupports = defaults?.PreviewSupports ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSupport>(),
                 PreviewBeamSections = defaults?.PreviewBeamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>(),
@@ -2765,4 +2775,3 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
         }
     }
 }
-

@@ -111,6 +111,11 @@ namespace SDK_HD.KStruct.NativeRebar
             public RebarBarType BottomLayer3Type;
             public RebarBarType SideBarType;
             public RebarHookType TopStartHook, TopEndHook, BottomStartHook, BottomEndHook;
+            public RebarShape TieShape;
+            public RebarHookType TieStartHook, TieEndHook;
+            public RebarShape TopBarShape, BottomBarShape;
+            public RebarShape TopLayer2Shape, TopLayer3Shape, BottomLayer2Shape, BottomLayer3Shape;
+            public RebarShape SideBarShape;
             public double LongitudinalLayerSpacingMm;
             public double CoverMm;
             public double TieSpacingMm;
@@ -388,6 +393,9 @@ namespace SDK_HD.KStruct.NativeRebar
                 Options options = BeamRebarEditorWindow.ShowQuick(data.Application.MainWindowHandle, types, hookTypes,
                     defaults, false, null, current => SaveSettings(doc, current));
                 if (options == null) return Result.Cancelled;
+                options = BeamRebarShapeSelectionWindow.Show(data.Application.MainWindowHandle, doc, hookTypes, options);
+                if (options == null) return Result.Cancelled;
+                ValidateRequiredShapes(options);
                 string settingSaveNotice = null;
                 try { SaveSettings(doc, options); }
                 catch (Exception saveError) { settingSaveNotice = "\nKhông lưu được setting cho project: " + saveError.Message; }
@@ -595,6 +603,8 @@ namespace SDK_HD.KStruct.NativeRebar
                             if (!IsStructuralBeam(beam)) throw new InvalidOperationException("Cấu kiện không thuộc Structural Framing.");
                             Options options = settingsForBeam(beam);
                             if (options == null) throw new InvalidOperationException("Không có dòng cấu hình khớp Mark/ElementId của dầm.");
+                            FillMissingShapesFromSavedSettings(doc, options);
+                            ValidateRequiredShapes(options);
                             Frame frame = GetFrame(beam, doc);
                             List<ElementId> previousManagedBars = FindManagedBeamBars(doc, beam.Id);
                             List<BeamPreviewSupport> originalSupports = options.PreviewSupports;
@@ -977,7 +987,8 @@ namespace SDK_HD.KStruct.NativeRebar
                     barHeight += row.Item1.StartsWith("top", StringComparison.Ordinal) ? -positionOffset : positionOffset;
                     if (barType.BarNominalDiameter != row.Item3.BarNominalDiameter)
                         barHeight += (row.Item1.StartsWith("top", StringComparison.Ordinal) ? -1 : 1) * (row.Item3.BarNominalDiameter - barType.BarNominalDiameter) / 2.0;
-                    CreateLongitudinalRow(doc, beam, f, barType, completeSet ? groupCount : spec.Count, cover, tieDia, barHeight, start, end, startHook, endHook, barIndex, groupCount,
+                    CreateLongitudinalRow(doc, beam, f, barType, ShapeForGroup(options, row.Item1),
+                        "Thép dọc nhóm " + row.Item1, completeSet ? groupCount : spec.Count, cover, tieDia, barHeight, start, end, startHook, endHook, barIndex, groupCount,
                         hookDownTopMain && (row.Item1 == "top" || spec.StartMm <= 1) ? hookDownMm : 0,
                         hookDownTopMain && (row.Item1 == "top" || spec.EndMm >= totalLengthMm - 1) ? hookDownMm : 0,
                         hookDownTopMain ? spec.LeftHookMm : 0, hookDownTopMain ? spec.RightHookMm : 0,
@@ -986,7 +997,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 }
             }
             if (createLongitudinal && options.SideBarCount > 0)
-                CreateSideBars(doc, beam, f, options.SideBarType ?? topType, options.SideBarCount, cover, tieDia, hBottom, hTop, tieStart, tieEnd,
+                CreateSideBars(doc, beam, f, options.SideBarType ?? topType, options.SideBarShape, options.SideBarCount, cover, tieDia, hBottom, hTop, tieStart, tieEnd,
                     options.SideBarMinimumHeightMm, options.SideBarSpacingMm, options.SideBarAnchorageMm);
 
             if (!createTies) return 0;
@@ -1016,17 +1027,11 @@ namespace SDK_HD.KStruct.NativeRebar
                 double station = stations[stationIndex];
                 double halfW = innerHalfW;
                 double halfH = innerHalfH;
-                XYZ p0 = Point(f, f.WidthCenter - halfW, f.HeightCenter - halfH, station);
-                XYZ p1 = Point(f, f.WidthCenter + halfW, f.HeightCenter - halfH, station);
-                XYZ p2 = Point(f, f.WidthCenter + halfW, f.HeightCenter + halfH, station);
-                XYZ p3 = Point(f, f.WidthCenter - halfW, f.HeightCenter + halfH, station);
-                var curves = new List<Curve>
-                {
-                    Line.CreateBound(p0, p1), Line.CreateBound(p1, p2),
-                    Line.CreateBound(p2, p3), Line.CreateBound(p3, p0)
-                };
-                Rebar tie = ExistingProjectRebar.Create(doc, RebarStyle.StirrupTie, options.TieType,
-                    null, null, beam, f.Axis, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, "Đai dầm " + beam.Id.Value + " / vị trí " + tieIndex);
+                XYZ tieBase = Point(f, f.WidthCenter - halfW, f.HeightCenter - halfH, station);
+                XYZ tieWidth = f.Width * (2 * halfW);
+                XYZ tieHeight = f.Up * (2 * halfH);
+                Rebar tie = CreateBeamStirrupFromShape(doc, options, beam, tieBase, tieWidth, tieHeight,
+                    "Đai dầm " + beam.Id.Value + " / vị trí " + tieIndex);
                 if (tie == null) throw new InvalidOperationException("Revit không tạo được đai số " + tieIndex + ".");
                 if (positions > 1)
                 {
@@ -1040,6 +1045,15 @@ namespace SDK_HD.KStruct.NativeRebar
                         throw new InvalidOperationException("Không thể gom nhóm " + positions + " đai liên tiếp thành Rebar Set: " + ex.Message, ex);
                     }
                 }
+                double expectedArrayLength = positions > 1 ? stations[runEnd] - station : 0;
+                bool layoutMatches;
+                using (RebarShapeDrivenAccessor accessor = tie.GetShapeDrivenAccessor())
+                    layoutMatches = Math.Abs(accessor.ArrayLength - expectedArrayLength) <=
+                        Math.Max(doc.Application.ShortCurveTolerance * 4, expectedArrayLength * 1e-6);
+                if (!tie.IsRebarShapeDriven() || tie.NumberOfBarPositions != positions ||
+                    (positions > 1 && tie.LayoutRule != RebarLayoutRule.FixedNumber) ||
+                    (positions == 1 && tie.LayoutRule != RebarLayoutRule.Single) || !layoutMatches)
+                    throw new InvalidOperationException("Shape đai " + options.TieShape.Name + " không tạo được layout có " + positions + " vị trí đúng yêu cầu.");
                 SetPartition(tie, beam.Id);
                 stationIndex = runEnd + 1;
             }
@@ -1193,7 +1207,8 @@ namespace SDK_HD.KStruct.NativeRebar
             }
         }
 
-        private static void CreateLongitudinalRow(Document doc, FamilyInstance beam, Frame f, RebarBarType type,
+        private static void CreateLongitudinalRow(Document doc, FamilyInstance beam, Frame f, RebarBarType type, RebarShape shape,
+            string groupName,
             int count, double cover, double tieDia, double h, double start, double end,
             RebarHookType startHook, RebarHookType endHook, int fixedIndex = -1, int fixedCount = 0,
             double startHookDownMm = 0, double endHookDownMm = 0, double leftHookFootMm = 0, double rightHookFootMm = 0,
@@ -1277,25 +1292,21 @@ namespace SDK_HD.KStruct.NativeRebar
                                 curves.Add(Line.CreateBound(path[pointIndex - 1], path[pointIndex]));
                     }
                 }
-                Rebar bar = ExistingProjectRebar.Create(doc, RebarStyle.Standard, type,
+                Rebar bar = CreateFromSelectedBeamShape(doc, shape, RebarStyle.Standard, type,
                     startDown > 0 || endDown > 0 ? null : startHook,
                     startDown > 0 || endDown > 0 ? null : endHook, beam, f.Width,
-                    curves, RebarHookOrientation.Left, RebarHookOrientation.Right, "Thép dọc dầm " + beam.Id.Value);
+                    curves, RebarHookOrientation.Left, RebarHookOrientation.Right, groupName + " dầm " + beam.Id.Value);
                 if (bar == null) throw new InvalidOperationException("Revit không tạo được thép dọc.");
                 if (makeDistributedSet)
                 {
                     try
                     {
-                        if (bar.IsRebarFreeForm())
-                        {
-                            using (RebarFreeFormAccessor accessor = bar.GetFreeFormAccessor())
-                                accessor.SetLayoutAsFixedNumber(count);
-                        }
-                        else
-                        {
-                            using (RebarShapeDrivenAccessor accessor = bar.GetShapeDrivenAccessor())
-                                accessor.SetLayoutAsFixedNumber(count, maxW - minW, true, true, true);
-                        }
+                        if (!bar.IsRebarShapeDriven())
+                            throw new InvalidOperationException("Rebar tạo ra không phải Shape Driven.");
+                        using (RebarShapeDrivenAccessor accessor = bar.GetShapeDrivenAccessor())
+                            accessor.SetLayoutAsFixedNumber(count, maxW - minW, true, true, true);
+                        if (bar.NumberOfBarPositions != count)
+                            throw new InvalidOperationException("Số vị trí sau khi đặt layout không khớp yêu cầu.");
                     }
                     catch (Exception ex)
                     {
@@ -1319,7 +1330,7 @@ namespace SDK_HD.KStruct.NativeRebar
             return Math.Max(calculated, Math.Max(Math.Max(15.0 * d, 200.0), 0.3 * baseLength));
         }
 
-        private static void CreateSideBars(Document doc, FamilyInstance beam, Frame f, RebarBarType type, int count,
+        private static void CreateSideBars(Document doc, FamilyInstance beam, Frame f, RebarBarType type, RebarShape shape, int count,
             double cover, double tieDia, double bottom, double top, double start, double end,
             double minimumHeightMm, double spacingMm, double anchorageMm)
         {
@@ -1346,12 +1357,205 @@ namespace SDK_HD.KStruct.NativeRebar
                 foreach (double width in new[] { left, right })
                 {
                     XYZ a = Point(f, width, height, start), b = Point(f, width, height, end);
-                    Rebar bar = ExistingProjectRebar.Create(doc, RebarStyle.Standard, type, null, null, beam, f.Width,
-                        new List<Curve> { Line.CreateBound(a, b) }, RebarHookOrientation.Left, RebarHookOrientation.Right, "Thép chống phình dầm " + beam.Id.Value);
+                    Rebar bar = CreateFromSelectedBeamShape(doc, shape, RebarStyle.Standard, type, null, null, beam, f.Width,
+                        new List<Curve> { Line.CreateBound(a, b) }, RebarHookOrientation.Left, RebarHookOrientation.Right,
+                        "Thép chống phình dầm " + beam.Id.Value);
                     if (bar == null) throw new InvalidOperationException("Revit không tạo được thép chống phình.");
                     SetPartition(bar, beam.Id);
                 }
             }
+        }
+
+        private static RebarShape ShapeForGroup(Options options, string key)
+        {
+            if (key == "top") return options.TopBarShape;
+            if (key == "bottom") return options.BottomBarShape;
+            if (key == "top1") return options.TopLayer2Shape;
+            if (key == "top2") return options.TopLayer3Shape;
+            if (key == "bottom1") return options.BottomLayer2Shape;
+            if (key == "bottom2") return options.BottomLayer3Shape;
+            return options.TopBarShape;
+        }
+
+        private static Rebar CreateFromSelectedBeamShape(Document doc, RebarShape shape, RebarStyle expectedStyle,
+            RebarBarType type, RebarHookType startHook, RebarHookType endHook, Element host, XYZ normal,
+            IList<Curve> curves, RebarHookOrientation startOrientation, RebarHookOrientation endOrientation,
+            string groupName)
+        {
+            if (shape == null)
+                throw new InvalidOperationException(groupName + ": chưa chọn Rebar Shape có sẵn phù hợp trong project.");
+            if (shape.RebarStyle != expectedStyle)
+                throw new InvalidOperationException(groupName + ": shape \"" + shape.Name + "\" sai style (" +
+                    shape.RebarStyle + "); yêu cầu " + expectedStyle + ".");
+            bool matches;
+            try
+            {
+                matches = Rebar.RebarShapeMatchesCurvesAndHooks(shape, type, normal, curves,
+                    startHook, endHook, startOrientation, endOrientation);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(groupName + ": không thể kiểm tra shape \"" + shape.Name +
+                    "\" với loại thép " + type.Name + " và móc đã chọn. " + ex.Message, ex);
+            }
+            if (!matches)
+                throw new InvalidOperationException(groupName + ": Rebar Shape \"" + shape.Name +
+                    "\" không tương thích với loại thép " + type.Name + ", Hook và hình học/chiều dài hiện tại. " +
+                    "Hãy chọn shape phù hợp hoặc điều chỉnh biên dạng; lệnh không dò/tạo shape thay thế.");
+
+            Rebar rebar;
+            try
+            {
+                rebar = Rebar.CreateFromCurvesAndShape(doc, shape, type, startHook, endHook, host, normal,
+                    curves, startOrientation, endOrientation);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(groupName + ": Revit không đặt được shape có sẵn \"" +
+                    shape.Name + "\" cho loại thép " + type.Name + ". " + ex.Message, ex);
+            }
+            if (rebar == null || rebar.GetShapeId() != shape.Id)
+                throw new InvalidOperationException(groupName + ": Revit trả về shape khác với \"" + shape.Name + "\"; đã hủy tạo thép.");
+            if (!rebar.IsRebarShapeDriven())
+                throw new InvalidOperationException(groupName + ": Rebar Shape \"" + shape.Name + "\" không tạo đối tượng Shape Driven.");
+            ElementId actualStart = rebar.GetHookTypeId(0);
+            ElementId actualEnd = rebar.GetHookTypeId(1);
+            ElementId expectedStart = startHook?.Id ?? ElementId.InvalidElementId;
+            ElementId expectedEnd = endHook?.Id ?? ElementId.InvalidElementId;
+            if (actualStart != expectedStart || actualEnd != expectedEnd)
+                throw new InvalidOperationException(groupName + ": Hook đầu/cuối sau khi đặt shape \"" + shape.Name +
+                    "\" không khớp cấu hình đã chọn.");
+            return rebar;
+        }
+
+        private static Rebar CreateBeamStirrupFromShape(Document doc, Options options, FamilyInstance beam,
+            XYZ basePoint, XYZ widthVector, XYZ heightVector, string description)
+        {
+            RebarShape shape = options.TieShape;
+            if (shape == null || shape.RebarStyle != RebarStyle.StirrupTie)
+                throw new InvalidOperationException(description + ": cần chọn Rebar Shape có sẵn thuộc style StirrupTie.");
+            Rebar rebar;
+            try
+            {
+                rebar = Rebar.CreateFromRebarShape(doc, shape, options.TieType, beam, basePoint, widthVector, heightVector);
+                if (rebar == null) throw new InvalidOperationException("Revit không tạo đối tượng Rebar.");
+                if (rebar.GetShapeId() != shape.Id || !rebar.IsRebarShapeDriven())
+                    throw new InvalidOperationException("Đối tượng trả về không giữ ShapeId đã chọn hoặc không phải Shape Driven.");
+                using (RebarShapeDrivenAccessor accessor = rebar.GetShapeDrivenAccessor())
+                    accessor.ScaleToBox(basePoint, widthVector, heightVector);
+
+                if (options.TieStartHook != null)
+                {
+                    if (options.TieStartHook.Style != RebarStyle.StirrupTie ||
+                        !options.TieType.GetHookPermission(options.TieStartHook.Id) ||
+                        !rebar.CanUseHookType(options.TieStartHook.Id))
+                        throw new InvalidOperationException("Hook đầu \"" + options.TieStartHook.Name + "\" không tương thích với loại thép/shape đã chọn.");
+                    rebar.SetHookTypeId(0, options.TieStartHook.Id);
+                    if (!rebar.HookAngleMatchesRebarShapeDefinition(0, options.TieStartHook.Id))
+                        throw new InvalidOperationException("Góc Hook đầu \"" + options.TieStartHook.Name + "\" không khớp định nghĩa shape đai.");
+                }
+                if (options.TieEndHook != null)
+                {
+                    if (options.TieEndHook.Style != RebarStyle.StirrupTie ||
+                        !options.TieType.GetHookPermission(options.TieEndHook.Id) ||
+                        !rebar.CanUseHookType(options.TieEndHook.Id))
+                        throw new InvalidOperationException("Hook cuối \"" + options.TieEndHook.Name + "\" không tương thích với loại thép/shape đã chọn.");
+                    rebar.SetHookTypeId(1, options.TieEndHook.Id);
+                    if (!rebar.HookAngleMatchesRebarShapeDefinition(1, options.TieEndHook.Id))
+                        throw new InvalidOperationException("Góc Hook cuối \"" + options.TieEndHook.Name + "\" không khớp định nghĩa shape đai.");
+                }
+                rebar.SetHookOrientation(0, RebarHookOrientation.Left);
+                rebar.SetHookOrientation(1, RebarHookOrientation.Right);
+
+                if (rebar.GetShapeId() != shape.Id || rebar.GetHookTypeId(0) != (options.TieStartHook?.Id ?? ElementId.InvalidElementId) ||
+                    rebar.GetHookTypeId(1) != (options.TieEndHook?.Id ?? ElementId.InvalidElementId))
+                    throw new InvalidOperationException("ShapeId hoặc HookTypeId thực tế không khớp lựa chọn.");
+                ValidateStirrupEnvelope(rebar, basePoint, widthVector, heightVector, description, shape);
+                return rebar;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(description + ": không đặt được shape đai có sẵn \"" +
+                    (shape?.Name ?? "(chưa chọn)") + "\" với HookType đầu/cuối " +
+                    (options.TieStartHook?.Name ?? "không chọn") + " / " +
+                    (options.TieEndHook?.Name ?? "không chọn") + ". " + ex.Message, ex);
+            }
+        }
+
+        private static void ValidateStirrupEnvelope(Rebar rebar, XYZ basePoint, XYZ widthVector,
+            XYZ heightVector, string description, RebarShape shape)
+        {
+            IList<Curve> curves = rebar.GetCenterlineCurves(false, false, false, MultiplanarOption.IncludeOnlyPlanarCurves, 0);
+            if (curves == null || curves.Count == 0)
+                throw new InvalidOperationException(description + ": shape \"" + shape.Name + "\" trả về hình học rỗng.");
+            var points = curves.SelectMany(curve => curve.Tessellate()).ToList();
+            if (points.Count < 4)
+                throw new InvalidOperationException(description + ": shape \"" + shape.Name + "\" không tạo đủ cạnh đai.");
+            XYZ widthAxis = widthVector.Normalize(), heightAxis = heightVector.Normalize();
+            double width = points.Max(point => (point - basePoint).DotProduct(widthAxis)) -
+                points.Min(point => (point - basePoint).DotProduct(widthAxis));
+            double height = points.Max(point => (point - basePoint).DotProduct(heightAxis)) -
+                points.Min(point => (point - basePoint).DotProduct(heightAxis));
+            double tolerance = Math.Max(rebar.Document.Application.ShortCurveTolerance * 4,
+                rebar.GetBendData().BarModelDiameter * 4);
+            if (Math.Abs(width - widthVector.GetLength()) > tolerance ||
+                Math.Abs(height - heightVector.GetLength()) > tolerance)
+                throw new InvalidOperationException(description + ": kích thước thực của shape \"" + shape.Name +
+                    "\" (" + UnitUtils.ConvertFromInternalUnits(width, UnitTypeId.Millimeters).ToString("0.#") +
+                    " × " + UnitUtils.ConvertFromInternalUnits(height, UnitTypeId.Millimeters).ToString("0.#") +
+                    " mm) không khớp khung yêu cầu.");
+        }
+
+        private static void ValidateRequiredShapes(Options options)
+        {
+            var missing = new List<string>();
+            if (options.TieShape == null) missing.Add("đai");
+            if (options.TopCount > 0 && options.TopBarShape == null) missing.Add("thép chủ trên");
+            if (options.BottomCount > 0 && options.BottomBarShape == null) missing.Add("thép chủ dưới");
+            if (options.TopLayer2Count > 0 && options.TopLayer2Shape == null) missing.Add("thép gia cường trên lớp 2");
+            if (options.TopLayer3Count > 0 && options.TopLayer3Shape == null) missing.Add("thép gia cường trên lớp 3");
+            if (options.BottomLayer2Count > 0 && options.BottomLayer2Shape == null) missing.Add("thép gia cường dưới lớp 2");
+            if (options.BottomLayer3Count > 0 && options.BottomLayer3Shape == null) missing.Add("thép gia cường dưới lớp 3");
+            if (options.SideBarCount > 0 && options.SideBarShape == null) missing.Add("thép chống phình");
+            if (missing.Count > 0)
+                throw new InvalidOperationException("Chưa chọn Rebar Shape cho nhóm: " + string.Join(", ", missing) +
+                    ". Nạp/chọn shape có sẵn phù hợp trong project; không có nhóm nào được phép tự sinh shape.");
+            ValidateShapeStyle(options.TieShape, RebarStyle.StirrupTie, "đai");
+            foreach (var group in new[]
+            {
+                Tuple.Create("thép chủ trên", options.TopCount, options.TopBarShape),
+                Tuple.Create("thép chủ dưới", options.BottomCount, options.BottomBarShape),
+                Tuple.Create("thép gia cường trên lớp 2", options.TopLayer2Count, options.TopLayer2Shape),
+                Tuple.Create("thép gia cường trên lớp 3", options.TopLayer3Count, options.TopLayer3Shape),
+                Tuple.Create("thép gia cường dưới lớp 2", options.BottomLayer2Count, options.BottomLayer2Shape),
+                Tuple.Create("thép gia cường dưới lớp 3", options.BottomLayer3Count, options.BottomLayer3Shape),
+                Tuple.Create("thép chống phình", options.SideBarCount, options.SideBarShape)
+            })
+                if (group.Item2 > 0) ValidateShapeStyle(group.Item3, RebarStyle.Standard, group.Item1);
+        }
+
+        private static void ValidateShapeStyle(RebarShape shape, RebarStyle style, string group)
+        {
+            if (shape == null || shape.RebarStyle != style)
+                throw new InvalidOperationException("Rebar Shape nhóm " + group + " không hợp lệ; cần shape style " + style + ".");
+        }
+
+        internal static void FillMissingShapesFromSavedSettings(Document doc, Options options)
+        {
+            var types = new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
+            var hooks = new FilteredElementCollector(doc).OfClass(typeof(RebarHookType)).Cast<RebarHookType>().ToList();
+            Options saved = LoadSettings(doc, types, hooks);
+            if (saved == null) return;
+            options.TieShape = options.TieShape ?? saved.TieShape;
+            options.TieStartHook = options.TieStartHook ?? saved.TieStartHook;
+            options.TieEndHook = options.TieEndHook ?? saved.TieEndHook;
+            options.TopBarShape = options.TopBarShape ?? saved.TopBarShape;
+            options.BottomBarShape = options.BottomBarShape ?? saved.BottomBarShape;
+            options.TopLayer2Shape = options.TopLayer2Shape ?? saved.TopLayer2Shape;
+            options.TopLayer3Shape = options.TopLayer3Shape ?? saved.TopLayer3Shape;
+            options.BottomLayer2Shape = options.BottomLayer2Shape ?? saved.BottomLayer2Shape;
+            options.BottomLayer3Shape = options.BottomLayer3Shape ?? saved.BottomLayer3Shape;
+            options.SideBarShape = options.SideBarShape ?? saved.SideBarShape;
         }
 
         private static XYZ Point(Frame f, double width, double height, double station) =>
@@ -1364,9 +1568,10 @@ namespace SDK_HD.KStruct.NativeRebar
         }
 
         internal static Options ChooseOptions(IntPtr owner, IList<RebarBarType> types, IList<RebarHookType> hookTypes,
-            Options defaults, bool settingsOnly, string titleOverride = null)
+            Options defaults, bool settingsOnly, string titleOverride = null, Document doc = null)
         {
-            return BeamRebarEditorWindow.ShowQuick(owner, types, hookTypes, defaults, settingsOnly, titleOverride);
+            Options options = BeamRebarEditorWindow.ShowQuick(owner, types, hookTypes, defaults, settingsOnly, titleOverride);
+            return options == null || doc == null ? options : BeamRebarShapeSelectionWindow.Show(owner, doc, hookTypes, options);
 #pragma warning disable CS0162
             List<BarChoice> choices = types.Select(t => new BarChoice(t)).ToList();
             int mainIndex = defaults == null ? 0 : choices.FindIndex(c => c.Type.Id == defaults.MainType.Id);
@@ -1497,6 +1702,26 @@ namespace SDK_HD.KStruct.NativeRebar
                 RebarHookType topEndHook = ResolveHook(hookTypes, saved.TopEndHookTypeName);
                 RebarHookType bottomStartHook = ResolveHook(hookTypes, saved.BottomStartHookTypeName);
                 RebarHookType bottomEndHook = ResolveHook(hookTypes, saved.BottomEndHookTypeName);
+                RebarShape tieShape = ResolveShape(doc, saved.TieShapeUniqueId, RebarStyle.StirrupTie);
+                RebarShape topBarShape = ResolveShape(doc, saved.TopBarShapeUniqueId, RebarStyle.Standard);
+                RebarShape bottomBarShape = ResolveShape(doc, saved.BottomBarShapeUniqueId, RebarStyle.Standard);
+                RebarShape topLayer2Shape = ResolveShape(doc, saved.TopLayer2ShapeUniqueId, RebarStyle.Standard);
+                RebarShape topLayer3Shape = ResolveShape(doc, saved.TopLayer3ShapeUniqueId, RebarStyle.Standard);
+                RebarShape bottomLayer2Shape = ResolveShape(doc, saved.BottomLayer2ShapeUniqueId, RebarStyle.Standard);
+                RebarShape bottomLayer3Shape = ResolveShape(doc, saved.BottomLayer3ShapeUniqueId, RebarStyle.Standard);
+                RebarShape sideBarShape = ResolveShape(doc, saved.SideBarShapeUniqueId, RebarStyle.Standard);
+                RebarHookType tieStartHook = ResolveHookByUniqueId(hookTypes, saved.TieStartHookUniqueId);
+                RebarHookType tieEndHook = ResolveHookByUniqueId(hookTypes, saved.TieEndHookUniqueId);
+                if (HasMissingShape(doc, saved.TieShapeUniqueId, tieShape) ||
+                    HasMissingShape(doc, saved.TopBarShapeUniqueId, topBarShape) ||
+                    HasMissingShape(doc, saved.BottomBarShapeUniqueId, bottomBarShape) ||
+                    HasMissingShape(doc, saved.TopLayer2ShapeUniqueId, topLayer2Shape) ||
+                    HasMissingShape(doc, saved.TopLayer3ShapeUniqueId, topLayer3Shape) ||
+                    HasMissingShape(doc, saved.BottomLayer2ShapeUniqueId, bottomLayer2Shape) ||
+                    HasMissingShape(doc, saved.BottomLayer3ShapeUniqueId, bottomLayer3Shape) ||
+                    HasMissingShape(doc, saved.SideBarShapeUniqueId, sideBarShape) ||
+                    HasMissingHookId(hookTypes, saved.TieStartHookUniqueId, tieStartHook) ||
+                    HasMissingHookId(hookTypes, saved.TieEndHookUniqueId, tieEndHook)) return null;
                 if (HasMissingHook(hookTypes, saved.TopStartHookTypeName, topStartHook) || HasMissingHook(hookTypes, saved.TopEndHookTypeName, topEndHook) ||
                     HasMissingHook(hookTypes, saved.BottomStartHookTypeName, bottomStartHook) || HasMissingHook(hookTypes, saved.BottomEndHookTypeName, bottomEndHook)) return null;
                 if (topLayer == null && saved.TopLayer2Count == 0) topLayer = top;
@@ -1540,6 +1765,11 @@ namespace SDK_HD.KStruct.NativeRebar
                     TopLayer3Count = Math.Max(0, saved.TopLayer3Count), BottomLayer3Count = Math.Max(0, saved.BottomLayer3Count),
                     TopLayer2Type = topLayer, BottomLayer2Type = bottomLayer,
                     TopLayer3Type = topLayer3, BottomLayer3Type = bottomLayer3,
+                    TieShape = tieShape, TopBarShape = topBarShape, BottomBarShape = bottomBarShape,
+                    TieStartHook = tieStartHook, TieEndHook = tieEndHook,
+                    TopLayer2Shape = topLayer2Shape, TopLayer3Shape = topLayer3Shape,
+                    BottomLayer2Shape = bottomLayer2Shape, BottomLayer3Shape = bottomLayer3Shape,
+                    SideBarShape = sideBarShape,
                     SideBarCount = Math.Max(0, saved.SideBarCount), SideBarType = sideBarType ?? top,
                     TopStartHook = topStartHook, TopEndHook = topEndHook, BottomStartHook = bottomStartHook, BottomEndHook = bottomEndHook,
                     LongitudinalLayerSpacingMm = saved.LongitudinalLayerSpacingMm > 0 ? saved.LongitudinalLayerSpacingMm : 30,
@@ -1578,6 +1808,16 @@ namespace SDK_HD.KStruct.NativeRebar
                 BottomStartHookTypeName = options.BottomStartHook?.Name,
                 BottomEndHookTypeName = options.BottomEndHook?.Name,
                 TieTypeName = options.TieType.Name,
+                TieShapeUniqueId = options.TieShape?.UniqueId,
+                TieStartHookUniqueId = options.TieStartHook?.UniqueId,
+                TieEndHookUniqueId = options.TieEndHook?.UniqueId,
+                TopBarShapeUniqueId = options.TopBarShape?.UniqueId,
+                BottomBarShapeUniqueId = options.BottomBarShape?.UniqueId,
+                TopLayer2ShapeUniqueId = options.TopLayer2Shape?.UniqueId,
+                TopLayer3ShapeUniqueId = options.TopLayer3Shape?.UniqueId,
+                BottomLayer2ShapeUniqueId = options.BottomLayer2Shape?.UniqueId,
+                BottomLayer3ShapeUniqueId = options.BottomLayer3Shape?.UniqueId,
+                SideBarShapeUniqueId = options.SideBarShape?.UniqueId,
                 TopCount = options.TopCount,
                 BottomCount = options.BottomCount,
                 TopLayer2Count = options.TopLayer2Count,
@@ -1651,6 +1891,22 @@ namespace SDK_HD.KStruct.NativeRebar
 
         private static RebarHookType ResolveHook(IList<RebarHookType> hookTypes, string name) =>
             string.IsNullOrWhiteSpace(name) ? null : hookTypes?.FirstOrDefault(h => string.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        private static RebarHookType ResolveHookByUniqueId(IList<RebarHookType> hookTypes, string uniqueId) =>
+            string.IsNullOrWhiteSpace(uniqueId) ? null : hookTypes?.FirstOrDefault(h => string.Equals(h.UniqueId, uniqueId, StringComparison.Ordinal));
+
+        private static bool HasMissingHookId(IList<RebarHookType> hooks, string uniqueId, RebarHookType resolved) =>
+            !string.IsNullOrWhiteSpace(uniqueId) && (hooks == null || resolved == null);
+
+        private static RebarShape ResolveShape(Document doc, string uniqueId, RebarStyle expectedStyle)
+        {
+            if (string.IsNullOrWhiteSpace(uniqueId)) return null;
+            RebarShape shape = doc.GetElement(uniqueId) as RebarShape;
+            return shape != null && shape.RebarStyle == expectedStyle ? shape : null;
+        }
+
+        private static bool HasMissingShape(Document doc, string uniqueId, RebarShape resolved) =>
+            !string.IsNullOrWhiteSpace(uniqueId) && (doc == null || resolved == null);
 
         private static bool HasMissingHook(IList<RebarHookType> hookTypes, string name, RebarHookType resolved) =>
             !string.IsNullOrWhiteSpace(name) && (hookTypes == null || resolved == null);

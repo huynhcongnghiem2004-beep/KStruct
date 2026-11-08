@@ -76,7 +76,12 @@ static class Program
             var source=File.ReadAllText(Path.Combine(root.FullName,file));
             foreach(var forbidden in new[]{"NativeRebarFactory.CreateFromCurves(","Rebar.CreateFromCurves(","Rebar.CreateFreeForm(","RebarShape.Create("})
                 Check(!source.Contains(forbidden),file+" bypasses strict factory: "+forbidden);
-            Check(source.Contains("ExistingProjectRebar.Create("),file+" must use existing-shape factory");
+            string requiredRoute = file.StartsWith("ColumnRebarPro/V3/", StringComparison.Ordinal)
+                ? "V3RebarShapeFactory."
+                : file == "NativeRebar/BeamRebar/ReinforceStraightBeamsCommand.cs"
+                    ? "CreateFromCurvesAndShape("
+                    : "ExistingProjectRebar.Create(";
+            Check(source.Contains(requiredRoute),file+" must use explicit existing-shape creation: "+requiredRoute);
         }
         Console.WriteLine($"PASS: {checks} existing project shape policy checks (API doubles)");
     }

@@ -22,6 +22,8 @@ namespace ColumnRebarPro.V3
         public V3TieStyle TieStyle = V3TieStyle.Unspecified;
         public V3SpliceStyle Splice = V3SpliceStyle.None;
         public string TieHook135UniqueId = "", TieHook90UniqueId = "";
+        public string LongitudinalShapeUniqueId = "", AnchorShapeUniqueId = "";
+        public string OuterTieShapeUniqueId = "", CrossTieShapeUniqueId = "";
         public double LapLength;
         [System.Xml.Serialization.XmlIgnore]
         public string LegacyConnectionNotice;

@@ -80,7 +80,9 @@ namespace SDK_HD.KStruct.NativeRebar
                     };
                     if (picker.ShowDialog() != true) return Result.Cancelled;
                     BeamRebarSettingsFile imported = BeamRebarSettingsImport.Read(picker.FileName);
-                    ReinforceStraightBeamsCommand.SaveSettings(doc, ResolveOptions(imported, types, hookTypes));
+                    var importedOptions = ResolveOptions(imported, types, hookTypes);
+                    ReinforceStraightBeamsCommand.FillMissingShapesFromSavedSettings(doc, importedOptions);
+                    ReinforceStraightBeamsCommand.SaveSettings(doc, importedOptions);
                     TaskDialog.Show("KStruct - Cài đặt thép dầm", "Đã nhập và lưu cấu hình mặc định cho project hiện tại.");
                     return Result.Succeeded;
                 }
@@ -88,7 +90,7 @@ namespace SDK_HD.KStruct.NativeRebar
 
                 var defaults = ReinforceStraightBeamsCommand.LoadSettings(doc, types, hookTypes);
                 var options = ReinforceStraightBeamsCommand.ChooseOptions(
-                    data.Application.MainWindowHandle, types, hookTypes, defaults, true);
+                    data.Application.MainWindowHandle, types, hookTypes, defaults, true, null, doc);
                 if (options == null) return Result.Cancelled;
                 ReinforceStraightBeamsCommand.SaveSettings(doc, options);
                 TaskDialog.Show("KStruct - Cài đặt thép dầm", "Đã lưu cấu hình cho project hiện tại.");
@@ -221,6 +223,16 @@ namespace SDK_HD.KStruct.NativeRebar
         public string BottomStartHookTypeName { get; set; }
         public string BottomEndHookTypeName { get; set; }
         public string TieTypeName { get; set; }
+        public string TieShapeUniqueId { get; set; }
+        public string TieStartHookUniqueId { get; set; }
+        public string TieEndHookUniqueId { get; set; }
+        public string TopBarShapeUniqueId { get; set; }
+        public string BottomBarShapeUniqueId { get; set; }
+        public string TopLayer2ShapeUniqueId { get; set; }
+        public string TopLayer3ShapeUniqueId { get; set; }
+        public string BottomLayer2ShapeUniqueId { get; set; }
+        public string BottomLayer3ShapeUniqueId { get; set; }
+        public string SideBarShapeUniqueId { get; set; }
         public int TopCount { get; set; }
         public int BottomCount { get; set; }
         public int TopLayer2Count { get; set; }
