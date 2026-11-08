@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.ai-collab/
+*.user
+*.suo
+*.rvt
+*.rfa
+*.bak
+KStruct.addin
+BimSpeedStructureColumnDesignPort/
+BimSpeedStructureBeamDesign/
+Resources/SlabModules/
