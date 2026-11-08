@@ -21,6 +21,7 @@ namespace ColumnRebarPro.V3
     {
         internal List<V3Point3> Points;
         internal int BarIndex;
+        internal bool Continues;
         internal double Shift,Height;
         internal V3Point3 Normal;
         internal bool Planar;
@@ -91,7 +92,7 @@ namespace ColumnRebarPro.V3
         }
         private static bool Compatible(V3BarPath a,V3BarPath b)
         {
-            if(!b.Planar||a.Points.Count!=b.Points.Count)return false;
+            if(a.Continues!=b.Continues||!b.Planar||a.Points.Count!=b.Points.Count)return false;
             var offset=b.Points[0]-a.Points[0];
             if(offset.Cross(a.Normal).Length>.05)return false;
             for(int i=1;i<a.Points.Count;i++)if((b.Points[i]-a.Points[i]-offset).Length>.05)return false;

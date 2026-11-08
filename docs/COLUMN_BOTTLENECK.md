@@ -44,7 +44,7 @@ thanh giao nhau hoặc Revit tạo bán kính dưới mức kiểm tra thì roll
 
 ## Giới hạn và kiểm thử
 
-Giữ chặn cột chồng cao độ quá 2 mm, khác số thanh, phân bố cạnh không ghép được góc,
+Giữ chặn cột chồng cao độ quá 2 mm, tầng trên cần bổ sung thanh, phân bố cạnh không ghép được góc,
 phương án ghép mơ hồ, thiếu cover/chiều dài hoặc giao đường tâm nhấn. Không tự bổ sung
 hay kết thúc thanh khi đổi số lượng. Nối so le và cấu hình nối cũ chưa hỗ trợ.
 Không tự nhận diện bê tông trong khoảng hở và không tự thay chiều dài đã nhập.
@@ -61,3 +61,9 @@ Cần thử trong Revit 2024 trên bản sao mô hình: cột Trệt/Lầu 1 h�
 để xem phần nối còn lại; chọn loại thép có gân và chiều dài phù hợp; kiểm tra cả GroupLongBars
 bật/tắt, kết hợp neo L, cột xoay/mirror, hình cổ chai và bán kính sau dựng, tag/hình khai triển,
 Undo và ghi đè. Đai và vị trí/tỷ lệ nối vẫn phải đối chiếu thiết kế của công trình.
+
+## Giảm số thanh lên tầng trên
+
+Khi tầng dưới nhiều thanh hơn, ghép duy nhất các cặp bảo toàn thứ tự quanh chu vi và bốn góc. Thanh dưới không có đối ứng kết thúc thẳng trong tầng dưới, không kéo lên theo chiều dài thép chờ. Cao độ tâm đầu thanh = min(đỉnh cột, đáy dầm ngang nhận diện tại đầu cột) − cover − D/2. Không tìm được dầm ngang thì dùng đỉnh cột. Nhận diện dầm dùng bounding box để lọc sơ bộ dầm thẳng ngang, cùng phase/design option ở vùng đầu cột; sau đó cắt các tam giác solid theo dấu chiếu tiết diện cột để lấy đáy thực trong vùng giao. Dầm không giao hình học thì không dùng. Cần đối chiếu với join hoặc tiết diện đặc biệt trong Revit. Dầm nghiêng/cong không tự suy ra đáy dầm.
+
+Xem trước phân biệt thanh dừng (tím) với thanh tiếp tục. Chỉ các thanh tiếp tục được kiểm tra chiều dài nối/cổ chai; thanh dừng không được gộp chung set với thanh nối. Không tự tạo móc/neo đầu thanh dừng. Nếu tầng trên cần thêm thanh, không tìm được ghép góc phù hợp hoặc có nhiều phương án tương đương, vẫn báo lỗi để chỉ định phương án cụ thể.

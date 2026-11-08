@@ -81,13 +81,16 @@ namespace ColumnRebarPro.V3
             double radius=(V3Units.Mm(type.StandardBendDiameter)+c.MainDiameter)/2;
             double tolerance=V3Units.Mm(doc.Application.ShortCurveTolerance);
             var paths=ConnectionPaths(item);
+            if(item.BottleneckToUpper&&item.ConnectionPlan.TerminatedLower.Count>0)
+                report.Warnings.Add("Cột "+item.Column.Id.Value+": "+item.ConnectionPlan.TerminatedLower.Count+
+                    " thanh dư kết thúc thẳng dưới đáy dầm ngang nhận diện/đỉnh cột, có trừ lớp bảo vệ; không kéo thép chờ lên tầng trên.");
             var groups=V3ProfileGeometry.Group(paths,c.GroupLongBars);
             int freeForms=0;
             foreach(var group in groups)
             {
                 var path=group.Bars[0];
                 var rounded=V3ProfileGeometry.Round(path.Points,radius,tolerance);
-                if(item.BottleneckToUpper)
+                if(path.Continues)
                 {
                     double lapStart=Math.Max(V3Units.Mm(item.BottleneckUpperBarStart),rounded.Last().Start.Z);
                     double minimum=V3BottleneckRules.MinimumLap(Math.Max(c.MainDiameter,item.ConnectionPlan.Upper.Diameter));
@@ -121,7 +124,7 @@ namespace ColumnRebarPro.V3
                     freeForms++;
                 }
                 V3RebarBuilder.SetPartition(bar,item.Column.Id);doc.Regenerate();
-                if(item.BottleneckToUpper)V3BottleneckBarType.CheckBends(bar,c,rounded.Count(r=>r.Arc));
+                if(path.Continues)V3BottleneckBarType.CheckBends(bar,c,rounded.Count(r=>r.Arc));
                 if(bar.NumberOfBarPositions!=group.Bars.Count)
                     throw new InvalidOperationException("Số vị trí thép chuyển tiếp khác phương án ghép.");
                 if(group.Bars.Count>1)
@@ -147,6 +150,10 @@ namespace ColumnRebarPro.V3
             double high=c.StarterBars?V3Units.Mm(g.Top)+c.StarterLength:V3Units.Mm(g.Top)-c.Cover-c.MainDiameter/2;
             double footLength=item.FoundationHost==null?0:V3AnchorLayoutPlan.HorizontalLength(item.FoundationAnchorLengthMm,
                 V3Units.Mm(g.Bottom-item.FoundationBendZ));
+            double? terminatedEnd=null;
+            if(item.BottleneckToUpper&&item.ConnectionPlan.TerminatedLower.Count>0)
+                terminatedEnd=V3ColumnTerminationRules.EndMm(V3Units.Mm(g.Bottom),V3Units.Mm(g.Top),c.Cover,c.MainDiameter,
+                    V3ColumnTermination.BeamSoffitMm(item));
             foreach(var array in AnchorPlan(item))for(int i=0;i<array.Count;i++)
             {
                 XYZ model=g.At(V3Units.Ft(array.X+array.StepX*i),V3Units.Ft(array.Y+array.StepY*i),0);
@@ -159,7 +166,18 @@ namespace ColumnRebarPro.V3
                 if(item.BottleneckToUpper)
                 {
                     var connection=item.ConnectionPlan.Bars.SingleOrDefault(p=>(p.Lower-xy).Length<.05);
-                    if(connection==null)throw new InvalidOperationException("Thiếu cặp ghép cho một thanh cột dưới.");
+                    if(connection==null)
+                    {
+                        var lowerPoints=V3ColumnPairing.Points(item.ConnectionPlan.Lower);
+                        int index=lowerPoints.FindIndex(p=>(p.Point-xy).Length<.05);
+                        if(index<0||!item.ConnectionPlan.TerminatedLower.Contains(index))
+                            throw new InvalidOperationException("Thiếu cặp ghép cho một thanh cột dưới.");
+                        double end=terminatedEnd.Value;
+                        if(end<=low+.5)throw new InvalidOperationException("Cao độ kết thúc thanh dư không cao hơn chân thanh.");
+                        path.BarIndex=index;
+                        path.Points.Add(new V3Point3(xy.X,xy.Y,end));result.Add(path);continue;
+                    }
+                    path.Continues=true;
                     path.BarIndex=connection.LowerIndex;path.Shift=connection.Shift;path.Height=connection.Height;
                     if(connection.Shift>.001)
                     {

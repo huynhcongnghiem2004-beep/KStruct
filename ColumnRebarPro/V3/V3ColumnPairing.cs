@@ -64,6 +64,7 @@ namespace ColumnRebarPro.V3
     {
         internal V3ConnectionProfile Lower,Upper;
         internal List<V3BarConnection> Bars=new List<V3BarConnection>();
+        internal List<int> TerminatedLower=new List<int>();
         internal double MaximumShift=>Bars.Count==0?0:Bars.Max(b=>b.Shift);
         internal double MaximumHeight=>Bars.Count==0?0:Bars.Max(b=>b.Height);
     }
@@ -120,35 +121,24 @@ namespace ColumnRebarPro.V3
             lower.Validate();upper.Validate();
             if(!V3BottleneckRules.Finite(clearance)||clearance<0||!V3BottleneckRules.Finite(slope)||slope<=0)
                 throw new InvalidOperationException("Khe hở hoặc tỷ lệ nhấn cổ chai không hợp lệ.");
-            var a=Points(lower);var b=Points(upper);int count=a.Count;
-            if(count!=b.Count)
-                throw new InvalidOperationException("Khác số thanh: dưới "+count+", trên "+b.Count+"; "+
-                    Math.Abs(count-b.Count)+" thanh cần "+(count>b.Count?"phương án kết thúc/neo":"phương án bổ sung/neo")+". Chưa tự ghép khi đổi số thanh.");
-            int best=-1;double bestCost=double.MaxValue,secondCost=double.MaxValue;
-            for(int offset=0;offset<count;offset++)
-            {
-                double cost=0;bool valid=true;
-                for(int i=0;i<count;i++)
-                {
-                    var target=b[(i+offset)%count];
-                    if(a[i].Corner!=target.Corner){valid=false;break;}
-                    var delta=target.Point-a[i].Point;cost+=delta.Dot(delta);
-                }
-                if(!valid)continue;
-                if(cost<bestCost){secondCost=bestCost;bestCost=cost;best=offset;}
-                else secondCost=Math.Min(secondCost,cost);
-            }
-            if(best<0)throw new InvalidOperationException("Tổng số thanh bằng nhau nhưng phân bố trên các cạnh khác nhau; không ghép góc cột với thanh giữa cạnh.");
-            if(secondCost-bestCost<=1e-7*Math.Max(1,bestCost))
-                throw new InvalidOperationException("Có nhiều phương án ghép thanh tương đương; kiểm tra hướng cột hoặc chỉ định lại vị trí thanh.");
-            var plan=new V3ColumnConnectionPlan {Lower=lower,Upper=upper};
+            var all=Points(lower);var b=Points(upper);
+            if(all.Count<b.Count)
+                throw new InvalidOperationException("Khác số thanh: tầng trên có thêm thanh; cần phương án bổ sung/neo riêng.");
+            var map=MatchSubset(all,b);
+            var indices=Enumerable.Range(0,all.Count).Where(i=>map[i]>=0).ToArray();
+            var a=indices.Select(i=>all[i]).ToList();int count=a.Count;
+            var targets=indices.Select(i=>map[i]).ToArray();
+            var plan=new V3ColumnConnectionPlan {Lower=lower,Upper=upper,
+                TerminatedLower=Enumerable.Range(0,all.Count).Where(i=>map[i]<0).ToList()};
             var choices=new List<V3Point2>[count];double separation=(lower.Diameter+upper.Diameter)/2+clearance;
             for(int i=0;i<count;i++)
             {
-                var target=b[(i+best)%count];
+                var target=b[targets[i]];
                 choices[i]=Candidates(lower,upper,a[i],target,separation)
                     .Where(p=>lower.Contains(p,lower.Diameter)&&upper.Contains(p,lower.Diameter))
                     .Where(p=>b.All(other=>(p-other.Point).Length>=(lower.Diameter+upper.Diameter)/2-1e-5))
+                    // Terminated bars remain straight below the joint; don't bend continuing bars across them.
+                    .Where(p=>plan.TerminatedLower.All(t=>Separated(a[i].Point,p,all[t].Point,all[t].Point,slope,lower.Diameter)))
                     .OrderBy(p=>(p-a[i].Point).Length).ToList();
                 if(choices[i].Count==0)throw new InvalidOperationException("Thanh "+(i+1)+": không có vị trí cổ chai đủ cover và không giao thanh tầng trên.");
             }
@@ -170,10 +160,44 @@ namespace ColumnRebarPro.V3
             for(int i=0;i<count;i++)
             {
                 double shift=(selected[i]-a[i].Point).Length;
-                plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=(i+best)%count,
-                    Lower=a[i].Point,Upper=b[(i+best)%count].Point,End=selected[i],Shift=shift,Height=shift*slope});
+                plan.Bars.Add(new V3BarConnection {LowerIndex=indices[i],UpperIndex=targets[i],
+                    Lower=a[i].Point,Upper=b[targets[i]].Point,End=selected[i],Shift=shift,Height=shift*slope});
             }
             return plan;
+        }
+
+        // Match all upper bars once, preserving perimeter order and the four corners.
+        // Non-corner lower bars may be skipped; never silently invent upper starters.
+        private static int[] MatchSubset(List<V3PairPoint> lower,List<V3PairPoint> upper)
+        {
+            int n=lower.Count,m=upper.Count;double best=double.PositiveInfinity;int[] selected=null;bool ambiguous=false;
+            for(int offset=0;offset<m;offset++)
+            {
+                var cost=new double[n+1,m+1];var ways=new int[n+1,m+1];var matched=new bool[n+1,m+1];
+                for(int i=0;i<=n;i++)for(int j=0;j<=m;j++)cost[i,j]=double.PositiveInfinity;
+                cost[0,0]=0;ways[0,0]=1;
+                for(int i=1;i<=n;i++)for(int j=0;j<=m;j++)
+                {
+                    if(!lower[i-1].Corner){cost[i,j]=cost[i-1,j];ways[i,j]=ways[i-1,j];}
+                    if(j==0||lower[i-1].Corner!=upper[(j-1+offset)%m].Corner||ways[i-1,j-1]==0)continue;
+                    var delta=lower[i-1].Point-upper[(j-1+offset)%m].Point;
+                    double candidate=cost[i-1,j-1]+delta.Dot(delta);
+                    if(candidate<cost[i,j]-1e-7){cost[i,j]=candidate;ways[i,j]=ways[i-1,j-1];matched[i,j]=true;}
+                    else if(Math.Abs(candidate-cost[i,j])<=1e-7)ways[i,j]=Math.Min(2,ways[i,j]+ways[i-1,j-1]);
+                }
+                if(ways[n,m]==0)continue;
+                double tolerance=1e-7*Math.Max(1,double.IsInfinity(best)?cost[n,m]:best);
+                if(cost[n,m]<best-tolerance||selected==null)
+                {
+                    best=cost[n,m];ambiguous=ways[n,m]>1;
+                    selected=Enumerable.Repeat(-1,n).ToArray();int j=m;
+                    for(int i=n;i>0;i--)if(matched[i,j]){selected[i-1]=(j-1+offset)%m;j--;}
+                }
+                else if(Math.Abs(cost[n,m]-best)<=tolerance)ambiguous=true;
+            }
+            if(selected==null)throw new InvalidOperationException("Không ghép được thanh trên các cạnh; giữ cặp góc và không ghép góc với thanh giữa cạnh.");
+            if(ambiguous)throw new InvalidOperationException("Có nhiều phương án ghép thanh tương đương; kiểm tra hướng cột hoặc chỉ định lại vị trí thanh.");
+            return selected;
         }
 
         private static bool Separated(V3Point2 a,V3Point2 endA,V3Point2 b,V3Point2 endB,double slope,double diameter)

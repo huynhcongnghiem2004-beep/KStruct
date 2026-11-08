@@ -77,10 +77,36 @@ static class PairingTests
         upper.Config.Cx=5;
         Reject(()=>V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper}),"Dưới:");
 
+        var reduced=V3ColumnPairing.Create(Profile(200,300,3,3),Profile(200,300,2,2),2,6);
+        Check(reduced.Bars.Count==4&&reduced.TerminatedLower.Count==4,"8-to-4 must connect corners and terminate four lower bars");
+        Check(reduced.Bars.All(p=>V3ColumnPairing.Points(reduced.Lower)[p.LowerIndex].Corner),"Retain corner pairs when interior bars stop");
+        Check(reduced.Bars.Select(p=>p.LowerIndex).Concat(reduced.TerminatedLower).Distinct().Count()==8,"No lower bar lost or duplicated");
+        Check(reduced.Bars.Select(p=>p.UpperIndex).Distinct().Count()==4,"Upper bars still have exactly one pair");
+        foreach(double angle in new[]{0.0,.7,Math.PI/2})foreach(bool mirror in new[]{false,true})
+        {
+            var r=V3ColumnPairing.Create(Profile(400,500,3,3,angle,mirror),Profile(400,500,2,2,angle,!mirror),2,6);
+            Check(r.Bars.Count==4&&r.TerminatedLower.Count==4,"Reduction works in rotated and mirrored frames");
+        }
+        Check(!V3ColumnTerminationRules.SoffitInRectangle(new[]{new[]{new V3Point3(10,10,100),new V3Point3(20,10,200),new V3Point3(10,20,200)}},1,1).HasValue,"Nearby beam with no footprint intersection must not set the cutoff");
+        Near(V3ColumnTerminationRules.SoffitInRectangle(new[]{new[]{new V3Point3(-10,0,100),new V3Point3(10,0,300),new V3Point3(0,10,300)}},1,1).Value,190,"Use the beam underside inside the column footprint, not the full beam bounding-box bottom");
+        Near(V3ColumnTerminationRules.EndMm(0,3000,30,20,null),2960,"Unpaired bars end below column top, not at starter extension");
+        Near(V3ColumnTerminationRules.EndMm(0,3000,30,20,2600),2560,"Detected beam soffit limits termination with end cover");
+        Near(V3ColumnTerminationRules.EndMm(0,3000,30,20,3400),2960,"Never extend terminated bars above the lower column");
+        Reject(()=>V3ColumnTerminationRules.EndMm(0,3000,30,20,double.NaN),"đáy dầm");
+        Reject(()=>V3ColumnTerminationRules.EndMm(0,3000,30,20,50),"Chiều cao");
+
+        lower.Config.Cx=3;lower.Config.Cy=3;upper.Config.Cx=2;upper.Config.Cy=2;
+        V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
+        Check(lower.BottleneckToUpper&&lower.ConnectionPlan.Bars.Count==4&&lower.ConnectionPlan.TerminatedLower.Count==4,
+            "Production resolver accepts reduction and retains explicit unmatched-bar identities");
+        Check(V3ColumnPairing.Create(Profile(),Profile(),2,6).TerminatedLower.Count==0,"Equal counts retain all continuing bars");
+
         var paths=new List<V3BarPath>();
-        for(int i=0;i<4;i++)paths.Add(new V3BarPath {BarIndex=i,Points=new List<V3Point3> {
+        for(int i=0;i<4;i++)paths.Add(new V3BarPath {BarIndex=i,Continues=true,Points=new List<V3Point3> {
             new V3Point3(i*100,0,0),new V3Point3(i*100,0,2800),new V3Point3(i*100,22,3000),new V3Point3(i*100,22,4000)}});
         var groups=V3ProfileGeometry.Group(paths,true);
+        var stopped=new V3BarPath {Continues=false,Points=paths[0].Points.ToList()};
+        Check(V3ProfileGeometry.Group(new List<V3BarPath>{paths[0],stopped},true).Count==2,"Never group a terminated bar with a continued bar, even if shapes coincide");
         Check(groups.Count==1&&groups[0].Bars.Count==4,"Translate identical planar profiles into a Fixed Number set");
         Check(V3ProfileGeometry.Group(paths,false).Count==4,"Single mode preserves bar count");
         paths[2].Points[2]=new V3Point3(205,22,3000);paths[2].Points[3]=new V3Point3(205,22,4000);
