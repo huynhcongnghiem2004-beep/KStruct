@@ -19,8 +19,7 @@ namespace ColumnRebarPro.V3
                 var c = work.Config;
                 if (c.StaggerSplices)
                     throw new InvalidOperationException("Cấu hình so le mối nối chưa được hỗ trợ; nhập cấu tạo được duyệt và tắt tùy chọn so le.");
-                if (c.Splice != V3SpliceStyle.None)
-                    throw new InvalidOperationException("Nối chồng giữa tầng chưa được hỗ trợ. KStruct không tạo thanh nối bằng chiều dài suy diễn; hãy cung cấp chi tiết nối được duyệt trước khi triển khai.");
+                V3LegacySplice.ValidateForCreation(c);
                 if (c.StarterBars && (!Finite(c.StarterLength) || c.StarterLength <= 0))
                     throw new InvalidOperationException("Nhập chiều dài thép chờ hữu hạn, lớn hơn 0 mm.");
             }

@@ -1,0 +1,62 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Xml.Serialization;
+using ColumnRebarPro.V3;
+
+static class LegacySpliceTests
+{
+    static int checks;
+    static void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
+    static V3SegmentWork Work(double bottom,double top)=>new V3SegmentWork {
+        Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,
+            StarterBars=true,StarterLength=1200},Geometry=new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
+        Segment=new ColumnSegment {LevelName="Test"}};
+    internal static void Run()
+    {
+        var lower=Work(0,3000);var upper=Work(3400,6400);upper.Config.StarterBars=false;
+        lower.Config.Splice=V3SpliceStyle.AtStoreyJoint;lower.Config.LapLength=600;
+        V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
+        Check(lower.BottleneckToUpper,"Legacy splice with explicit starter length must reach actual bottleneck planner");
+        Check(lower.Config.Splice==V3SpliceStyle.None&&lower.Config.StarterLength==1200&&lower.Config.LapLength==600,
+            "Migrate mode without changing either length");
+        Check(!string.IsNullOrEmpty(lower.Config.LegacyConnectionNotice),"Show migration notice");
+        var serializer=new XmlSerializer(typeof(V3RebarConfig));
+        Func<V3RebarConfig,string> xml=c=>{using(var w=new StringWriter()){serializer.Serialize(w,c);return w.ToString();}};
+        Func<string,V3RebarConfig> read=text=>{using(var r=new StringReader(text))return V3LegacySplice.Read(r);};
+        var old=Work(0,3000).Config;old.Splice=V3SpliceStyle.AtStoreyJoint;old.StarterBars=false;old.LapLength=600;
+        var restored=read(xml(old));
+        Check(restored.Splice==V3SpliceStyle.None&&restored.StarterBars&&restored.StarterLength==1200,"Both XML sources migrate an explicit starter length");
+        var twice=read(xml(restored));
+        Check(twice.Splice==V3SpliceStyle.None&&twice.StarterLength==1200&&twice.LapLength==600,"Save/reopen is idempotent");
+        Check(!xml(restored).Contains("LegacyConnectionNotice"),"Runtime notice is excluded from legacy XML schema");
+        old.StarterLength=0;
+        restored=read(xml(old));
+        Check(V3LegacySplice.NeedsLength(restored)&&restored.StarterBars&&restored.LapLength==600&&restored.StarterLength==0,
+            "Lap-only data remains pending; never copy lap to extension");
+        bool rejected=false;
+        try{V3LegacySplice.ValidateForCreation(restored);}catch(InvalidOperationException ex){rejected=ex.Message.Contains("đỉnh cột dưới");}
+        Check(rejected,"Pending migration reports the missing length with its datum");
+        restored.StarterLength=1100;V3LegacySplice.ValidateForCreation(restored);
+        Check(restored.Splice==V3SpliceStyle.None&&restored.StarterLength==1100,"Explicit length resolves pending migration");
+        foreach(var invalid in new[]{-10.0,double.NaN,double.PositiveInfinity})
+        {
+            old.StarterLength=invalid;
+            rejected=false;try{V3LegacySplice.ValidateForCreation(old);}catch(InvalidOperationException){rejected=true;}
+            Check(rejected&&old.Splice==V3SpliceStyle.AtStoreyJoint,"Invalid length cannot silently clear the legacy mode");
+        }
+        var modern=Work(0,3000).Config;modern.StarterBars=false;
+        V3LegacySplice.Normalize(modern);
+        Check(!modern.StarterBars&&modern.LegacyConnectionNotice==null,"Modern disabled connections stay disabled");
+        lower=Work(0,3000);upper=Work(3400,6400);upper.Config.StarterBars=false;
+        lower.Config.Splice=V3SpliceStyle.AtStoreyJoint;lower.Config.StaggerSplices=true;
+        rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
+        catch(InvalidOperationException ex){rejected=ex.Message.Contains("so le");}
+        Check(rejected,"Migration does not silently enable unsupported staggered connections");
+        lower.Config.StaggerSplices=false;lower.Config.StarterLength=600;
+        rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
+        catch(InvalidOperationException ex){rejected=ex.Message.Contains("chưa đủ");}
+        Check(rejected,"Migration preserves the actual 400 mm gap/lap check");
+        Console.WriteLine($"PASS: {checks} legacy splice migration checks");
+    }
+}

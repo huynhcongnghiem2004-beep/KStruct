@@ -150,7 +150,7 @@ namespace ColumnRebarPro.V3
                 c.Cover > 0 && c.EndZone >= 0 && c.EndSpacing > 0 && c.MidSpacing > 0 &&
                 (c.TieLayout != V3TieLayout.FixedNumber ||
                     (c.EndTieCount >= 2 && c.EndTieCount <= 1002 && c.MidTieCount >= 2 && c.MidTieCount <= 1002)) &&
-                (!c.StarterBars || c.StarterLength > 0) &&
+                (!c.StarterBars || c.StarterLength > 0 || V3LegacySplice.NeedsLength(c)) &&
                 (!c.JointTies || (c.JointBeamHeight > 0 && c.JointSpacing > 0));
         }
 
@@ -258,6 +258,15 @@ namespace ColumnRebarPro.V3
                     c.BottleneckRibbed = BottleneckRibbedCheck.IsChecked == true;
                     StarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                     MainStarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
+                }
+                // The editor explicitly supplies a new length or disables the old connection.
+                // LapLength has a different datum and is never copied to StarterLength.
+                if (c.Splice == V3SpliceStyle.AtStoreyJoint)
+                {
+                    c.Splice = V3SpliceStyle.None;
+                    c.LegacyConnectionNotice = c.StarterBars
+                        ? "Đã chuyển cấu hình nối cũ sang nhấn cổ chai; dùng chiều dài chờ đã nhập."
+                        : "Đã tắt nối tầng theo lựa chọn trong giao diện.";
                 }
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
@@ -552,6 +561,7 @@ namespace ColumnRebarPro.V3
         {
             _previewConnectionPlan = null;
             var row = ActiveRow; var c = ActiveConfig;
+            LegacyConnectionSummary.Text = c == null ? "" : c.LegacyConnectionNotice ?? "";
             if (row == null || c == null || StarterConnectionSummary == null) return;
             int index = _segments.FindIndex(s => s.Id.Value == row.Segment.Id.Value);
             if (!c.StarterBars || index + 1 >= _segments.Count)

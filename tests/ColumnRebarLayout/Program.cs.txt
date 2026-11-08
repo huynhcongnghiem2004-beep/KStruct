@@ -70,6 +70,7 @@ static class Program
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
+        LegacySpliceTests.Run();
         Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
     }
 }

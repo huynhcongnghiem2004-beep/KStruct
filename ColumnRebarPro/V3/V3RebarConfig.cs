@@ -22,6 +22,8 @@ namespace ColumnRebarPro.V3
         public V3TieStyle TieStyle = V3TieStyle.Unspecified;
         public V3SpliceStyle Splice = V3SpliceStyle.None;
         public double LapLength;
+        [System.Xml.Serialization.XmlIgnore]
+        public string LegacyConnectionNotice;
         public bool StarterBars = false;
         public double StarterLength;
         public bool StaggerSplices;

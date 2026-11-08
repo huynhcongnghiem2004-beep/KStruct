@@ -81,6 +81,7 @@ namespace ColumnRebarPro.V3
         {
             var report = new V3BuildReport();
             if (works == null || works.Count == 0) return report;
+            foreach (var work in works) V3LegacySplice.ValidateForCreation(work.Config);
             if (works.Any(work => work.Config.Splice != V3SpliceStyle.None || work.Config.StaggerSplices ||
                 work.HasNext || work.HasPrevious ||
                 work.TransitionUp != null || work.TransitionDown != null))

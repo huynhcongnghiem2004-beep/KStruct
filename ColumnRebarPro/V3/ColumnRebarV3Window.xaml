@@ -185,6 +185,7 @@
                 <StackPanel Margin="18">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Thép chờ và neo chân L" Margin="0,0,0,10"/>
                     <TextBlock Text="Cùng thiết lập thép chờ ở tab Hình học; thay đổi được đồng bộ hai tab." TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="LegacyConnectionSummary" TextWrapping="Wrap" Foreground="#FF9A5700" Margin="0,0,0,6"/>
                     <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Margin="0,4,0,8" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
                         <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Width="280" VerticalAlignment="Center"/>

@@ -12,6 +12,8 @@
     <Compile Include="../../ColumnRebarPro/V3/V3ConnectionAdapter.cs" Link="V3ConnectionAdapter.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3ProfileGeometry.cs" Link="V3ProfileGeometry.cs" />
     <Compile Include="PairingTests.cs.txt" />
+    <Compile Include="LegacySpliceTests.cs.txt" />
+    <Compile Include="../../ColumnRebarPro/V3/V3LegacySplice.cs" Link="V3LegacySplice.cs" />
     <Compile Include="StarterTests.cs.txt" />
     <Compile Include="Program.cs.txt" />
   </ItemGroup>

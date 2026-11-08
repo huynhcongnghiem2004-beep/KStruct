@@ -61,3 +61,13 @@ Cần thử trong Revit 2024 trên bản sao mô hình: cột Trệt/Lầu 1 h�
 để xem phần nối còn lại; chọn loại thép có gân và chiều dài phù hợp; kiểm tra cả GroupLongBars
 bật/tắt, kết hợp neo L, cột xoay/mirror, hình cổ chai và bán kính sau dựng, tag/hình khai triển,
 Undo và ghi đè. Đai và vị trí/tỷ lệ nối vẫn phải đối chiếu thiết kế của công trình.
+
+## Cấu hình nối cũ
+
+XML trong cột và file cấu hình dùng chung bộ chuyển đổi `V3LegacySplice`.
+`AtStoreyJoint` có chiều dài chờ hữu hạn, dương được chuyển sang bộ nhấn cổ chai,
+giữ nguyên cả StarterLength và LapLength. Giao diện hiển thị thông báo chuyển đổi.
+Nếu thiếu StarterLength, giữ trạng thái chờ nhập và yêu cầu chiều dài đo từ đỉnh
+cột dưới; không dùng LapLength thay thế. Người dùng có thể nhập chiều dài hoặc
+chủ động tắt thép chờ trong giao diện. Chuyển đổi không tự hỗ trợ so le và không
+bỏ qua kiểm tra chiều dài nối, cover, ghép thanh hoặc bán kính uốn.
