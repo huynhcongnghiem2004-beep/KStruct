@@ -28,6 +28,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public double SheetRightReserveMm { get; set; } = 70;
         public double SheetBottomReserveMm { get; set; } = 35;
         public double SheetMarginMm { get; set; } = 10;
+        public double SectionDepthMm { get; set; } = 1200;
         public double SectionXOffsetMm { get; set; }
         public double SectionYOffsetMm { get; set; }
         public bool ReverseSectionX { get; set; }

@@ -288,6 +288,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             PlanScale = ParseInt(_planScale.Text, 20), SectionScale = ParseInt(_sectionScale.Text, 20), CropMarginMm = ParseDouble(_cropMargin.Text, 6),
             UseDetailedLayout = true, DimensionFourSides = _fourSides.IsChecked == true,
             DimensionOffsetPaperMm = ParseDouble(_dimOffset.Text, 8), DimensionGapPaperMm = ParseDouble(_dimGap.Text, 6),
+            SectionDepthMm = ParseDouble(_sectionDepth.Text, 1200),
             SectionXOffsetMm = ParseDouble(_sectionXOffset.Text, 0), SectionYOffsetMm = ParseDouble(_sectionYOffset.Text, 0),
             ReverseSectionX = _reverseX.IsChecked == true, ReverseSectionY = _reverseY.IsChecked == true,
             SheetRightReserveMm = ParseDouble(_reserveRight.Text, 70), SheetBottomReserveMm = ParseDouble(_reserveBottom.Text, 35),
@@ -300,6 +301,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         {
             _fourSides.IsChecked = p.DimensionFourSides;
             _dimOffset.Text = p.DimensionOffsetPaperMm.ToString("0.##"); _dimGap.Text = p.DimensionGapPaperMm.ToString("0.##");
+            _sectionDepth.Text = p.SectionDepthMm.ToString("0.##");
             _sectionXOffset.Text = p.SectionXOffsetMm.ToString("0.##"); _sectionYOffset.Text = p.SectionYOffsetMm.ToString("0.##");
             _reverseX.IsChecked = p.ReverseSectionX; _reverseY.IsChecked = p.ReverseSectionY;
             _reserveRight.Text = p.SheetRightReserveMm.ToString("0.##"); _reserveBottom.Text = p.SheetBottomReserveMm.ToString("0.##");
@@ -322,6 +324,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (sheet != null) _existingSheet.SelectedItem = _existingSheet.Items.Cast<Item>().FirstOrDefault(x => x.Element?.Id == sheet.Id);
             _newSheet.IsChecked = p.PlaceOnNewSheet;
             _existingSheet.IsEnabled = !p.PlaceOnNewSheet;
+            var missing = new List<string>();
+            if (!string.IsNullOrWhiteSpace(p.PlanTypeName) && Selected(_planType) == null) missing.Add("View Type mặt bằng");
+            if (!string.IsNullOrWhiteSpace(p.SectionTypeName) && Selected(_sectionType) == null) missing.Add("View Type mặt cắt");
+            if (!string.IsNullOrWhiteSpace(p.PlanTemplateName) && Selected(_planTemplate) == null) missing.Add("Template mặt bằng");
+            if (!string.IsNullOrWhiteSpace(p.SectionTemplateName) && Selected(_sectionTemplate) == null) missing.Add("Template mặt cắt");
+            if (!string.IsNullOrWhiteSpace(p.RebarTagType) && Selected(_rebarTag) == null) missing.Add("Tag thép");
+            if (!string.IsNullOrWhiteSpace(p.FoundationTagType) && Selected(_foundationTag) == null) missing.Add("Tag móng");
+            if (!string.IsNullOrWhiteSpace(p.DimensionTypeName) && Selected(_dimension) == null) missing.Add("Dimension Type");
+            if (p.PlaceOnNewSheet && Selected(_titleBlock) == null) missing.Add("Title Block");
+            if (p.CreateCallouts && Selected(_sourcePlan) == null) missing.Add("View nguồn");
+            if (!p.PlaceOnNewSheet && Selected(_existingSheet) == null) missing.Add("Sheet đích");
+            if (missing.Count > 0) MessageBox.Show(this, "Một số lựa chọn đã lưu không có trong project hiện tại; hãy chọn lại: " + string.Join(", ", missing), "KStruct — Khôi phục lựa chọn");
             RefreshPreviews();
         }
         private static void SelectBy(ComboBox box, string name)
@@ -393,6 +407,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (!ValidateExtraFields()) return;
             if (_newSheet.IsChecked != true && CheckedFootings.Count > 1)
             { MessageBox.Show(this, "Sheet có sẵn chỉ hỗ trợ một móng mỗi lần.", "Chọn một móng"); return; }
+            var selectedIds = new HashSet<string>(CheckedFootings.Select(f => f.UniqueId));
+            bool alreadyHasDrawings = new FilteredElementCollector(_doc).OfClass(typeof(View)).Cast<View>()
+                .Any(v => FootingDrawingStorage.TryRead(v, out string host, out string role, out double crop) && selectedIds.Contains(host));
+            if (alreadyHasDrawings && MessageBox.Show(this,
+                "Một số móng đã có hồ sơ. Tiếp tục sẽ tạo bộ view mới và giữ nguyên hồ sơ cũ. Để cập nhật, dùng lệnh Cập nhật hồ sơ.",
+                "Tạo thêm hồ sơ?", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             FootingDrawingProfile profile = ReadProfile();
             Configuration = new FootingDrawingConfiguration
             {

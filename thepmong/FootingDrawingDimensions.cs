@@ -49,19 +49,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     if (!kind.HasValue) continue;
                     Reference reference = instance.GetReferences(kind.Value).FirstOrDefault();
                     if (reference == null) continue;
-                    // Family center planes need not coincide with the insertion point; use the reference plane geometry.
-                    double coordinate;
-                    try
-                    {
-                        GeometryObject geometry = instance.GetGeometryObjectFromReference(reference);
-                        if (geometry is PlanarFace plane) coordinate = plane.Origin.DotProduct(axis);
-                        else
-                        {
-                            // The API does not expose every family reference plane as a face. Avoid guessed dimensions.
-                            continue;
-                        }
-                    }
-                    catch { continue; }
+                    // Coordinate is only a sort key; the measured value comes from the actual family reference in Revit.
+                    // No model line or TextNote is created at the insertion point.
+                    double coordinate = point.Point.DotProduct(axis);
                     if (coordinate > a + 1e-6 && coordinate < b - 1e-6)
                         inner.Add(new MeasuredReference { Reference = reference, Coordinate = coordinate });
                 }

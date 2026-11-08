@@ -4,9 +4,9 @@
 
 - Giữ nguyên Ribbon ID và các entry point tạo thép/cột/móng băng. Chỉ thay giao diện lệnh hồ sơ móng và thêm helper dùng bởi lệnh này.
 - Giao diện ba cột: danh sách móng có checkbox, tab View/Dim–Tag/Sheet/Cấu hình, preview mặt bằng và bố cục sheet.
-- Preview là sơ đồ từ kích thước hình học host, không phải ảnh render Revit và chưa phản ánh đầy đủ hình thép/annotation. Không dùng số liệu thép giả trong preview.
+- Preview là sơ đồ từ kích thước hình học host và đường tâm Rebar có thể đọc được (giới hạn để giữ UI phản hồi), không phải ảnh render Revit và chưa phản ánh đầy đủ hình thép/annotation. Không dùng số liệu thép giả trong preview.
 - Chọn lại mô hình đóng dialog trước khi gọi Selection API. Danh sách được tích chọn được truyền đúng sang command.
-- Tạo plan độc lập hoặc callout theo view nguồn được chọn; chọn tỷ lệ, template, lớp trên/dưới, offset tuyến cắt và đảo chiều.
+- Tạo plan độc lập hoặc callout theo view nguồn được chọn; chọn tỷ lệ, template, lớp trên/dưới, offset tuyến cắt, chiều sâu nhìn và đảo chiều.
 - Model crop mặc định 6 mm; biên chữ nhật thực trong hệ trục family được kiểm tra trước khi offset. Hình không chữ nhật/nghiêng chưa được hỗ trợ và báo lỗi; không thay bằng world bounding box rồi coi là crop chính xác.
 - Tạo dim tổng thể hai phía theo mỗi phương; lớp chi tiết dùng reference cột/cọc hợp lệ. Nếu không đọc được tim có thể dùng mép thực và báo rõ; nếu thiếu reference thì báo lớp/cạnh thiếu, không tạo dim giả.
 - Annotation crop tách khỏi model crop. Tỷ lệ sheet được giữ; đo cả viewport/label và chặn không vừa/chồng nội dung hiện có. Lề/vùng chừa khung tên được nhập theo mm giấy.
@@ -15,7 +15,7 @@
 
 Tab Cấu hình có `Nhớ lựa chọn cho lần tạo hồ sơ kế tiếp`, mặc định bật. Khi bấm Tạo hồ sơ với cấu hình hợp lệ, lưu các lựa chọn cho đúng project; việc lưu xảy ra trước transaction tạo hồ sơ, nên vẫn nhớ khi model tạo lỗi. Hủy không lưu. Khi bỏ chọn và bấm tạo, xóa cấu hình tự nhớ cũ cho project này. Không lưu lại danh sách host đã chọn.
 
-Lưu tại `%APPDATA%/KStruct/FootingDrawingSessions/<SHA256 ProjectInformation.UniqueId>.xml`, riêng với file preset có tên `FootingDrawingProfiles.xml`. Dùng temporary file và atomic replace. Lỗi đọc/ghi có thông báo và không chặn dùng cấu hình mới. View/sheet/type được đối chiếu với document hiện tại; thiếu lựa chọn thì yêu cầu chọn lại, không tạo đối tượng thay thế ngầm.
+Lưu tại `%APPDATA%/KStruct/FootingDrawingSessions/<SHA256 project-key>.xml`, với project-key gồm UniqueId của ProjectInformation và đường dẫn (hoặc tên khi chưa lưu); riêng với file preset có tên `FootingDrawingProfiles.xml`. Dùng temporary file và atomic replace. Lỗi đọc/ghi có thông báo và không chặn dùng cấu hình mới. View/sheet/type được đối chiếu với document hiện tại; thiếu lựa chọn thì yêu cầu chọn lại, không tạo đối tượng thay thế ngầm.
 
 Schema mô hình giữ nguyên GUID và các trường; Version=2 đánh dấu đầu ra từ bố cục mới, Version=1 vẫn dùng nhánh crop cập nhật cũ. Không tự cập nhật sheet/view cũ khi mở cửa sổ.
 

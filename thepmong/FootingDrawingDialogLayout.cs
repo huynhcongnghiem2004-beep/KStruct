@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
 using Transform = Autodesk.Revit.DB.Transform;
 using Grid = System.Windows.Controls.Grid;
 
@@ -18,6 +19,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _fourSides = new CheckBox { Content = "Dim hai lớp trên cả bốn cạnh mặt bằng", IsChecked = true };
         private readonly CheckBox _reverseX = new CheckBox { Content = "Đảo chiều A–A" };
         private readonly CheckBox _reverseY = new CheckBox { Content = "Đảo chiều B–B" };
+        private readonly TextBox _sectionDepth = new TextBox { Text = "1200" };
         private readonly TextBox _sectionXOffset = new TextBox { Text = "0" };
         private readonly TextBox _sectionYOffset = new TextBox { Text = "0" };
         private readonly TextBox _dimOffset = new TextBox { Text = "8" };
@@ -28,9 +30,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly TextBlock _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock _hostSummary = new TextBlock { TextWrapping = TextWrapping.Wrap };
         private FamilyInstance _previewHost;
+        private readonly Dictionary<long, List<XYZ>> _previewVertices = new Dictionary<long, List<XYZ>>();
+        private readonly Dictionary<long, List<List<XYZ>>> _previewBars = new Dictionary<long, List<List<XYZ>>>();
         internal bool RequestSelection { get; private set; }
         private IList<FamilyInstance> CheckedFootings => _hostChoices.Where(x => x.Item1.IsChecked == true).Select(x => x.Item2).ToList();
-        private string SessionKey => _doc.ProjectInformation.UniqueId;
+        private string SessionKey => _doc.ProjectInformation.UniqueId + "|" +
+            (string.IsNullOrWhiteSpace(_doc.PathName) ? _doc.Title : _doc.PathName).ToUpperInvariant();
 
         private UIElement BuildMockupLayout(IList<FamilyInstance> footings)
         {
@@ -56,11 +61,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var details = new Border { Background = Brush("#EEF5FC"), Padding = new Thickness(10), Margin = new Thickness(0, 10, 0, 0), Child = _hostSummary };
             DockPanel.SetDock(details, Dock.Bottom); hosts.Children.Add(details);
             var hostList = new StackPanel();
+            var existingHosts = new HashSet<string>(new FilteredElementCollector(_doc).OfClass(typeof(View)).Cast<View>()
+                .Select(v => FootingDrawingStorage.TryRead(v, out string h, out string r, out double m) ? h : null).Where(h => h != null));
             foreach (FamilyInstance host in footings)
             {
                 string mark = host.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
-                bool existing = new FilteredElementCollector(_doc).OfClass(typeof(View)).Cast<View>()
-                    .Any(v => FootingDrawingStorage.TryRead(v, out string h, out string r, out double m) && h == host.UniqueId);
+                bool existing = existingHosts.Contains(host.UniqueId);
                 var check = new CheckBox { Content = (string.IsNullOrWhiteSpace(mark) ? host.Id.Value.ToString() : mark) + "  |  " +
                     (IsPileCap(host) ? "Đài cọc" : "Móng đơn") + "\n" + (existing ? "Đã có hồ sơ" : "Chưa tạo hồ sơ"),
                     IsChecked = true, Margin = new Thickness(2, 6, 2, 6), Padding = new Thickness(4) };
@@ -93,6 +99,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             view.Children.Add(new Border { Background = Brush("#E7F2FF"), Padding = new Thickness(8), Margin = new Thickness(0, 8, 0, 8), Child = crop });
             Field(view, "View Type mặt cắt", _sectionType); Field(view, "Template mặt cắt", _sectionTemplate);
             Field(view, "Tỷ lệ mặt cắt 1:", _sectionScale);
+            Field(view, "Chiều sâu nhìn (mm)", _sectionDepth);
             Field(view, "A–A: lệch theo Y (mm)", _sectionXOffset); view.Children.Add(_reverseX);
             Field(view, "B–B: lệch theo X (mm)", _sectionYOffset); view.Children.Add(_reverseY);
             view.Children.Add(Note("A–A chứa trục X/Z; B–B chứa Y/Z của móng. Mốc offset là tâm hình học móng. Preview là sơ đồ, cần kiểm tra đồ họa trong Revit."));
@@ -144,7 +151,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             buttons.Children.Add(new Button { Content = "Hủy", IsCancel = true });
             DockPanel.SetDock(buttons, Dock.Right); footer.Children.Add(buttons);
             footer.Children.Add(Note("Cấu hình được lưu khi tạo • Cancel không đổi mô hình")); Grid.SetRow(footer, 3); root.Children.Add(footer);
-            foreach (TextBox box in new[] { _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
+            foreach (TextBox box in new[] { _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
                 box.TextChanged += (s, e) => RefreshPreviews();
             foreach (CheckBox box in new[] { _fourSides, _reverseX, _reverseY, _newSheet })
             { box.Checked += (s, e) => RefreshPreviews(); box.Unchecked += (s, e) => RefreshPreviews(); }
@@ -198,13 +205,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
         }
         private bool ValidateExtraFields()
         {
-            foreach (TextBox box in new[] { _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
+            foreach (TextBox box in new[] { _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
             {
                 double value = ParseDouble(box.Text, double.NaN);
                 if (double.IsNaN(value) || double.IsInfinity(value) ||
                     (box != _sectionXOffset && box != _sectionYOffset && value < 0))
                 { MessageBox.Show(this, "Offset phải hữu hạn; khoảng cách dim và lề sheet không được âm.", "Thông số chưa hợp lệ"); box.Focus(); return false; }
             }
+            if (_sections.IsChecked == true && ParseDouble(_sectionDepth.Text, 0) <= 0)
+            { MessageBox.Show(this, "Chiều sâu nhìn phải lớn hơn 0.", "Chiều sâu mặt cắt"); return false; }
             if (_dimensions.IsChecked == true && _fourSides.IsChecked == true &&
                 (ParseDouble(_dimOffset.Text, 0) <= 0 || ParseDouble(_dimGap.Text, 0) <= 0))
             { MessageBox.Show(this, "Hai lớp dim cần khoảng đặt và khoảng cách lớn hơn 0.", "Khoảng cách dim"); return false; }
@@ -220,7 +229,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             BoundingBoxXYZ box = _previewHost.get_BoundingBox(null);
             if (box == null) { AddPreviewNote(canvas, "Không đọc được hình học móng."); return; }
             Transform local = _previewHost.GetTransform();
-            List<XYZ> points = FootingDrawingGeometry.WorldVertices(_previewHost).Select(local.Inverse.OfPoint).ToList();
+            if (!_previewVertices.TryGetValue(_previewHost.Id.Value, out List<XYZ> vertices))
+            { vertices = FootingDrawingGeometry.WorldVertices(_previewHost); _previewVertices[_previewHost.Id.Value] = vertices; }
+            List<XYZ> points = vertices.Select(local.Inverse.OfPoint).ToList();
             double w = points.Max(p => p.X) - points.Min(p => p.X), h = points.Max(p => p.Y) - points.Min(p => p.Y);
             double factor = 260 / Math.Max(w, h); double pw = w * factor, ph = h * factor;
             double left = 250 - pw / 2, top = 165 - ph / 2;
@@ -229,6 +240,35 @@ namespace SDK_HD.KStruct.NativeDocumentation
             AddPreviewNote(canvas, mark + " — sơ đồ hướng local móng, không phải render Revit");
             var rect = new System.Windows.Shapes.Rectangle { Width = pw, Height = ph, Stroke = Brushes.Black, Fill = Brush("#F8FAFC") };
             Canvas.SetLeft(rect, left); Canvas.SetTop(rect, top); canvas.Children.Add(rect);
+            if (!_previewBars.TryGetValue(_previewHost.Id.Value, out List<List<XYZ>> barLines))
+            {
+                barLines = new List<List<XYZ>>();
+                foreach (Rebar rebar in new FilteredElementCollector(_doc).OfClass(typeof(Rebar)).Cast<Rebar>().Where(r => r.GetHostId() == _previewHost.Id))
+                {
+                    for (int index = 0; index < rebar.NumberOfBarPositions && barLines.Count < 500; index++)
+                    {
+                        if (!rebar.DoesBarExistAtPosition(index)) continue;
+                        try
+                        {
+                            foreach (Curve curve in rebar.GetTransformedCenterlineCurves(false, false, false, MultiplanarOption.IncludeAllMultiplanarCurves, index))
+                                barLines.Add(curve.Tessellate().ToList());
+                        }
+                        catch { /* Unavailable geometry is omitted from the schematic, not invented. */ }
+                    }
+                }
+                _previewBars[_previewHost.Id.Value] = barLines;
+            }
+            double cx = (points.Max(p => p.X) + points.Min(p => p.X)) / 2, cy = (points.Max(p => p.Y) + points.Min(p => p.Y)) / 2;
+            double midZ = (box.Min.Z + box.Max.Z) / 2;
+            foreach (List<XYZ> line in barLines)
+            {
+                bool upper = line.Average(p => p.Z) >= midZ;
+                if (upper && _topLayer.IsChecked != true || !upper && _bottomLayer.IsChecked != true) continue;
+                List<XYZ> projected = line.Select(local.Inverse.OfPoint).ToList();
+                for (int i = 1; i < projected.Count; i++)
+                    DrawLine(canvas, 250 + (projected[i-1].X-cx)*factor, 165 - (projected[i-1].Y-cy)*factor,
+                        250 + (projected[i].X-cx)*factor, 165 - (projected[i].Y-cy)*factor, Brush("#334455"), false);
+            }
             double crop = UnitUtils.ConvertToInternalUnits(Math.Max(0, ParseDouble(_cropMargin.Text, 6)), UnitTypeId.Millimeters) * factor;
             var cropRect = new System.Windows.Shapes.Rectangle { Width = pw + 2 * crop, Height = ph + 2 * crop,
                 Stroke = Brush("#006CD8"), StrokeDashArray = new DoubleCollection { 4, 2 } };

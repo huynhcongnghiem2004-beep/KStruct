@@ -115,15 +115,20 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
             if (p.UseDetailedLayout && view.Scale != p.PlanScale)
                 throw new InvalidOperationException("Template mặt bằng khóa tỷ lệ khác tỷ lệ đã chọn.");
-            SetLayerRange(view, box, bars, layerBars, topLayer, footing.LevelId);
-            if (p.UseDetailedLayout) ConfigureAnnotationCrop(view, p);
+            SetLayerRange(view, box, bars, layerBars, topLayer, footing.LevelId, p.UseDetailedLayout);
+            if (p.UseDetailedLayout)
+            {
+                if (view.GetCategoryHidden(new ElementId(BuiltInCategory.OST_Rebar)))
+                    throw new InvalidOperationException("View/template mặt bằng đang ẩn cốt thép; hãy chọn template khác.");
+                ConfigureAnnotationCrop(view, p);
+            }
             List<ElementId> hidden = bars.Where(x => !layerBars.Any(y => y.Id == x.Id)).Select(x => x.Id).ToList();
             if (hidden.Count > 0) try { view.HideElements(hidden); } catch (Exception ex) { warnings.Add("Không lọc được một số Rebar ở " + view.Name + ": " + ex.Message); }
             return view;
         }
 
         private static void SetLayerRange(ViewPlan view, BoundingBoxXYZ hostBox, List<Rebar> all, List<Rebar> layer,
-            bool topLayer, ElementId levelId)
+            bool topLayer, ElementId levelId, bool detailed = false)
         {
             if (view.IsTemplate) return;
             double elevation = layer.Select(x => x.get_BoundingBox(null)).Where(x => x != null).Select(x => (x.Min.Z + x.Max.Z) / 2.0)
@@ -132,13 +137,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (level == null) level = view.GenLevel;
             if (level == null) return;
             double half = UnitUtils.ConvertToInternalUnits(150, UnitTypeId.Millimeters);
+            List<BoundingBoxXYZ> layerBoxes = layer.Select(r => r.get_BoundingBox(null)).Where(b => b != null).ToList();
+            double lower = detailed && layerBoxes.Count > 0 ? layerBoxes.Min(b => b.Min.Z) : elevation;
+            double upper = detailed && layerBoxes.Count > 0 ? layerBoxes.Max(b => b.Max.Z) : elevation;
             PlanViewRange range = view.GetViewRange();
             foreach (PlanViewPlane plane in new[] { PlanViewPlane.TopClipPlane, PlanViewPlane.CutPlane, PlanViewPlane.BottomClipPlane, PlanViewPlane.ViewDepthPlane })
             {
                 range.SetLevelId(plane, level.Id);
-                double offset = plane == PlanViewPlane.TopClipPlane ? elevation + half - level.Elevation :
-                    plane == PlanViewPlane.CutPlane ? elevation + half / 2 - level.Elevation :
-                    plane == PlanViewPlane.BottomClipPlane ? elevation - half - level.Elevation : elevation - 2 * half - level.Elevation;
+                double offset = plane == PlanViewPlane.TopClipPlane ? upper + half - level.Elevation :
+                    plane == PlanViewPlane.CutPlane ? upper + half / 2 - level.Elevation :
+                    plane == PlanViewPlane.BottomClipPlane ? lower - half - level.Elevation : lower - 2 * half - level.Elevation;
                 range.SetOffset(plane, offset);
             }
             view.SetViewRange(range);
@@ -207,7 +215,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Transform t = Transform.Identity;
                 t.Origin = origin; t.BasisX = right; t.BasisY = XYZ.BasisZ; t.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
                 // Section starts at the chosen cut plane, looking into the host rather than moving the cut to the rear edge.
-                double depth = vertices.Max(v => (v - origin).DotProduct(t.BasisZ)) + margin;
+                double depth = UnitUtils.ConvertToInternalUnits(p.SectionDepthMm, UnitTypeId.Millimeters);
                 if (depth <= doc.Application.ShortCurveTolerance) throw new InvalidOperationException("Chiều sâu mặt cắt không hợp lệ.");
                 var crop = new BoundingBoxXYZ { Transform = t,
                     Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-margin, 0),
@@ -219,6 +227,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 view.DetailLevel = ViewDetailLevel.Fine; view.Discipline = ViewDiscipline.Structural;
                 if (config.SectionTemplate != null) view.ViewTemplateId = config.SectionTemplate.Id;
                 if (view.Scale != p.SectionScale) throw new InvalidOperationException("Template mặt cắt khóa tỷ lệ khác tỷ lệ đã chọn.");
+                if (view.GetCategoryHidden(new ElementId(BuiltInCategory.OST_Rebar)))
+                    throw new InvalidOperationException("View/template mặt cắt đang ẩn cốt thép; hãy chọn template khác.");
                 ConfigureAnnotationCrop(view, p);
                 result.Add(view);
             }
@@ -403,7 +413,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     detailed && view is ViewSection ? prior.Min.Z : corners.Min(p => (p-origin).DotProduct(z))-margin),
                 Max = new XYZ(corners.Max(p => (p-origin).DotProduct(x))+margin,
                     corners.Max(p => (p-origin).DotProduct(y))+margin,
-                    corners.Max(p => (p-origin).DotProduct(z))+margin)
+                    detailed && view is ViewSection ? prior.Max.Z : corners.Max(p => (p-origin).DotProduct(z))+margin)
             };
             view.CropBoxActive = true;
             if (view is ViewPlan exactPlan && FootingDrawingStorage.Version(view) >= 2)
@@ -414,7 +424,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 List<Rebar> bars = GetHostedBars(view.Document, footing);
                 bool top = role.EndsWith("Top", StringComparison.OrdinalIgnoreCase);
                 List<Rebar> layer = bars.Where(x => IsLayer(x, source, top)).ToList();
-                try { SetLayerRange(plan, source, bars, layer, top, footing.LevelId); } catch { }
+                try { SetLayerRange(plan, source, bars, layer, top, footing.LevelId, detailed); } catch { }
                 List<ElementId> hidden = bars.Where(x => !layer.Any(y => y.Id == x.Id)).Select(x => x.Id).ToList();
                 if (hidden.Count > 0) try { plan.HideElements(hidden); } catch { }
             }
