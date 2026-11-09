@@ -59,6 +59,22 @@ internal static class Program
             Check(old.CropMarginMm == 300 && !old.UseDetailedLayout && !old.DimensionFourSides, "Legacy preset must retain crop/layout behavior");
             FootingDrawingProfileStore.Export(legacy, new[] { profile });
             Check(FootingDrawingProfileStore.Import(legacy).Single().DimensionFourSides, "Named presets must support new options");
+            // Export is atomic on overwrite, and a failed export must preserve the original.
+            FootingDrawingProfileStore.Export(legacy, new[] { new FootingDrawingProfile { Name = "Second" } });
+            Check(FootingDrawingProfileStore.Import(legacy).Single().Name == "Second", "Overwriting an exported preset must succeed");
+            string previousXml = File.ReadAllText(legacy);
+            bool invalidExport = false;
+            try { FootingDrawingProfileStore.Export(legacy, null); }
+            catch (ArgumentNullException) { invalidExport = true; }
+            Check(invalidExport && File.ReadAllText(legacy) == previousXml, "Invalid export must preserve existing preset");
+            Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Preset export must not leave temporary files");
+            string unsafeXmlPath = Path.Combine(directory, "unsafe.xml");
+            File.WriteAllText(unsafeXmlPath, "<!DOCTYPE FootingDrawingProfileFile [<!ENTITY injected 'unsafe'>]><FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>&injected;</Name></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
+            bool dtdRejected = false;
+            try { FootingDrawingProfileStore.Import(unsafeXmlPath); }
+            catch (InvalidOperationException) { dtdRejected = true; }
+            catch (System.Xml.XmlException) { dtdRejected = true; }
+            Check(dtdRejected, "Import must reject XML DTD / entity declarations");
             File.WriteAllText(FootingDrawingSessionStore.PathFor("broken", directory), "<broken>");
             bool failed = false; try { FootingDrawingSessionStore.Load("broken", directory); } catch (InvalidOperationException) { failed = true; }
             Check(failed, "Corrupt settings must surface to the UI warning handler");
