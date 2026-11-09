@@ -204,6 +204,10 @@ namespace ColumnRebarPro.V3
             // A geometric intersection is required; no height-only assumptions.
             var exclusions = V4TieJointExclusion.Find(doc, item);
             var safeBands = V4TieBandExclusion.KeepOutside(TiePlan(item), exclusions);
+            if (safeBands.Any(b => b.Count < 2))
+                throw new InvalidOperationException("Cột " + item.Column.Id.Value +
+                    ": vùng giao làm còn một đai đơn lẻ; không thể tạo Rebar Set Maximum Spacing. " +
+                    "Điều chỉnh phạm vi/bước đai theo thiết kế thay vì tạo Single hoặc Fixed Number.");
             foreach (var band in safeBands)
             {
                 double z = g.Bottom + V3Units.Ft(band.Start);
@@ -345,6 +349,9 @@ namespace ColumnRebarPro.V3
         {
             if (startHook == null || endHook == null)
                 throw new InvalidOperationException("Thiếu loại móc đai phụ theo cấu hình.");
+            if (count < 2)
+                throw new InvalidOperationException("Đai phụ còn một vị trí, không thể là Rebar Set Maximum Spacing; " +
+                    "cần điều chỉnh phân bố đai phụ đã duyệt.");
             if (reverse) { var temp = a; a = b; b = temp; }
             XYZ direction=(b-a).Normalize();
             XYZ second=Math.Abs(direction.DotProduct(item.Geometry.Y))>.5
