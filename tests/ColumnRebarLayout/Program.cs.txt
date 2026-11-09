@@ -57,6 +57,11 @@ static class Program
         Check(!V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
             !V4ShapeCreationPolicy.CanCreate("đai bao") &&
             !V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"), "Never grow Shape library for other bar groups");
+        // No auto-generated RebarBarType allowed for bottleneck bends.
+        V4ExistingBarTypePolicy.RequireAdequateBend("D20",120,120);
+        V4ExistingBarTypePolicy.RequireAdequateBend("D20",150,120);
+        Reject(()=>V4ExistingBarTypePolicy.RequireAdequateBend("D20",100,120));
+        Reject(()=>V4ExistingBarTypePolicy.RequireAdequateBend("D20",double.NaN,120));
         // Do not place ties inside beam/slab joint intervals. Split Rebar Sets
         // at excluded positions, preserving spacing on each remaining run.
         var jointSource = new[] { new V3TieBand {
