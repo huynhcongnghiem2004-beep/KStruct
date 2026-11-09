@@ -25,6 +25,24 @@ internal static class Program
         Require(panels.Count == 7, "Expected exactly 7 registered panels; found " + panels.Count);
         Require(panels.Distinct(StringComparer.Ordinal).Count() == panels.Count, "Duplicate Ribbon panels");
 
+        // Footing must occupy exactly one Ribbon surface control with seven drop-down entries.
+        Require(Regex.IsMatch(source,
+            @"footingRebarPanel\.AddItem\(\s*new PulldownButtonData\(""KStruct_FootingDropdown"""),
+            "Footing panel must contain the single pull-down button");
+        var footingIds = Regex.Matches(source,
+            @"\bAdd\(footingDropdown,\s*dll,\s*""(?<id>KStruct_[^""]+)""")
+            .Cast<Match>().Select(match => match.Groups["id"].Value).ToArray();
+        string[] expectedFootingIds = {
+            "KStruct_FootingRebar", "KStruct_UpdateFootingRebar",
+            "KStruct_CreateStripFootingDrawings", "KStruct_UpdateStripFootingDrawings",
+            "KStruct_CreateIsolatedFootingSheets", "KStruct_UpdateIsolatedFootingSheets",
+            "KStruct_DeleteFoundationDrawingViews"
+        };
+        Require(footingIds.SequenceEqual(expectedFootingIds),
+            "Footing pull-down must preserve seven commands in their original order");
+        Require(!Regex.IsMatch(source, @"\bAdd\(footingRebarPanel,\s*dll,"),
+            "Footing panel must not show standalone command buttons");
+
         var removedPanels = new[]
         {
             "KStruct Khối lượng", "KStruct Mô hình", "KStruct Quản lý cấu kiện",
