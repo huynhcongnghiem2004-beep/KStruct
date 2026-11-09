@@ -85,6 +85,19 @@ static class Program
             "Missing generated view blocks replacement");
         Check(!V4SheetOwnershipRules.Matches("C1", "C1", new string[0], new string[0]),
             "Empty sheet identity is not owned");
+        var printable = new V4SheetLayoutGuard.Rect(0, 0, 100, 100);
+        V4SheetLayoutGuard.Validate(printable, new[] {
+            new V4SheetLayoutGuard.Rect(5, 5, 45, 60),
+            new V4SheetLayoutGuard.Rect(55, 5, 95, 60)
+        });
+        Reject(() => V4SheetLayoutGuard.Validate(printable,
+            new[] { new V4SheetLayoutGuard.Rect(90, 10, 110, 50) }));
+        Reject(() => V4SheetLayoutGuard.Validate(printable, new[] {
+            new V4SheetLayoutGuard.Rect(5, 5, 55, 60),
+            new V4SheetLayoutGuard.Rect(50, 10, 95, 55)
+        }));
+        Reject(() => V4SheetLayoutGuard.Validate(printable,
+            new[] { new V4SheetLayoutGuard.Rect(double.NaN, 0, 10, 10) }));
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
