@@ -51,9 +51,9 @@ namespace ColumnRebarPro.V3
                         attempt.Start();
                         try
                         {
-                            HashSet<int> knownShapeIds = null;
+                            HashSet<long> knownShapeIds = null;
                             if (createNew)
-                                knownShapeIds = new HashSet<int>(
+                                knownShapeIds = new HashSet<long>(
                                     new FilteredElementCollector(doc)
                                         .OfClass(typeof(RebarShape))
                                         .Select(shape => shape.Id.Value));
