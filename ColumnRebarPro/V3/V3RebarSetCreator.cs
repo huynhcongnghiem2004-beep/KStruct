@@ -102,12 +102,17 @@ namespace ColumnRebarPro.V3
                 }
                 if(!path.Planar)
                     throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": đường nhiều mặt phẳng chưa hỗ trợ bằng Rebar Shape có sẵn. Lệnh không tạo FreeForm hoặc shape mới.");
+                // A bar plane must be inferred from the actual design legs.
+                // The array step is a distribution direction, never the definition of the bar plane.
+                var distribution = group.Bars.Count > 1 ? (V3Point3?)group.Step : null;
+                V3Point3 planeNormal = V4AnchorGeometry.PlaneNormal(path.Points, distribution,
+                    Math.Max(0.1, tolerance));
                 var target=path.Points.Select(ModelPoint).ToList();
                 XYZ firstDirection=(target[1]-target[0]).Normalize();
                 var roundedEnvelope=rounded.SelectMany(curve => curve.Arc
                     ? new[] { curve.Start, curve.Mid, curve.End }
                     : new[] { curve.Start, curve.End }).Select(ModelPoint).ToList();
-                XYZ normal=group.Bars.Count>1?ModelVector(group.Step).Normalize():ModelVector(path.Normal).Normalize();
+                XYZ normal=ModelVector(planeNormal).Normalize();
                 XYZ secondAxis=normal.CrossProduct(firstDirection).Normalize();
                 V3RebarShapeFactory.GetBox(roundedEnvelope,firstDirection,secondAxis,type.BarNominalDiameter,
                     out XYZ boxOrigin,out XYZ xVector,out XYZ yVector);
@@ -117,7 +122,8 @@ namespace ColumnRebarPro.V3
                 IList<Curve> shapeCurves = V4AutomaticRebar.Lines(target.ToArray());
                 Rebar bar = V4AutomaticRebar.Create(doc, RebarStyle.Standard, type,
                     item.FoundationHost ?? (Element)item.Column, normal, shapeCurves,
-                    null, null, item.Column.Id, "thanh neo/chuyển tiếp");
+                    null, null, item.Column.Id, "thanh neo/chuyển tiếp",
+                    allowNewShape: true);
                 V3RebarShapeFactory.ValidateEnvelope(bar,roundedEnvelope,V3Units.Ft(2),item.Column.Id,"thanh neo/chuyển tiếp");
                 if(group.Bars.Count>1)
                 {
