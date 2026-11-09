@@ -63,34 +63,46 @@ namespace ColumnRebarPro.V3
                 V3FoundationAnchor.Attach(doc, firstWorks.FirstOrDefault(), firstWindow.FoundationAnchorSettings);
                 jobs.Add(NewJob(stacks[0], firstWorks, firstWindow));
 
-                bool asked = false, reuse = false;
+                // Read each selected stack once; batch selection applies only to genuinely
+                // equivalent geometry. Non-matching stacks still get their own editor.
+                var prepared = new Dictionary<int, List<V3SegmentWork>>();
+                var candidates = new List<V4BatchReuseCandidate>();
                 for (int k = 1; k < stacks.Count; k++)
                 {
-                    var stack = stacks[k];
-                    List<V3SegmentWork> works;
-                    try { works = MakeWorks(doc, stack); }
-                    catch (Exception ex) { failures.Add(StackLabel(stack) + ": " + ex.Message); continue; }
-
-                    if (SameShape(works, firstWorks))
+                    try
                     {
-                        if (!asked)
-                        {
-                            asked = true;
-                            reuse = TaskDialog.Show("KStruct V3 - Nhiều tuyến cột",
-                                "Có tuyến cột cùng số tầng và cùng tiết diện với tuyến đầu.\n" +
-                                "Dùng lại cấu hình thép và thiết lập triển khai của tuyến đầu cho các tuyến như vậy?\n" +
-                                "(Chọn No để cấu hình riêng từng tuyến.)",
-                                TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No) == TaskDialogResult.Yes;
-                        }
+                        var works = MakeWorks(doc, stacks[k]);
+                        prepared[k] = works;
+                        if (SameShape(works, firstWorks))
+                            candidates.Add(new V4BatchReuseCandidate
+                            {
+                                Index = k,
+                                Label = StackLabel(stacks[k]) + " · " + works.Count +
+                                    " tầng · " + Math.Round(V3Units.Mm(works[0].Geometry.Width)) + " × " +
+                                    Math.Round(V3Units.Mm(works[0].Geometry.Depth)) + " mm"
+                            });
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add(StackLabel(stacks[k]) + ": " + ex.Message);
+                    }
+                }
+                HashSet<int> reuseIndices = V4BatchReuseDialog.Choose(
+                    data.Application.MainWindowHandle, candidates);
+                if (reuseIndices == null) return Result.Cancelled;
 
-                        if (reuse)
-                        {
-                            for (int i = 0; i < works.Count; i++)
-                                works[i].Config = firstConfigs[i].Copy();
-                            V3FoundationAnchor.Attach(doc, works.FirstOrDefault(), firstWindow.FoundationAnchorSettings);
-                            jobs.Add(NewJob(stack, works, firstWindow));
-                            continue;
-                        }
+                for (int k = 1; k < stacks.Count; k++)
+                {
+                    List<V3SegmentWork> works;
+                    if (!prepared.TryGetValue(k, out works)) continue;
+                    var stack = stacks[k];
+                    if (reuseIndices.Contains(k))
+                    {
+                        for (int i = 0; i < works.Count; i++)
+                            works[i].Config = firstConfigs[i].Copy();
+                        V3FoundationAnchor.Attach(doc, works.FirstOrDefault(), firstWindow.FoundationAnchorSettings);
+                        jobs.Add(NewJob(stack, works, firstWindow));
+                        continue;
                     }
 
                     var window = ShowWindow(data, stack, loadedDiameters, doc);
@@ -100,11 +112,9 @@ namespace ColumnRebarPro.V3
                         continue;
                     }
                     V3DeploymentControl.PersistSettings(doc, window.DeploymentSettings);
-
                     var configMap = window.Configurations;
                     for (int i = 0; i < works.Count; i++)
                         works[i].Config = configMap[stack[i].Id.Value];
-
                     V3FoundationAnchor.Attach(doc, works.FirstOrDefault(), window.FoundationAnchorSettings);
                     jobs.Add(NewJob(stack, works, window));
                 }
