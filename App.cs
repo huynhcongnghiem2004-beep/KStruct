@@ -44,13 +44,22 @@ namespace SDK_HD.KStruct
                 Add(columnRebarSplit, dll, "KStruct_ColumnRebarSchedule", "Thống kê cốt thép", typeof(global::SDK_HD.KStruct.NativeRebar.RebarScheduleCommand), "RebarColumnV3");
                 var footingRebarPanel = app.GetRibbonPanels(tab).FirstOrDefault(p => p.Name == "Thép móng")
                     ?? app.CreateRibbonPanel(tab, "Thép móng");
-                Add(footingRebarPanel, dll, "KStruct_FootingRebar", "Thép móng\ncọc & đơn", typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand), "Footing");
-                Add(footingRebarPanel, dll, "KStruct_UpdateFootingRebar", "Cập nhật\nthép móng", typeof(global::SDK_HD.KStruct.FootingRebar.UpdateFootingRebarCommand), "Footing");
-                Add(footingRebarPanel, dll, "KStruct_CreateStripFootingDrawings", "Lập bản vẽ\nmóng băng", typeof(global::SDK_HD.KStruct.NativeDocumentation.CreateStripFootingDrawingsCommand), "Settings");
-                Add(footingRebarPanel, dll, "KStruct_UpdateStripFootingDrawings", "Cập nhật bản vẽ\nmóng băng", typeof(global::SDK_HD.KStruct.NativeDocumentation.UpdateStripFootingDrawingsCommand), "Settings");
-                Add(footingRebarPanel, dll, "KStruct_CreateIsolatedFootingSheets", "Tạo hồ sơ\nmóng cọc, đơn", typeof(global::SDK_HD.KStruct.NativeDocumentation.FootingDrawingCommand), "Footing");
-                Add(footingRebarPanel, dll, "KStruct_UpdateIsolatedFootingSheets", "Cập nhật hồ sơ\nmóng cọc, đơn", typeof(global::SDK_HD.KStruct.NativeDocumentation.UpdateFootingDrawingsCommand), "Settings");
-                Add(footingRebarPanel, dll, "KStruct_DeleteFoundationDrawingViews", "Xóa hồ sơ móng\nđã tạo", typeof(global::SDK_HD.KStruct.NativeDocumentation.DeleteFootingDrawingsCommand), "Settings");
+                // One visible drop-down with all seven existing footing commands.
+                // Keep command IDs and handlers unchanged to preserve user workflows.
+                var footingDropdown = footingRebarPanel.AddItem(
+                    new PulldownButtonData("KStruct_FootingDropdown", "Thép móng")) as PulldownButton;
+                if (footingDropdown == null)
+                    throw new InvalidOperationException("Không tạo được nút xổ xuống Thép móng KStruct.");
+                footingDropdown.Image = Icon("Footing_16.png");
+                footingDropdown.LargeImage = Icon("Footing_32.png");
+                footingDropdown.ToolTip = "KStruct - Vẽ thép móng và quản lý hồ sơ móng";
+                Add(footingDropdown, dll, "KStruct_FootingRebar", "Thép móng cọc & đơn", typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand), "Footing");
+                Add(footingDropdown, dll, "KStruct_UpdateFootingRebar", "Cập nhật thép móng", typeof(global::SDK_HD.KStruct.FootingRebar.UpdateFootingRebarCommand), "Footing");
+                Add(footingDropdown, dll, "KStruct_CreateStripFootingDrawings", "Lập bản vẽ móng băng", typeof(global::SDK_HD.KStruct.NativeDocumentation.CreateStripFootingDrawingsCommand), "Settings");
+                Add(footingDropdown, dll, "KStruct_UpdateStripFootingDrawings", "Cập nhật bản vẽ móng băng", typeof(global::SDK_HD.KStruct.NativeDocumentation.UpdateStripFootingDrawingsCommand), "Settings");
+                Add(footingDropdown, dll, "KStruct_CreateIsolatedFootingSheets", "Tạo hồ sơ móng cọc, đơn", typeof(global::SDK_HD.KStruct.NativeDocumentation.FootingDrawingCommand), "Footing");
+                Add(footingDropdown, dll, "KStruct_UpdateIsolatedFootingSheets", "Cập nhật hồ sơ móng cọc, đơn", typeof(global::SDK_HD.KStruct.NativeDocumentation.UpdateFootingDrawingsCommand), "Settings");
+                Add(footingDropdown, dll, "KStruct_DeleteFoundationDrawingViews", "Xóa hồ sơ móng đã tạo", typeof(global::SDK_HD.KStruct.NativeDocumentation.DeleteFootingDrawingsCommand), "Settings");
                 var beamPanel = app.GetRibbonPanels(tab).FirstOrDefault(p => p.Name == "KStruct Dầm")
                     ?? app.CreateRibbonPanel(tab, "KStruct Dầm");
                 var beamSplit = beamPanel.AddItem(new SplitButtonData("KStruct_BeamRebarSplit", "Thép dầm")) as SplitButton;
@@ -153,6 +162,15 @@ namespace SDK_HD.KStruct
             data.Image = Icon(icon + "_16.png");
             data.LargeImage = Icon(icon + "_32.png");
             split.AddPushButton(data);
+        }
+        private static void Add(PulldownButton dropdown, string dll, string id, string title, Type type, string icon)
+        {
+            if (dropdown == null) throw new InvalidOperationException("Không tạo được nhóm nút xổ xuống KStruct.");
+            var data = new PushButtonData(id, title, dll, type.FullName);
+            data.ToolTip = "KStruct - " + title.Replace('\n', ' ');
+            data.Image = Icon(icon + "_16.png");
+            data.LargeImage = Icon(icon + "_32.png");
+            dropdown.AddPushButton(data);
         }
         private static BitmapImage Icon(string file)
         {
