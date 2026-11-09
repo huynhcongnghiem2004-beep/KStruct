@@ -48,16 +48,25 @@ jobs:
           if (-not (Test-Path -LiteralPath $assemblyFile -PathType Leaf)) { throw "Missing built assembly: $assemblyFile" }
           $assembly = [System.Reflection.AssemblyName]::GetAssemblyName($assemblyFile)
           if ($assembly.Name -ne 'KStruct') { throw "Unexpected assembly name: $($assembly.Name)" }
-          if ($assembly.ProcessorArchitecture -ne [System.Reflection.ProcessorArchitecture]::Amd64) {
-            throw "Expected x64 assembly, found $($assembly.ProcessorArchitecture)"
-          }
+          # AssemblyName.ProcessorArchitecture is unreliable in modern .NET.
+          # Validate the PE COFF machine field instead.
+          $stream = [System.IO.File]::OpenRead($assemblyFile)
+          try {
+            $pe = [System.Reflection.PortableExecutable.PEReader]::new($stream)
+            try {
+              $machine = $pe.PEHeaders.CoffHeader.Machine
+              if ($machine -ne [System.Reflection.PortableExecutable.Machine]::Amd64) {
+                throw "Expected x64 assembly, found PE machine $machine"
+              }
+            } finally { $pe.Dispose() }
+          } finally { $stream.Dispose() }
           $hash = (Get-FileHash -LiteralPath $assemblyFile -Algorithm SHA256).Hash
           $size = (Get-Item -LiteralPath $assemblyFile).Length
           if ($size -lt 1024) { throw "Assembly unexpectedly small: $size bytes" }
           @(
             "Assembly: $($assembly.Name)",
             "Version: $($assembly.Version)",
-            "Architecture: $($assembly.ProcessorArchitecture)",
+            "Architecture: $machine",
             "SizeBytes: $size",
             "SHA256: $hash",
             "Commit: $env:GITHUB_SHA"
