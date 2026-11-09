@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace SDK_HD.KStruct.NativeDocumentation
@@ -79,45 +80,59 @@ namespace SDK_HD.KStruct.NativeDocumentation
     {
         private static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KStruct", "FootingDrawingProfiles.xml");
 
+        // Read user-provided and locally stored profiles with the same bounded XML policy.
+        private static XmlReaderSettings ReaderSettings() => new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 4 * 1024 * 1024
+        };
+
+        private static List<FootingDrawingProfile> ReadProfiles(string path)
+        {
+            using (var stream = File.OpenRead(path))
+            using (var reader = XmlReader.Create(stream, ReaderSettings()))
+            {
+                var file = (FootingDrawingProfileFile)new XmlSerializer(typeof(FootingDrawingProfileFile)).Deserialize(reader);
+                return (file?.Profiles ?? new List<FootingDrawingProfile>())
+                    .Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name)).ToList();
+            }
+        }
+
         internal static List<FootingDrawingProfile> Load()
         {
             if (!File.Exists(FilePath)) return new List<FootingDrawingProfile>();
+            try { return ReadProfiles(FilePath); }
+            catch { return new List<FootingDrawingProfile>(); } // Preserve the existing fallback for broken local presets.
+        }
+
+        internal static List<FootingDrawingProfile> Import(string path) => ReadProfiles(path);
+
+        private static void WriteProfiles(string path, IEnumerable<FootingDrawingProfile> profiles)
+        {
+            if (profiles == null) throw new ArgumentNullException(nameof(profiles));
+            var data = new FootingDrawingProfileFile { Profiles = profiles.Where(x => x != null).ToList() };
+            string directory = Path.GetDirectoryName(Path.GetFullPath(path));
+            Directory.CreateDirectory(directory);
+            string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                using (var stream = File.OpenRead(FilePath))
-                {
-                    var file = (FootingDrawingProfileFile)new XmlSerializer(typeof(FootingDrawingProfileFile)).Deserialize(stream);
-                    return (file?.Profiles ?? new List<FootingDrawingProfile>()).Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name)).ToList();
-                }
+                using (var stream = File.Create(temporary))
+                    new XmlSerializer(typeof(FootingDrawingProfileFile)).Serialize(stream, data);
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
             }
-            catch { return new List<FootingDrawingProfile>(); }
-        }
-
-        internal static List<FootingDrawingProfile> Import(string path)
-        {
-            using (var stream = File.OpenRead(path))
+            finally
             {
-                var file = (FootingDrawingProfileFile)new XmlSerializer(typeof(FootingDrawingProfileFile)).Deserialize(stream);
-                return (file?.Profiles ?? new List<FootingDrawingProfile>()).Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name)).ToList();
+                if (File.Exists(temporary)) File.Delete(temporary);
             }
         }
 
-        internal static void Export(string path, IEnumerable<FootingDrawingProfile> profiles)
-        {
-            using (var stream = File.Create(path))
-                new XmlSerializer(typeof(FootingDrawingProfileFile)).Serialize(stream, new FootingDrawingProfileFile { Profiles = profiles.Where(x => x != null).ToList() });
-        }
+        internal static void Export(string path, IEnumerable<FootingDrawingProfile> profiles) =>
+            WriteProfiles(path, profiles);
 
-        internal static void Save(IEnumerable<FootingDrawingProfile> profiles)
-        {
-            string directory = Path.GetDirectoryName(FilePath);
-            Directory.CreateDirectory(directory);
-            string temporary = FilePath + ".tmp";
-            using (var stream = File.Create(temporary))
-                new XmlSerializer(typeof(FootingDrawingProfileFile)).Serialize(stream, new FootingDrawingProfileFile { Profiles = profiles.Where(x => x != null).ToList() });
-            if (File.Exists(FilePath)) File.Replace(temporary, FilePath, null);
-            else File.Move(temporary, FilePath);
-        }
+        internal static void Save(IEnumerable<FootingDrawingProfile> profiles) =>
+            WriteProfiles(FilePath, profiles);
     }
 }
 
