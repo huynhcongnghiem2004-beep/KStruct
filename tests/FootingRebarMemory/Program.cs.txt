@@ -59,6 +59,13 @@ internal static class Program
             Reject(()=>FootingRebarPreferenceStore.Save("X",FootingType.PileCap,new FootingRebarSession {Preference=preference},dir),"Wrong footing type must be rejected");
             Reject(()=>FootingRebarPreferenceStore.Deserialize(xml.Replace("<Version>1</Version>","<Version>99</Version>")),"Future versions must be rejected");
             Reject(()=>FootingRebarPreferenceStore.Deserialize("<broken>"),"Corrupt snapshots must be reported");
+            Reject(()=>new BarLayerSettings(true, 16, 150, hookLength:double.NaN), "NaN hook length must be rejected rather than silently reset");
+            Reject(()=>new BarLayerSettings(true, 16, 150, hookLength:double.PositiveInfinity), "Infinite hook length must be rejected");
+            Reject(()=>new BarLayerSettings(false, 16, 150, hookType:(HookTypeOption)99), "Unknown hook type must be rejected even when the layer is disabled");
+            Reject(()=>new SideTiesSettings(true, double.NaN, 200), "NaN side tie diameter must be rejected");
+            Reject(()=>new SideTiesSettings(true, 10, double.PositiveInfinity), "Infinite side tie spacing must be rejected");
+            Check(new BarLayerSettings(true,16,150,hookLength:200).HookLength==200 && new SideTiesSettings(true,10,200).Spacing==200,
+                "Valid existing inputs must keep their numeric values");
             preference.BottomX.HookLength=double.NaN;
             Reject(()=>FootingRebarPreferenceStore.Serialize(preference),"Non-finite saved dimensions must be rejected");
             Reject(()=>FootingRebarPreferenceStore.Deserialize("<!DOCTYPE x [<!ENTITY v SYSTEM 'file:///not-read'>]><FootingRebarPreference>&v;</FootingRebarPreference>"),"DTD/external entities must be rejected");
