@@ -109,12 +109,6 @@ namespace SDK_HD.KStruct.NativeRebar
             List<HookChoice> endHookChoices = GetHookChoices(hookTypes, options.TieType, options.TieShape, 1);
             AddHookRow(grid, 0, "HookType đầu đai (tùy chọn)", startHookChoices, options.TieStartHook, out ComboBox startHookCombo);
             AddHookRow(grid, 1, "HookType cuối đai (tùy chọn)", endHookChoices, options.TieEndHook, out ComboBox endHookCombo);
-            rows[0].Combo.SelectionChanged += (sender, args) =>
-            {
-                RebarShape selectedShape = Selected(rows[0]);
-                UpdateHookChoices(startHookCombo, GetHookChoices(hookTypes, options.TieType, selectedShape, 0), options.TieStartHook);
-                UpdateHookChoices(endHookCombo, GetHookChoices(hookTypes, options.TieType, selectedShape, 1), options.TieEndHook);
-            };
             var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = grid };
             root.Children.Add(scroll);
             for (int i = 0; i < rows.Count; i++)
@@ -147,6 +141,15 @@ namespace SDK_HD.KStruct.NativeRebar
                 Grid.SetColumn(row.Combo, 1);
                 grid.Children.Add(row.Combo);
             }
+
+            // Subscribe only after the shape ComboBox controls have been initialized.
+            // Previously rows[0].Combo was null here, causing NullReferenceException on dialog open.
+            rows[0].Combo.SelectionChanged += (sender, args) =>
+            {
+                RebarShape selectedShape = Selected(rows[0]);
+                UpdateHookChoices(startHookCombo, GetHookChoices(hookTypes, options.TieType, selectedShape, 0), options.TieStartHook);
+                UpdateHookChoices(endHookCombo, GetHookChoices(hookTypes, options.TieType, selectedShape, 1), options.TieEndHook);
+            };
 
             accept.Click += (sender, args) =>
             {
