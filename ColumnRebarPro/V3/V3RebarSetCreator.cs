@@ -193,6 +193,8 @@ namespace ColumnRebarPro.V3
         {
             var g = item.Geometry;
             var c = item.Config;
+            if (!c.GroupTies || c.TieLayout != V3TieLayout.MaximumSpacing)
+                throw new InvalidOperationException("Thép đai bắt buộc dùng Rebar Set Maximum Spacing.");
             double inset = V3Units.Ft(c.Cover + c.TieDiameter / 2);
             double tx = g.Width / 2 - inset, ty = g.Depth / 2 - inset;
             int level = 0;
@@ -210,8 +212,8 @@ namespace ColumnRebarPro.V3
                 {
                     Rebar outer = CreateOuter(doc, item, type, hook135, tx, ty, z);
                     ApplyBand(outer, band, length);
-                    V3RebarShapeFactory.ValidateLayout(outer,band.Count,length,XYZ.BasisZ,
-                        item.Column.Id,"đai bao");
+                    ValidateMaxSpacing(outer, length, band.MaximumSpacing, XYZ.BasisZ,
+                        item.Column.Id, "đai bao");
                     report.TieSets++;
                     report.Ties += outer.NumberOfBarPositions;
                 }
@@ -228,7 +230,7 @@ namespace ColumnRebarPro.V3
                 {
                     if (c.GroupTies && !c.CrossTiesAlternating)
                         CreateCrossLevel(doc, item, type, hook135, hook135, tx, ty, z,
-                            band.Count, length, false, report);
+                            band.Count, length, band.MaximumSpacing, false, report);
                     else if (c.GroupTies)
                     {
                         // Two interleaved sets preserve alternation along height, including zone boundaries.
@@ -239,7 +241,7 @@ namespace ColumnRebarPro.V3
                             double last = band.Position(parity + 2 * (count - 1));
                             CreateCrossLevel(doc, item, type, hook135, hook90, tx, ty,
                                 g.Bottom + V3Units.Ft(first), count, V3Units.Ft(last - first),
-                                (level + parity) % 2 == 1, report);
+                                band.MaximumSpacing * 2, (level + parity) % 2 == 1, report);
                         }
                     }
                     else
@@ -247,7 +249,7 @@ namespace ColumnRebarPro.V3
                             CreateCrossLevel(doc, item, type, hook135,
                                 c.CrossTiesAlternating ? hook90 : hook135, tx, ty,
                                 g.Bottom + V3Units.Ft(band.Position(i)), 1, 0,
-                                c.CrossTiesAlternating && (level + i) % 2 == 1, report);
+                                band.MaximumSpacing, c.CrossTiesAlternating && (level + i) % 2 == 1, report);
                 }
                 level += band.Count;
             }
@@ -255,24 +257,46 @@ namespace ColumnRebarPro.V3
 
         private static void ApplyBand(Rebar bar, V3TieBand band, double length)
         {
-            if (band.FixedNumber)
-            {
-                ApplyFixedNumber(bar, band.Count, length, "đai");
-                return;
-            }
+            if (band.FixedNumber || band.Count < 2)
+                throw new InvalidOperationException("Thép đai chỉ cho phép Maximum Spacing; Rebar Set cần ít nhất hai vị trí.");
             using (var accessor = bar.GetShapeDrivenAccessor())
                 accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(band.MaximumSpacing), length, true, true, true);
+            // Never silently switch to Fixed Number even if Revit returns a
+            // different number of placements from the preview/planner.
+        }
 
-            // Revit independently recalculates count for Maximum Spacing. This
-            // can disagree with the planner at a zone boundary or a rounding
-            // threshold. Keep Maximum Spacing when possible. Otherwise use the
-            // exact planned count, only if its actual spacing still meets the
-            // maximum required by the approved design.
-            if (V4TieSetPlacementPolicy.NeedsFixedNumber(
-                band.Count, bar.NumberOfBarPositions, band.End - band.Start, band.MaximumSpacing))
-                ApplyFixedNumber(bar, band.Count, length, "đai (hiệu chỉnh bố trí)");
-            // Caller verifies EVERY transform as well as the count. Any remaining
-            // mismatch throws and rolls back this column's whole SubTransaction.
+        private static void ValidateMaxSpacing(Rebar bar, double length,
+            double requestedMm, XYZ direction, ElementId columnId, string group)
+        {
+            var layout = bar.get_Parameter(BuiltInParameter.REBAR_ELEM_LAYOUT_RULE);
+            if (layout == null || layout.AsInteger() != (int)RebarLayoutRule.MaximumSpacing)
+                throw new InvalidOperationException("Cột " + columnId.Value + ": " + group +
+                    " không có Layout Rule = Maximum Spacing.");
+            int count = bar.NumberOfBarPositions;
+            if (count < 2 || count > 1002)
+                throw new InvalidOperationException("Cột " + columnId.Value +
+                    ": số vị trí Rebar Set " + group + " không hợp lệ.");
+            using (var accessor = bar.GetShapeDrivenAccessor())
+            {
+                XYZ first = accessor.GetBarPositionTransform(0).Origin;
+                XYZ last = accessor.GetBarPositionTransform(count - 1).Origin;
+                XYZ delta = last - first;
+                if (Math.Abs(delta.GetLength() - length) > V3Units.Ft(2) ||
+                    Math.Abs(Math.Abs(delta.Normalize().DotProduct(direction.Normalize())) - 1) > 1e-4)
+                    throw new InvalidOperationException("Cột " + columnId.Value +
+                        ": " + group + " sai chiều dài/hướng Rebar Set.");
+                double spacing = delta.GetLength() / (count - 1);
+                if (spacing > V3Units.Ft(requestedMm + .1))
+                    throw new InvalidOperationException("Cột " + columnId.Value +
+                        ": bước đai của " + group + " vượt Maximum Spacing thiết kế.");
+                for (int i = 1; i < count; i++)
+                {
+                    XYZ expected = first + delta * ((double)i / (count - 1));
+                    if (accessor.GetBarPositionTransform(i).Origin.DistanceTo(expected) > V3Units.Ft(2))
+                        throw new InvalidOperationException("Cột " + columnId.Value +
+                            ": " + group + " có vị trí đai không đúng khoảng cách.");
+                }
+            }
         }
 
         private static Rebar CreateOuter(Document doc, V3SegmentWork item,
@@ -295,7 +319,7 @@ namespace ColumnRebarPro.V3
 
         private static void CreateCrossLevel(Document doc, V3SegmentWork item,
             RebarBarType type, RebarHookType startHook, RebarHookType endHook,
-            double tx, double ty, double z, int count, double length, bool reverse,
+            double tx, double ty, double z, int count, double length, double spacingMm, bool reverse,
             V3BuildReport report)
         {
             var g = item.Geometry;
@@ -305,19 +329,19 @@ namespace ColumnRebarPro.V3
             {
                 double x = -(g.Width / 2 - inset) + (g.Width - 2 * inset) * i / (c.Cx - 1);
                 CreateCross(doc, item, type, startHook, endHook, g.At(x, -ty, z), g.At(x, ty, z),
-                    count, length, reverse, report);
+                    count, length, spacingMm, reverse, report);
             }
             for (int i = 1; i < c.Cy - 1; i++)
             {
                 double y = -(g.Depth / 2 - inset) + (g.Depth - 2 * inset) * i / (c.Cy - 1);
                 CreateCross(doc, item, type, startHook, endHook, g.At(-tx, y, z), g.At(tx, y, z),
-                    count, length, reverse, report);
+                    count, length, spacingMm, reverse, report);
             }
         }
 
         private static void CreateCross(Document doc, V3SegmentWork item,
             RebarBarType type, RebarHookType startHook, RebarHookType endHook,
-            XYZ a, XYZ b, int count, double length, bool reverse, V3BuildReport report)
+            XYZ a, XYZ b, int count, double length, double spacingMm, bool reverse, V3BuildReport report)
         {
             if (startHook == null || endHook == null)
                 throw new InvalidOperationException("Thiếu loại móc đai phụ theo cấu hình.");
@@ -346,12 +370,14 @@ namespace ColumnRebarPro.V3
             V3RebarBuilder.SetPartition(bar, item.Column.Id);
             if (count >= 2)
             {
-                ApplyFixedNumber(bar, count, length, "đai phụ");
-                V3RebarShapeFactory.ValidateLayout(bar,count,length,XYZ.BasisZ,
-                    item.Column.Id,"đai phụ/cross-tie");
+                using (var accessor = bar.GetShapeDrivenAccessor())
+                    accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(spacingMm), length,
+                        true, true, true);
+                ValidateMaxSpacing(bar, length, spacingMm, XYZ.BasisZ,
+                    item.Column.Id, "đai phụ/cross-tie");
                 report.CrossTieSets++;
             }
-            report.CrossTies += count;
+            report.CrossTies += count < 2 ? 1 : bar.NumberOfBarPositions;
         }
 
         private static void ApplyFixedNumber(Rebar rebar, int count, double length, string description)
