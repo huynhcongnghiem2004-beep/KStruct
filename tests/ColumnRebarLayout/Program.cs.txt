@@ -85,6 +85,12 @@ static class Program
             "Missing generated view blocks replacement");
         Check(!V4SheetOwnershipRules.Matches("C1", "C1", new string[0], new string[0]),
             "Empty sheet identity is not owned");
+        Check(V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8;102:9"),
+            "Unchanged view annotation ownership permits refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8,99;102:9"),
+            "User-added annotation must block destructive refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8", "101:7"),
+            "Removed annotation must block destructive refresh");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
