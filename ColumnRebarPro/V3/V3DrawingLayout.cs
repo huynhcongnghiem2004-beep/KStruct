@@ -71,7 +71,7 @@ namespace ColumnRebarPro.V3
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
-            V4SheetOwnership.Stamp(sheet, works);
+            V4SheetOwnership.Stamp(doc, sheet, works);
             result.Add(sheet.Id);return result;
         }
 
