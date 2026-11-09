@@ -443,7 +443,7 @@ namespace SDK_HD.KStruct.NativeRebar
                                     options.TopLayer3Count = originalCounts[4]; options.BottomLayer3Count = originalCounts[5];
                                 }
                                 if (tieCount <= 0) throw new InvalidOperationException("Không tạo được bộ thép mới; bộ KStruct cũ được giữ nguyên.");
-                                if (previousManagedBars.Count > 0) doc.Delete(previousManagedBars);
+                                if (previousManagedBars.Count > 0) DeleteManagedBarsSafely(doc, previousManagedBars);
                                 if (sub.Commit() != TransactionStatus.Committed)
                                     throw new InvalidOperationException("Revit không chấp nhận cốt thép dầm.");
                                 if (createRunBarsNow) continuousRunBarsCreated = true;
@@ -488,6 +488,24 @@ namespace SDK_HD.KStruct.NativeRebar
                 TaskDialog.Show("KStruct - Cốt thép dầm", ex.Message);
                 return Result.Failed;
             }
+        }
+
+        // This must be called inside the owning SubTransaction. Revit may cascade-delete
+        // tags, dimensions or other dependent elements when an existing Rebar is deleted.
+        // Throwing here rolls back the whole beam replacement, including the new bars.
+        private static void DeleteManagedBarsSafely(Document doc, IList<ElementId> managedBarIds)
+        {
+            if (doc == null) throw new ArgumentNullException(nameof(doc));
+            if (managedBarIds == null || managedBarIds.Count == 0) return;
+
+            var expected = new HashSet<ElementId>(managedBarIds);
+            ICollection<ElementId> deleted = doc.Delete(managedBarIds);
+            List<ElementId> unexpected = deleted.Where(id => !expected.Contains(id)).ToList();
+            if (unexpected.Count > 0)
+                throw new InvalidOperationException(
+                    "Không thể thay thép vì Revit sẽ xóa kèm " + unexpected.Count +
+                    " phần tử phụ thuộc (Tag/Dimension hoặc đối tượng khác). " +
+                    "Đã rollback dầm này để giữ nguyên hồ sơ.");
         }
 
         private static bool IsStructuralBeam(FamilyInstance beam) => beam.Category != null &&
@@ -613,7 +631,7 @@ namespace SDK_HD.KStruct.NativeRebar
                             try { tieCount = CreateBeamRebar(doc, beam, frame, options); }
                             finally { options.PreviewSupports = originalSupports; }
                             if (tieCount <= 0) throw new InvalidOperationException("Không tạo được bộ thép mới; bộ KStruct cũ được giữ nguyên.");
-                            if (previousManagedBars.Count > 0) doc.Delete(previousManagedBars);
+                            if (previousManagedBars.Count > 0) DeleteManagedBarsSafely(doc, previousManagedBars);
                             if (sub.Commit() != TransactionStatus.Committed)
                                 throw new InvalidOperationException("Revit không chấp nhận cốt thép dầm.");
                             completed++;
