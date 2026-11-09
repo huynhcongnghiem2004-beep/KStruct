@@ -16,6 +16,8 @@ Workflow `Repository checks` chạy khi push, mở/cập nhật pull request ho�
 
 Workflow `Revit 2024 build and preferences` chạy trên Windows, kiểm tra lưu lựa chọn/preset cũ và build toàn bộ add-in với compile references Revit 2024 được cố định phiên bản/checksum. Artifact gồm `KStruct.dll` và log build; workflow không chạy Revit hoặc tự cài DLL.
 
+Workflow `Gemini code and Revit 2024 build` chạy thủ công từ Actions. Nhập yêu cầu code; Gemini tạo thay đổi trên nhánh riêng, workflow build add-in, rồi mở pull request và đính kèm DLL/log nếu build thành công. Trước khi chạy lần đầu, thêm secret `GEMINI_API_KEY` tại Settings > Secrets and variables > Actions. PR do workflow tạo cần được review và thử trong Revit trước khi merge.
+
 Kiểm tra độc lập: `dotnet run --project tests/FootingPreferences/FootingPreferences.csproj --configuration Release`.
 
 Giao diện hồ sơ móng, chức năng nhớ lựa chọn và checklist kiểm tra Revit: [hướng dẫn](docs/FOUNDATION_DIALOG_IMPLEMENTATION.md). Build thành công chưa xác nhận hình học/đồ họa trong Revit; thử trên bản sao mô hình trước khi phát hành.
