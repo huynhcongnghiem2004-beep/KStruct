@@ -71,6 +71,10 @@ static class Program
         Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 1, 2, 99 }, "test"));
         Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { "bar-a" }, new[] { "bar-a", "tag-a" }, "test"));
         Check(true, "V4 deletion guard keeps exact planned IDs and detects cascade deletion");
+        Check(V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1 - DRAFT", "KSTR V3 MCN C1 - DRAFT" }), "V4 accepts unmodified KStruct-only sheet");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1", "User Detail View" }), "V4 never adopts mixed sheets");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCN C1" }), "V4 requires a longitudinal view");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new string[0]), "V4 never adopts empty sheets");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
