@@ -324,6 +324,7 @@ namespace ColumnRebarPro.V3
             MainStarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             StarterCheck.IsChecked = c.StarterBars;
             BottleneckRibbedCheck.IsChecked = c.BottleneckRibbed;
+            AllowExistingBendCheck.IsChecked = c.AllowExistingUndersizeBend;
             BottleneckClearanceBox.Text = c.BottleneckClearanceMm.ToString(CultureInfo.InvariantCulture);
             BottleneckSlopeBox.Text = c.BottleneckSlope.ToString(CultureInfo.InvariantCulture);
             StarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
@@ -380,6 +381,7 @@ namespace ColumnRebarPro.V3
                     c.BottleneckClearanceMm = ReadPositive(BottleneckClearanceBox, "Khe hở cổ chai", true);
                     c.BottleneckSlope = ReadPositive(BottleneckSlopeBox, "Tỷ lệ xiên 1:n");
                     c.BottleneckRibbed = BottleneckRibbedCheck.IsChecked == true;
+                    c.AllowExistingUndersizeBend = AllowExistingBendCheck.IsChecked == true;
                     StarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                     MainStarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                 }
