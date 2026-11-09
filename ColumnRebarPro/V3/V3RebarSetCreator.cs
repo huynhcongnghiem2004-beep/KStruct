@@ -185,7 +185,7 @@ namespace ColumnRebarPro.V3
             var c = item.Config;
             return V3TieLayoutPlan.Create(V3Units.Mm(item.Geometry.Height), c.Cover, c.TieDiameter,
                 c.EndZone, c.EndSpacing, c.MidSpacing, c.TieLayout == V3TieLayout.FixedNumber,
-                c.EndTieCount, c.MidTieCount, c.JointTies, c.JointBeamHeight, c.JointSpacing);
+                c.EndTieCount, c.MidTieCount, false, 0, 0);
         }
 
         internal static void CreateTies(Document doc, V3SegmentWork item,
@@ -197,7 +197,12 @@ namespace ColumnRebarPro.V3
             double tx = g.Width / 2 - inset, ty = g.Depth / 2 - inset;
             int level = 0;
             // No hard-coded RebarShape ID: Revit matches the project library using curves.
-            foreach (var band in TiePlan(item))
+            // Exclude every tie center located inside a proven beam/floor
+            // intersection with the column, splitting sets across joint gaps.
+            // A geometric intersection is required; no height-only assumptions.
+            var exclusions = V4TieJointExclusion.Find(doc, item);
+            var safeBands = V4TieBandExclusion.KeepOutside(TiePlan(item), exclusions);
+            foreach (var band in safeBands)
             {
                 double z = g.Bottom + V3Units.Ft(band.Start);
                 double length = V3Units.Ft(band.End - band.Start);
