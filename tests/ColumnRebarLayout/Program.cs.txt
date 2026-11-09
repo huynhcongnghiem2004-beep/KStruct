@@ -57,6 +57,37 @@ static class Program
         Check(!V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
             !V4ShapeCreationPolicy.CanCreate("đai bao") &&
             !V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"), "Never grow Shape library for other bar groups");
+        // Do not place ties inside beam/slab joint intervals. Split Rebar Sets
+        // at excluded positions, preserving spacing on each remaining run.
+        var jointSource = new[] { new V3TieBand {
+            Start=0, End=600, Count=7, MaximumSpacing=100, FixedNumber=false
+        }};
+        var split = V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(250.0,350.0) });
+        Check(split.Count==2 && split[0].Count==3 && split[1].Count==3 &&
+              split[0].End==200 && split[1].Start==400,
+            "Intersecting joint must remove tie at 300mm and split sets");
+        Check(V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(0.0,600.0) }).Count==0,
+            "Entirely intersected joint cannot create a tie");
+        Check(V4TieBandExclusion.KeepOutside(jointSource,
+            new Tuple<double,double>[0]).Single().Count==7,
+            "No intersection preserves all seven ties");
+        var typeA = new V3RebarConfig { TieStyle=V3TieStyle.Hook135, TieDiameter=8,
+            TieBarTypeUniqueId="D8a", TieHook135UniqueId="H135",
+            TieLayout=V3TieLayout.MaximumSpacing };
+        var typeB = new V3RebarConfig { TieStyle=V3TieStyle.ClosedLoop,
+            TieDiameter=8, TieBarTypeUniqueId="D8a", TieHook135UniqueId="" };
+        var typeC = new V3RebarConfig { TieStyle=V3TieStyle.ClosedLoop,
+            TieDiameter=10, TieBarTypeUniqueId="D10", TieHook135UniqueId="" };
+        V4StackTieSettings.Apply(typeA,new[]{typeA,typeB,typeC});
+        Check(typeB.TieStyle==V3TieStyle.Hook135 && typeB.TieHook135UniqueId=="H135",
+            "Tie style and Hook selected once apply to compatible floors");
+        Check(typeC.TieStyle==V3TieStyle.Hook135 && typeC.TieHook135UniqueId=="",
+            "All floors share tie style but differing bar types never inherit Hook");
+        Check(typeA.TieLayout==V3TieLayout.MaximumSpacing &&
+              typeB.TieLayout==V3TieLayout.MaximumSpacing,
+            "All floors use Maximum Spacing");
         var bands = Plan();
         var zs = Positions(bands);
         Check(bands.Count == 3, "Three bands");
