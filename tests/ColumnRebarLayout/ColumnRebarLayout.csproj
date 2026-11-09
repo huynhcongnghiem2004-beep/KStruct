@@ -18,6 +18,8 @@
     <Compile Include="../../ColumnRebarPro/V3/V3ConnectionAdapter.cs" Link="V3ConnectionAdapter.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3ProfileGeometry.cs" Link="V3ProfileGeometry.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4AnchorGeometry.cs" Link="V4AnchorGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4TieBandExclusion.cs" Link="V4TieBandExclusion.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4StackTieSettings.cs" Link="V4StackTieSettings.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4ShapeCreationPolicy.cs" Link="V4ShapeCreationPolicy.cs" />
     <Compile Include="PairingTests.cs.txt" />
     <Compile Include="HookTests.cs.txt" />
