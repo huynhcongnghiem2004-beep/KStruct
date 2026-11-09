@@ -54,9 +54,14 @@ static class Program
             new[] { P(0,0,0), P(0,0,1000), P(100,0,1500) }, P(0,1,0.1)));
         Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(double.NaN,0,1000) }));
         Check(V4ShapeCreationPolicy.CanCreate("thanh neo/chuyển tiếp"), "Only anchor paths can create a new Shape");
-        Check(!V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
-            !V4ShapeCreationPolicy.CanCreate("đai bao") &&
-            !V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"), "Never grow Shape library for other bar groups");
+        Check(V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
+            V4ShapeCreationPolicy.CanCreate("đai bao") &&
+            V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"),
+            "Generate missing project Shapes for all supported column bar groups");
+        Check(!V4ShapeCreationPolicy.CanCreate(null) &&
+            !V4ShapeCreationPolicy.CanCreate("unknown") &&
+            !V4ShapeCreationPolicy.CanCreate("foundation"),
+            "Do not generate Shapes for unrelated or unknown commands");
         // No auto-generated RebarBarType allowed for bottleneck bends.
         V4ExistingBarTypePolicy.RequireAdequateBend("D20",120,120);
         V4ExistingBarTypePolicy.RequireAdequateBend("D20",150,120);
