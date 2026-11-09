@@ -21,6 +21,7 @@
     <Compile Include="../../ColumnRebarPro/V3/V4TieBandExclusion.cs" Link="V4TieBandExclusion.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4StackTieSettings.cs" Link="V4StackTieSettings.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4ShapeCreationPolicy.cs" Link="V4ShapeCreationPolicy.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ExistingBarTypePolicy.cs" Link="V4ExistingBarTypePolicy.cs" />
     <Compile Include="PairingTests.cs.txt" />
     <Compile Include="HookTests.cs.txt" />
     <Compile Include="../../ColumnRebarPro/V3/V3HookSelection.cs" Link="V3HookSelection.cs" />
