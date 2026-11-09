@@ -111,9 +111,10 @@ namespace ColumnRebarPro.V3
                 XYZ secondAxis=normal.CrossProduct(firstDirection).Normalize();
                 V3RebarShapeFactory.GetBox(roundedEnvelope,firstDirection,secondAxis,type.BarNominalDiameter,
                     out XYZ boxOrigin,out XYZ xVector,out XYZ yVector);
-                var shapeCurves = rounded.Select(curve => curve.Arc
-                    ? (Curve)Arc.Create(ModelPoint(curve.Start), ModelPoint(curve.End), ModelPoint(curve.Mid))
-                    : Line.CreateBound(ModelPoint(curve.Start), ModelPoint(curve.End))).ToList();
+                // Revit CreateFromCurves expects the unrounded design legs.
+                // Revit calculates bends from RebarBarType; the rounded envelope
+                // below remains the independent geometric acceptance check.
+                IList<Curve> shapeCurves = V4AutomaticRebar.Lines(target.ToArray());
                 Rebar bar = V4AutomaticRebar.Create(doc, RebarStyle.Standard, type,
                     item.FoundationHost ?? (Element)item.Column, normal, shapeCurves,
                     null, null, item.Column.Id, "thanh neo/chuyển tiếp");
