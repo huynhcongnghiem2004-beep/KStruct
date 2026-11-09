@@ -17,6 +17,8 @@
     <Compile Include="../../ColumnRebarPro/V3/V3ColumnPairing.cs" Link="V3ColumnPairing.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3ConnectionAdapter.cs" Link="V3ConnectionAdapter.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3ProfileGeometry.cs" Link="V3ProfileGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4AnchorGeometry.cs" Link="V4AnchorGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ShapeCreationPolicy.cs" Link="V4ShapeCreationPolicy.cs" />
     <Compile Include="PairingTests.cs.txt" />
     <Compile Include="HookTests.cs.txt" />
     <Compile Include="../../ColumnRebarPro/V3/V3HookSelection.cs" Link="V3HookSelection.cs" />
