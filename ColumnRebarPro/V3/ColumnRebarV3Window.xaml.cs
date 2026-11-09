@@ -227,15 +227,33 @@ namespace ColumnRebarPro.V3
 
         private static void LoadShapeBox(ComboBox box, IEnumerable<V3RebarShapeChoice> shapes, string selected)
         {
+            var available = shapes.ToList();
+            string chosenId = V4ShapeAutoSelection.Choose(selected,
+                available.Select(choice => choice.UniqueId));
             var choices = new List<V3RebarShapeChoice> {
-                new V3RebarShapeChoice { UniqueId = "", Label = "— Chọn Rebar Shape có sẵn —" }
+                new V3RebarShapeChoice { UniqueId = "",
+                    Label = available.Count == 0 ? "— Không có Shape phù hợp trong project —" :
+                        available.Count == 1 ? "— Chọn Shape có sẵn —" :
+                        "— Có " + available.Count + " Shape phù hợp; hãy chọn rõ —" }
             };
-            choices.AddRange(shapes);
-            if (!string.IsNullOrEmpty(selected) && !choices.Any(s => s.UniqueId == selected))
+            choices.AddRange(available);
+            bool stale = !string.IsNullOrWhiteSpace(selected) && chosenId == null;
+            if (stale)
                 choices.Add(new V3RebarShapeChoice { UniqueId = selected,
                     Label = "Shape đã lưu không còn phù hợp — chọn lại" });
             box.ItemsSource = choices;
-            box.SelectedItem = choices.FirstOrDefault(s => s.UniqueId == (selected ?? "")) ?? choices[0];
+            // Never auto-select when the saved identity is stale: silently replacing the
+            // existing shape can change the approved reinforcement geometry.
+            box.SelectedItem = stale
+                ? choices.Last()
+                : choices.FirstOrDefault(choice => choice.UniqueId == chosenId) ?? choices[0];
+            box.ToolTip = stale
+                ? "Shape đã lưu không còn phù hợp với loại thép/kiểu đai hiện tại."
+                : available.Count == 0
+                    ? "Không tìm được Shape đáp ứng đồng thời kiểu thanh, số đoạn, Hook và RebarBarType."
+                    : available.Count > 1 && chosenId == null
+                        ? "Có nhiều Shape hợp lệ trong project. Phải chọn một Shape rõ ràng."
+                        : "Dùng RebarShape có sẵn trong project, không tạo Shape mới.";
         }
 
         private void LoadActive()
