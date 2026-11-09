@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
   <ItemGroup>
     <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4TieSetPlacementPolicy.cs" Link="V4TieSetPlacementPolicy.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3RebarOwnership.cs" Link="V3RebarOwnership.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4DeletionGuard.cs" Link="V4DeletionGuard.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4SheetUpdateGuard.cs" Link="V4SheetUpdateGuard.cs" />
