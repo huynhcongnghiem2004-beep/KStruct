@@ -178,14 +178,31 @@ namespace ColumnRebarPro.V3
         }
         private void LoadHookBox(ComboBox box,string selected,double degrees)
         {
-            var hooks = V3ProjectRebar.Hooks(_document, SelectedTieBarType());
-            var choices=new List<V3HookChoice> {new V3HookChoice {Id="",Label="Tự chọn nếu chỉ có một loại phù hợp"}};
-            choices.AddRange(hooks.Where(h=>h.TieStyle && h.Allowed &&
-                Math.Abs(h.Angle-degrees*Math.PI/180)<1e-6));
-            if(!string.IsNullOrEmpty(selected) && !choices.Any(h=>h.Id==selected))
+            var type = SelectedTieBarType();
+            var hooks = V3ProjectRebar.Hooks(_document, type);
+            var compatible = hooks.Where(h => h.TieStyle && h.Allowed &&
+                Math.Abs(h.Angle-degrees*Math.PI/180)<1e-6).ToList();
+            var choices=new List<V3HookChoice> {new V3HookChoice {Id="",Label="Tự nhận Hook từ thép đai mẫu trong project"}};
+            choices.AddRange(compatible);
+            bool stale = !string.IsNullOrEmpty(selected) && !compatible.Any(h=>h.Id==selected);
+            if(stale)
                 choices.Add(new V3HookChoice {Id=selected,Label="Móc đã lưu không còn hợp lệ — chọn lại"});
+
+            string suggested = !string.IsNullOrEmpty(selected) ? selected :
+                compatible.Count == 1 ? compatible[0].Id :
+                type == null ? null :
+                V3ProjectRebar.SuggestHook(_document, type, degrees,
+                    ActiveRow?.Segment?.Id);
+
             box.ItemsSource=choices;
-            box.SelectedItem=choices.FirstOrDefault(h=>h.Id==(selected??"")) ?? choices[0];
+            box.SelectedItem=choices.FirstOrDefault(h=>h.Id==suggested) ?? choices[0];
+            box.ToolTip = stale
+                ? "Hook đã lưu không phù hợp; hãy xác nhận lại."
+                : compatible.Count > 1 && string.IsNullOrEmpty(suggested)
+                    ? "Có nhiều Hook khác nhau và chưa có mẫu thống nhất. Hãy chọn đúng Hook theo thiết kế."
+                    : string.IsNullOrEmpty(suggested)
+                        ? "Không có Hook phù hợp trong project."
+                        : "Đã xác định Hook từ cấu hình/mẫu Rebar hợp lệ của project.";
         }
 
         private Autodesk.Revit.DB.Structure.RebarBarType SelectedBarType(ComboBox diameterBox)
