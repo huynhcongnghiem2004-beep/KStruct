@@ -244,10 +244,24 @@ namespace ColumnRebarPro.V3
 
         private static void ApplyBand(Rebar bar, V3TieBand band, double length)
         {
-            if (band.FixedNumber) ApplyFixedNumber(bar, band.Count, length, "đai");
-            else
-                using (var accessor = bar.GetShapeDrivenAccessor())
-                    accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(band.MaximumSpacing), length, true, true, true);
+            if (band.FixedNumber)
+            {
+                ApplyFixedNumber(bar, band.Count, length, "đai");
+                return;
+            }
+            using (var accessor = bar.GetShapeDrivenAccessor())
+                accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(band.MaximumSpacing), length, true, true, true);
+
+            // Revit independently recalculates count for Maximum Spacing. This
+            // can disagree with the planner at a zone boundary or a rounding
+            // threshold. Keep Maximum Spacing when possible. Otherwise use the
+            // exact planned count, only if its actual spacing still meets the
+            // maximum required by the approved design.
+            if (V4TieSetPlacementPolicy.NeedsFixedNumber(
+                band.Count, bar.NumberOfBarPositions, band.End - band.Start, band.MaximumSpacing))
+                ApplyFixedNumber(bar, band.Count, length, "đai (hiệu chỉnh bố trí)");
+            // Caller verifies EVERY transform as well as the count. Any remaining
+            // mismatch throws and rolls back this column's whole SubTransaction.
         }
 
         private static Rebar CreateOuter(Document doc, V3SegmentWork item,
