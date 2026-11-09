@@ -41,6 +41,27 @@ jobs:
         run: |
           dotnet build KStruct.csproj --configuration Release "/p:RevitInstallDir=$env:REVIT_REFERENCE_DIR" -bl:revit2024-build.binlog 2>&1 | Tee-Object -FilePath revit2024-build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify Release DLL metadata and checksum
+        shell: pwsh
+        run: |
+          $assemblyFile = Join-Path $PWD 'bin/Release/KStruct.dll'
+          if (-not (Test-Path -LiteralPath $assemblyFile -PathType Leaf)) { throw "Missing built assembly: $assemblyFile" }
+          $assembly = [System.Reflection.AssemblyName]::GetAssemblyName($assemblyFile)
+          if ($assembly.Name -ne 'KStruct') { throw "Unexpected assembly name: $($assembly.Name)" }
+          if ($assembly.ProcessorArchitecture -ne [System.Reflection.ProcessorArchitecture]::Amd64) {
+            throw "Expected x64 assembly, found $($assembly.ProcessorArchitecture)"
+          }
+          $hash = (Get-FileHash -LiteralPath $assemblyFile -Algorithm SHA256).Hash
+          $size = (Get-Item -LiteralPath $assemblyFile).Length
+          if ($size -lt 1024) { throw "Assembly unexpectedly small: $size bytes" }
+          @(
+            "Assembly: $($assembly.Name)",
+            "Version: $($assembly.Version)",
+            "Architecture: $($assembly.ProcessorArchitecture)",
+            "SizeBytes: $size",
+            "SHA256: $hash",
+            "Commit: $env:GITHUB_SHA"
+          ) | Set-Content -Path revit2024-artifact-metadata.txt -Encoding utf8
       - name: Render real WPF create and update dialogs
         shell: pwsh
         run: |
@@ -66,6 +87,7 @@ jobs:
           path: |
             revit2024-build.log
             revit2024-build.binlog
+            revit2024-artifact-metadata.txt
       - name: Upload add-in (Revit runtime validation still required)
         uses: actions/upload-artifact@v4
         with:
