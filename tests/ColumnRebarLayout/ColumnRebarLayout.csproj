@@ -3,6 +3,8 @@
   <ItemGroup>
     <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3RebarOwnership.cs" Link="V3RebarOwnership.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4DeletionGuard.cs" Link="V4DeletionGuard.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4SheetUpdateGuard.cs" Link="V4SheetUpdateGuard.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3AnchorLayoutPlan.cs" Link="V3AnchorLayoutPlan.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3RebarConfig.cs" Link="V3RebarConfig.cs" />
     <Compile Include="AnchorTests.cs.txt" />

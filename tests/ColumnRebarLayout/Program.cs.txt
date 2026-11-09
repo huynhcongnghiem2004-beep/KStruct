@@ -67,6 +67,14 @@ static class Program
         Check(V3RebarOwnership.Matches(42,"KSTR_V3_42"), "Recognize legacy V3 partition, regardless of column/foundation host");
         foreach (string partition in new[]{null,"","KSTR_V3_420","KSTR_V3_41","kstr_v3_42","Manual"," KSTR_V3_42"})
             Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
+        V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 2, 1 }, "test");
+        Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 1, 2, 99 }, "test"));
+        Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { "bar-a" }, new[] { "bar-a", "tag-a" }, "test"));
+        Check(true, "V4 deletion guard keeps exact planned IDs and detects cascade deletion");
+        Check(V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1 - DRAFT", "KSTR V3 MCN C1 - DRAFT" }), "V4 accepts unmodified KStruct-only sheet");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1", "User Detail View" }), "V4 never adopts mixed sheets");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCN C1" }), "V4 requires a longitudinal view");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new string[0]), "V4 never adopts empty sheets");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();

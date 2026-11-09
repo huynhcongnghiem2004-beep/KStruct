@@ -109,7 +109,14 @@ namespace ColumnRebarPro.V3
                         var existing = ExistingRebar(doc, work.Column.Id);
                         if (existing.Count > 0 && !replaceOld)
                             throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
-                        if (replaceOld && existing.Count > 0) doc.Delete(existing);
+                        if (replaceOld && existing.Count > 0)
+                        {
+                            // Revit Document.Delete can cascade to hosted tags and dimensions.
+                            // Fail inside this SubTransaction so both old and new bars are restored.
+                            var deletedIds = doc.Delete(existing);
+                            V4DeletionGuard.EnsureOnlyExpected(existing, deletedIds,
+                                "thay thép cột " + work.Column.Id.Value);
+                        }
 
                         if (work.FoundationHost != null || work.BottleneckToUpper)
                             V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);

@@ -107,7 +107,7 @@ namespace ColumnRebarPro.V3
             DeploymentHost.Children.Add(deployment);
             if (document != null) deployment.Initialize(document);
             RoutedEventHandler updateCaption = (sender, args) =>
-                RunButton.Content = deployment.IsDeploymentEnabled ? "Tạo thép và bản vẽ" : "Tạo thép 3D";
+                RunButton.Content = deployment.IsDeploymentEnabled ? "Kiểm tra & tạo thép + bản vẽ" : "Kiểm tra & tạo thép 3D";
             deployment.AddHandler(CheckBox.CheckedEvent, updateCaption);
             deployment.AddHandler(CheckBox.UncheckedEvent, updateCaption);
             updateCaption(null, null);

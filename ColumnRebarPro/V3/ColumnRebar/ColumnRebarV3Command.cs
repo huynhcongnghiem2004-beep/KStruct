@@ -142,17 +142,26 @@ namespace ColumnRebarPro.V3
                 if (jobs.Count == 0)
                     throw new InvalidOperationException("Không còn tuyến cột hợp lệ để tạo thép.\n" + string.Join("\n", failures));
 
+                // V4 preflight summary: no document modification has happened yet.
                 var allWorks = jobs.SelectMany(x => x.Works).ToList();
+                int drawingsRequested = jobs.Count(job => job.Drawings.Enabled);
+                int replacementJobs = jobs.Count(job => job.ReplaceOld);
+                string previewSummary =
+                    "Tuyến cột hợp lệ: " + jobs.Count + "\n" +
+                    "Tổng số đoạn cột: " + allWorks.Count + "\n" +
+                    "Tuyến có triển khai bản vẽ: " + drawingsRequested + "\n" +
+                    "Tuyến bật thay thép V3 cũ: " + replacementJobs + "\n" +
+                    "Tuyến bị bỏ qua trong kiểm tra: " + failures.Count + "\n\n" +
+                    "KStruct V4 sẽ rollback tuyến nếu Revit xóa kèm phần tử ngoài bộ thép cũ.\n" +
+                    "Thao tác tạo bản vẽ sử dụng cấu hình hồ sơ của project.";
                 if (allWorks.Any(w => w.Config.StarterBars))
-                {
-                    var confirm = TaskDialog.Show("KStruct - Thép chờ theo thiết kế",
-                        "KStruct sẽ tạo thép chờ theo đúng chiều dài đã nhập từ hồ sơ thiết kế. " +
-                        "Không tự tính nối chồng hoặc cấu tạo chuyển tiếp tiết diện.\n\n" +
-                        "Tạo Rebar 3D dạng DRAFT cho " + jobs.Count + " tuyến cột?",
-                        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-
-                    if (confirm != TaskDialogResult.Yes) return Result.Cancelled;
-                }
+                    previewSummary += "\n\nThép chờ lấy theo đúng chiều dài thiết kế đã nhập; " +
+                        "chưa tự tính nối chồng hoặc chuyển tiếp tiết diện.";
+                var confirmation = TaskDialog.Show("KStruct V4 - Kiểm tra trước khi tạo",
+                    previewSummary + "\n\nTiếp tục tạo Rebar 3D" +
+                    (drawingsRequested > 0 ? " và hồ sơ bản vẽ" : "") + "?",
+                    TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                if (confirmation != TaskDialogResult.Yes) return Result.Cancelled;
 
                 var reports = new List<V3BuildReport>();
                 int sheetCount = 0;
