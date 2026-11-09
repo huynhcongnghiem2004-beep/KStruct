@@ -103,9 +103,11 @@ namespace ColumnRebarPro.V3
                             throw new InvalidOperationException("Không tìm thấy loại thép đúng đường kính cho cột " + work.Column.Id.Value);
 
                         RebarHookType hook135=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook135UniqueId,135,
-                            work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                            work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies,
+                            work.Column.Id);
                         RebarHookType hook90=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook90UniqueId,90,
-                            work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                            work.Config.CrossTies && work.Config.CrossTiesAlternating,
+                            work.Column.Id);
                         var existing = ExistingRebar(doc, work.Column.Id);
                         if (existing.Count > 0 && !replaceOld)
                             throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
@@ -148,20 +150,16 @@ namespace ColumnRebarPro.V3
                 var type=FindBarType(types,work.Config.TieDiameter);
                 if(type==null)throw new InvalidOperationException("Không tìm thấy loại thép đai D"+work.Config.TieDiameter+" trong project.");
                 var mainType=FindBarType(types,work.Config.MainDiameter);
-                V3RebarShapeFactory.Resolve(doc,work.Config.LongitudinalShapeUniqueId,
-                    V3RebarShapeGroup.Longitudinal,work.Config.TieStyle,false,mainType,work.Column.Id);
-                if(work.FoundationHost!=null || work.BottleneckToUpper)
-                    V3RebarShapeFactory.Resolve(doc,work.Config.AnchorShapeUniqueId,
-                        V3RebarShapeGroup.Anchor,work.Config.TieStyle,false,mainType,work.Column.Id);
-                V3RebarShapeFactory.Resolve(doc,work.Config.OuterTieShapeUniqueId,
-                    V3RebarShapeGroup.OuterTie,work.Config.TieStyle,false,type,work.Column.Id);
-                if(work.Config.CrossTies)
-                    V3RebarShapeFactory.Resolve(doc,work.Config.CrossTieShapeUniqueId,
-                        V3RebarShapeGroup.CrossTie,work.Config.TieStyle,work.Config.CrossTiesAlternating,type,work.Column.Id);
+                // V4 finds existing project Shapes from the design curves at creation.
+                // No manual RebarShape selection is required at preflight.
+                if (mainType == null)
+                    throw new InvalidOperationException("Không tìm thấy loại thép dọc đúng đường kính cho cột " + work.Column.Id.Value);
                 RebarHookType hook135=V3ProjectRebar.Hook(doc,type,work.Config.TieHook135UniqueId,135,
-                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies,
+                    work.Column.Id);
                 RebarHookType hook90=V3ProjectRebar.Hook(doc,type,work.Config.TieHook90UniqueId,90,
-                    work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                    work.Config.CrossTies && work.Config.CrossTiesAlternating,
+                    work.Column.Id);
                 if(work.Config.TieStyle==V3TieStyle.Hook135 && hook135==null)
                     throw new InvalidOperationException("Chưa chọn Hook 135° có sẵn cho cột "+work.Column.Id.Value+".");
                 if(work.Config.TieStyle==V3TieStyle.Hook135 && !type.GetHookPermission(hook135.Id))
@@ -214,8 +212,7 @@ namespace ColumnRebarPro.V3
             List<XYZ> barPoints = MainBarCenters(work);
             double zMin = geo.Bottom + V3Units.Ft(cfg.Cover + cfg.MainDiameter / 2);
             double zMax = geo.Top - V3Units.Ft(cfg.Cover + cfg.MainDiameter / 2);
-            RebarShape shape = V3RebarShapeFactory.Resolve(doc, cfg.LongitudinalShapeUniqueId,
-                V3RebarShapeGroup.Longitudinal, cfg.TieStyle, false, barType, work.Column.Id);
+            // The RebarShape is matched automatically against existing project Shapes.
             for (int i = 0; i < barPoints.Count; i++)
             {
                 XYZ basePt = barPoints[i];
@@ -225,8 +222,9 @@ namespace ColumnRebarPro.V3
                 XYZ widthAxis=geo.X;
                 XYZ xVector=XYZ.BasisZ*(topZ-p0.Z);
                 XYZ yVector=widthAxis*barType.BarNominalDiameter;
-                Rebar rebar = V3RebarShapeFactory.Create(doc, shape, barType, work.Column, p0,
-                    xVector, yVector, work.Column.Id, "thanh dọc");
+                Rebar rebar = V4AutomaticRebar.Create(doc, RebarStyle.Standard, barType,
+                    work.Column, geo.X, V4AutomaticRebar.Lines(p0, p1),
+                    null, null, work.Column.Id, "thanh dọc");
                 V3RebarShapeFactory.ValidateEnvelope(rebar, new[] { p0, p1 }, V3Units.Ft(2),
                     work.Column.Id, "thanh dọc");
                 SetPartition(rebar, work.Column.Id);

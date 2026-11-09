@@ -17,6 +17,25 @@ static class HookTests
         Check(V3HookSelection.Resolve(hooks,"",135,true).Id=="tie","Use API style, not the misleading hook name");
         hooks.Add(Hook("seismic"));hooks.Add(Hook("other",135,false));hooks.Add(Hook("blocked",135,true,false));hooks.Add(Hook("90",90));
         Reject(()=>V3HookSelection.Resolve(hooks,"",135,true),"Chọn một loại");
+        Check(V3HookSelection.Resolve(hooks,"",135,true,
+            new[]{"tie","tie"},new[]{"seismic"}).Id=="tie",
+            "Prefer a single Hook used by the selected column's Rebar");
+        Check(V3HookSelection.Resolve(hooks,"",135,true,
+            new string[0],new[]{"seismic","seismic"}).Id=="seismic",
+            "Infer the Hook from a consistent reference Rebar set elsewhere in project");
+        Check(V3HookSelection.Resolve(hooks,"",135,true,
+            new[]{"standard","blocked","tie"},new[]{"seismic"}).Id=="tie",
+            "Ignore non-StirrupTie and disallowed reference Hooks");
+        Reject(()=>V3HookSelection.Resolve(hooks,"",135,true,
+            new[]{"tie","seismic"},new[]{"seismic"}),"Chọn một loại");
+        Reject(()=>V3HookSelection.Resolve(hooks,"",135,true,
+            new string[0],new[]{"tie","seismic"}),"Chọn một loại");
+        Check(V3HookSelection.Resolve(hooks,"seismic",135,true,
+            new[]{"tie"},new[]{"tie"}).Id=="seismic",
+            "Explicit user-selected Hook must take priority over project samples");
+        Check(V3HookSelection.Resolve(hooks,"",90,true,
+            new string[0],new[]{"90","90"}).Id=="90",
+            "90 degree Hook samples use their own angle filter");
         Check(V3HookSelection.Resolve(hooks,"seismic",135,true).Id=="seismic","Explicit selection works with six loaded hook types");
         Check(V3HookSelection.Resolve(hooks,"90",90,true).Id=="90","90 degree hook has independent selection");
         foreach(var id in new[]{"standard","blocked","90","deleted"})

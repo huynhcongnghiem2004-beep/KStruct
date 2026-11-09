@@ -128,12 +128,12 @@
                                     <Grid Margin="0,9,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="107"/></Grid.ColumnDefinitions>
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Đường kính cốt đai chính"/><ComboBox Grid.Column="1" x:Name="TieBarBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                                     </Grid>
-                                    <TextBlock Margin="0,7,0,2" FontWeight="SemiBold" Text="Rebar Shape có sẵn"/>
-                                    <TextBlock Text="Chọn Shape riêng theo nhóm; lệnh không tạo Shape mới và sẽ dừng nếu Shape không khớp hình học." TextWrapping="Wrap" Foreground="#FF315889" Margin="0,0,0,3"/>
-                                    <TextBlock Style="{StaticResource FormLabel}" Text="Thanh dọc thẳng"/>
-                                    <ComboBox x:Name="LongitudinalShapeBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
-                                    <TextBlock Style="{StaticResource FormLabel}" Text="Thanh neo / chuyển tiếp"/>
-                                    <ComboBox x:Name="AnchorShapeBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
+                                    <TextBlock Margin="0,7,0,2" FontWeight="SemiBold" Text="Tự nhận diện hình thép từ project"/>
+                                    <TextBlock Text="KStruct dùng hình học thiết kế để Revit tự khớp RebarShape hiện có. Không phải chọn Shape; không tự tạo Shape mới." TextWrapping="Wrap" Foreground="#FF315889" Margin="0,0,0,3"/>
+                                    <TextBlock Style="{StaticResource FormLabel}" Text="Thanh dọc thẳng" Visibility="Collapsed"/>
+                                    <ComboBox Visibility="Collapsed" x:Name="LongitudinalShapeBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
+                                    <TextBlock Style="{StaticResource FormLabel}" Text="Thanh neo / chuyển tiếp" Visibility="Collapsed"/>
+                                    <ComboBox Visibility="Collapsed" x:Name="AnchorShapeBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                                     <CheckBox x:Name="GroupLongCheck" Margin="0,7,0,3" Content="Nhóm thép dọc (Fixed Number)" ToolTip="Tạo Fixed Number cho thanh thẳng và neo chân L theo cạnh; cạnh có 1 thanh dùng Single." Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                                     <CheckBox x:Name="GroupTiesCheck" Margin="0,3,0,3" Content="Nhóm thép đai (Rebar Set)" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                                     <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,6,0,6"/>
@@ -254,11 +254,11 @@
             <TabItem Header="Thép đai">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20" Width="600" HorizontalAlignment="Left">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Hiệu chỉnh thép đai theo vùng" Margin="0,0,0,12"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="#FF315889" Margin="0,0,0,8" Text="Chỉ dùng Rebar Shape và Rebar Hook có sẵn. Tự chọn móc khi chỉ có một loại phù hợp; có nhiều loại thì chọn bên dưới."/>
-                    <TextBlock Style="{StaticResource FormLabel}" Text="Đai bao (Hook135: Shape có móc 135°; vòng kín: không móc)"/>
-                    <ComboBox x:Name="OuterTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
-                    <TextBlock Style="{StaticResource FormLabel}" Text="Đai phụ / cross-tie (Shape móc 90°/135° theo cấu hình)"/>
-                    <ComboBox x:Name="CrossTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#FF315889" Margin="0,0,0,8" Text="Shape thép đai được Revit tự tìm từ hình học và thư viện project. Hook 135°/90° vẫn dùng loại có sẵn; nếu có nhiều Hook tương thích thì chọn loại bên dưới."/>
+                    <TextBlock Style="{StaticResource FormLabel}" Text="Đai bao (Shape tự động)" Visibility="Collapsed"/>
+                    <ComboBox Visibility="Collapsed" x:Name="OuterTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
+                    <TextBlock Style="{StaticResource FormLabel}" Text="Đai phụ / cross-tie" Visibility="Collapsed"/>
+                    <ComboBox Visibility="Collapsed" x:Name="CrossTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai 135°"/><ComboBox x:Name="TieHook135Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai phụ 90°"/><ComboBox x:Name="TieHook90Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Chiều dài vùng đai đầu cột mỗi đầu (mm)"/><TextBox x:Name="ZoneBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
@@ -275,7 +275,7 @@
                     <CheckBox x:Name="JointTiesCheck" Margin="0,8,0,5" Content="Đai nút phía trên đỉnh cột (trong đoạn thép chờ)" ToolTip="Chiều cao nút do người dùng nhập; không tự phát hiện dầm/sàn. Cần thép chờ đủ dài." Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="20,2,0,4"><TextBlock Width="265" VerticalAlignment="Center" Text="Chiều cao nút dầm sàn (mm)"/><TextBox x:Name="JointHeightBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="20,2,0,8"><TextBlock Width="265" VerticalAlignment="Center" Text="Bước đai trong nút dầm (mm)"/><TextBox x:Name="JointStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#FF9C3D26" Margin="0,8,0,0" Text="Đai móc phải có Rebar Hook Type 135° và Rebar Shape phù hợp trong Project. Đai phụ có thể bị Revit từ chối nếu hình dạng không hợp lệ."/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#FF9C3D26" Margin="0,8,0,0" Text="Revit tự khớp Shape có sẵn; nếu project không có hình tương ứng với đường thanh + Hook đã chọn, KStruct sẽ báo lỗi và rollback tuyến, không tạo Shape mới."/>
                 </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Triển khai"><Grid x:Name="DeploymentHost" Background="White"/></TabItem>
