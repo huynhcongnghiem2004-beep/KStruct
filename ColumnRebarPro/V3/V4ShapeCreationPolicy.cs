@@ -1,12 +1,19 @@
 using System;
+using System.Collections.Generic;
 
 namespace ColumnRebarPro.V3
 {
-    // Explicit opt-in policy: only designed anchor or transition paths may add
-    // a new project Shape. Never add new shapes for straight bars or stirrups.
+    // An explicit allowlist prevents unrelated commands from creating project
+    // RebarShapes. It does not permit cloning/changing any RebarBarType.
     internal static class V4ShapeCreationPolicy
     {
-        internal static bool CanCreate(string group) =>
-            string.Equals(group, "thanh neo/chuyển tiếp", StringComparison.Ordinal);
+        private static readonly HashSet<string> Groups = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "thanh dọc",
+            "thanh neo/chuyển tiếp",
+            "đai bao",
+            "đai phụ/cross-tie"
+        };
+        internal static bool CanCreate(string group) => group != null && Groups.Contains(group);
     }
 }
