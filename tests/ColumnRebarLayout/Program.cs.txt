@@ -98,6 +98,12 @@ static class Program
         }));
         Reject(() => V4SheetLayoutGuard.Validate(printable,
             new[] { new V4SheetLayoutGuard.Rect(double.NaN, 0, 10, 10) }));
+        Check(V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8;102:9"),
+            "Unchanged view annotation ownership permits refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8,99;102:9"),
+            "User-added annotation must block destructive refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8", "101:7"),
+            "Removed annotation must block destructive refresh");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
