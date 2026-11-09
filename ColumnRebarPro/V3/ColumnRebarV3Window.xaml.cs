@@ -319,7 +319,7 @@ namespace ColumnRebarPro.V3
             SetDiameter(MainBarBox, c.MainDiameter, c.MainBarTypeUniqueId);
             SetDiameter(TieBarBox, c.TieDiameter, c.TieBarTypeUniqueId);
             GroupLongCheck.IsChecked = c.GroupLongBars;
-            GroupTiesCheck.IsChecked = c.GroupTies;
+            GroupTiesCheck.IsChecked = true;
             MainStarterCheck.IsChecked = c.StarterBars;
             MainStarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             StarterCheck.IsChecked = c.StarterBars;
@@ -415,7 +415,7 @@ namespace ColumnRebarPro.V3
                     ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture)
                     : "";
                 c.GroupLongBars = GroupLongCheck.IsChecked == true;
-                c.GroupTies = GroupTiesCheck.IsChecked == true;
+                c.GroupTies = true;
                 if (LoopRadio.IsChecked != true && HookRadio.IsChecked != true)
                     throw new InvalidOperationException("Chọn hình dạng đai theo chi tiết thiết kế đã duyệt.");
                 c.TieStyle = LoopRadio.IsChecked == true ? V3TieStyle.ClosedLoop : V3TieStyle.Hook135;
@@ -451,6 +451,7 @@ namespace ColumnRebarPro.V3
             MidStepBox.IsEnabled = !enabled;
             EndCountBox.IsEnabled = enabled;
             MidCountBox.IsEnabled = enabled;
+            GroupTiesCheck.IsEnabled = false;
             TieHook135Box.IsEnabled = HookRadio.IsChecked == true || CrossCheck.IsChecked == true;
             TieHook90Box.IsEnabled = CrossCheck.IsChecked == true && CrossAlternateCheck.IsChecked == true;
             CrossAlternateCheck.IsEnabled = CrossCheck.IsChecked == true;
@@ -1046,8 +1047,23 @@ namespace ColumnRebarPro.V3
             try
             {
                 var bands = V3TieLayoutPlan.Create(heightMm, c.Cover, c.TieDiameter,
-                    c.EndZone, c.EndSpacing, c.MidSpacing, c.TieLayout == V3TieLayout.FixedNumber,
-                    c.EndTieCount, c.MidTieCount, c.JointTies, c.JointBeamHeight, c.JointSpacing);
+                    c.EndZone, c.EndSpacing, c.MidSpacing, false,
+                    c.EndTieCount, c.MidTieCount, false, 0, 0);
+                // Same joint exclusion as used when constructing actual Rebar Sets.
+                if (_document != null && _geometry.TryGetValue(row.Segment.Id.Value, out var geometry))
+                {
+                    var column = _document.GetElement(row.Segment.Id) as Autodesk.Revit.DB.FamilyInstance;
+                    if (column != null)
+                    {
+                        var work = new V3SegmentWork { Column=column, Segment=row.Segment,
+                            Geometry=geometry, Config=c };
+                        var excluded = V4TieJointExclusion.Find(_document, work);
+                        bands = V4TieBandExclusion.KeepOutside(bands, excluded);
+                        if (excluded.Count > 0)
+                            addTxt(4, cH-16, "Đã loại đai tại " + excluded.Count +
+                                " vùng giao dầm/sàn", Brushes.Firebrick, 9);
+                    }
+                }
                 foreach (var band in bands)
                     for (int i = 0; i < band.Count; i++)
                     {
