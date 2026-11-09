@@ -21,8 +21,10 @@ namespace ColumnRebarPro.V3
             V3RebarShapeGroup group, V3TieStyle tieStyle, bool alternating)
         {
             if (doc == null || barType == null) return new List<V3RebarShapeChoice>();
+            bool shapeDefinesHooks = ReinforcementSettings.GetReinforcementSettings(doc).RebarShapeDefinesHooks;
             return new FilteredElementCollector(doc).OfClass(typeof(RebarShape)).Cast<RebarShape>()
-                .Where(shape => IsCandidate(shape, group, tieStyle, alternating) && shape.GetAllowed(barType))
+                .Where(shape => IsCandidate(shape, group, tieStyle, alternating, shapeDefinesHooks) &&
+                    shape.GetAllowed(barType))
                 .OrderBy(shape => shape.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(shape => new V3RebarShapeChoice {
                     UniqueId = shape.UniqueId,
@@ -33,11 +35,13 @@ namespace ColumnRebarPro.V3
         internal static RebarShape Resolve(Document doc, string uniqueId, V3RebarShapeGroup group,
             V3TieStyle tieStyle, bool alternating, RebarBarType barType, ElementId columnId)
         {
+            bool shapeDefinesHooks = ReinforcementSettings.GetReinforcementSettings(doc).RebarShapeDefinesHooks;
             RebarShape shape = string.IsNullOrWhiteSpace(uniqueId) ? null : doc.GetElement(uniqueId) as RebarShape;
-            if (shape == null || barType == null || !IsCandidate(shape, group, tieStyle, alternating) ||
+            if (shape == null || barType == null || !IsCandidate(shape, group, tieStyle, alternating, shapeDefinesHooks) ||
                 !shape.GetAllowed(barType))
-                throw new InvalidOperationException("Cột " + columnId.Value + ": chưa chọn Rebar Shape có sẵn phù hợp cho nhóm " +
-                    GroupName(group) + ". Không tạo Shape mới.");
+                throw new InvalidOperationException("Cột " + columnId.Value + ": chưa chọn Rebar Shape phù hợp cho nhóm " +
+                    GroupName(group) + ". Kiểm tra Shape có sẵn, loại thép và cấu hình Include hooks in Rebar Shape definition. " +
+                    "Không tạo Shape mới.");
             return shape;
         }
 
@@ -202,7 +206,7 @@ namespace ColumnRebarPro.V3
         }
 
         private static bool IsCandidate(RebarShape shape, V3RebarShapeGroup group,
-            V3TieStyle tieStyle, bool alternating)
+            V3TieStyle tieStyle, bool alternating, bool shapeDefinesHooks)
         {
             if (shape == null) return false;
             int segments = SegmentCount(shape);
@@ -214,12 +218,15 @@ namespace ColumnRebarPro.V3
                 case V3RebarShapeGroup.Anchor:
                     return shape.RebarStyle == RebarStyle.Standard && segments >= 2 && start == 0 && end == 0;
                 case V3RebarShapeGroup.OuterTie:
-                    return shape.RebarStyle == RebarStyle.StirrupTie && segments >= 4 &&
-                        (tieStyle == V3TieStyle.Hook135 ? start == 135 && end == 135 : start == 0 && end == 0);
+                    return shape.RebarStyle == RebarStyle.StirrupTie &&
+                        V4TieShapePolicy.Matches(segments, start, end, shapeDefinesHooks,
+                            outerTie: true, hookedOuterTie: tieStyle == V3TieStyle.Hook135,
+                            alternatingCrossTie: false);
                 case V3RebarShapeGroup.CrossTie:
-                    return shape.RebarStyle == RebarStyle.StirrupTie && segments >= 1 &&
-                        (alternating ? start == 135 && end == 90
-                            : start == 135 && end == 135);
+                    return shape.RebarStyle == RebarStyle.StirrupTie &&
+                        V4TieShapePolicy.Matches(segments, start, end, shapeDefinesHooks,
+                            outerTie: false, hookedOuterTie: true,
+                            alternatingCrossTie: alternating);
                 default: return false;
             }
         }
