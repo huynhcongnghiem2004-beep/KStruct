@@ -75,6 +75,22 @@ static class Program
         Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1", "User Detail View" }), "V4 never adopts mixed sheets");
         Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCN C1" }), "V4 requires a longitudinal view");
         Check(!V4SheetUpdateGuard.CanReplaceViews(new string[0]), "V4 never adopts empty sheets");
+        Check(V4SheetOwnershipRules.Matches("C1|C2", "C1|C2", new[] { "21", "22" }, new[] { "22", "21" }),
+            "Owned sheet accepts the exact same view identities regardless of order");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C2", new[] { "21", "22" }, new[] { "21", "22" }),
+            "Sheet from another column stack must never be adopted");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new[] { "21", "22" }, new[] { "21", "22", "99" }),
+            "User-added view blocks replacement");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new[] { "21", "22" }, new[] { "21" }),
+            "Missing generated view blocks replacement");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new string[0], new string[0]),
+            "Empty sheet identity is not owned");
+        Check(V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8;102:9"),
+            "Unchanged view annotation ownership permits refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8,99;102:9"),
+            "User-added annotation must block destructive refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8", "101:7"),
+            "Removed annotation must block destructive refresh");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
