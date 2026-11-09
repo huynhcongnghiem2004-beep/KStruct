@@ -103,9 +103,11 @@ namespace ColumnRebarPro.V3
                             throw new InvalidOperationException("Không tìm thấy loại thép đúng đường kính cho cột " + work.Column.Id.Value);
 
                         RebarHookType hook135=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook135UniqueId,135,
-                            work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                            work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies,
+                            work.Column.Id);
                         RebarHookType hook90=V3ProjectRebar.Hook(doc,tieType,work.Config.TieHook90UniqueId,90,
-                            work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                            work.Config.CrossTies && work.Config.CrossTiesAlternating,
+                            work.Column.Id);
                         var existing = ExistingRebar(doc, work.Column.Id);
                         if (existing.Count > 0 && !replaceOld)
                             throw new InvalidOperationException("Cột đã có thép V3. Bật ghi đè để thay thế, tránh tạo trùng.");
@@ -153,9 +155,11 @@ namespace ColumnRebarPro.V3
                 if (mainType == null)
                     throw new InvalidOperationException("Không tìm thấy loại thép dọc đúng đường kính cho cột " + work.Column.Id.Value);
                 RebarHookType hook135=V3ProjectRebar.Hook(doc,type,work.Config.TieHook135UniqueId,135,
-                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies);
+                    work.Config.TieStyle==V3TieStyle.Hook135 || work.Config.CrossTies,
+                    work.Column.Id);
                 RebarHookType hook90=V3ProjectRebar.Hook(doc,type,work.Config.TieHook90UniqueId,90,
-                    work.Config.CrossTies && work.Config.CrossTiesAlternating);
+                    work.Config.CrossTies && work.Config.CrossTiesAlternating,
+                    work.Column.Id);
                 if(work.Config.TieStyle==V3TieStyle.Hook135 && hook135==null)
                     throw new InvalidOperationException("Chưa chọn Hook 135° có sẵn cho cột "+work.Column.Id.Value+".");
                 if(work.Config.TieStyle==V3TieStyle.Hook135 && !type.GetHookPermission(hook135.Id))
