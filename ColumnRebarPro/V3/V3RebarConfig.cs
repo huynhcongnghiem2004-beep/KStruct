@@ -8,6 +8,8 @@ namespace ColumnRebarPro.V3
     {
         public int Cx, Cy;
         public double MainDiameter, TieDiameter, Cover;
+        // Exact physical bar types in the active RVT, not nominal diameter alone.
+        public string MainBarTypeUniqueId = "", TieBarTypeUniqueId = "";
         public double EndZone, EndSpacing, MidSpacing;
         // Revit Shape-Driven Rebar Set (not Autodesk.Revit.DB.Group).
         public bool GroupLongBars = true, GroupTies = true;
