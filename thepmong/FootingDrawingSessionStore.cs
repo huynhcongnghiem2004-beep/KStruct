@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace SDK_HD.KStruct.NativeDocumentation
@@ -31,11 +32,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
             string path = PathFor(projectKey, directory);
             if (!File.Exists(path)) return null;
             using (var stream = File.OpenRead(path))
-                return (FootingDrawingSession)new XmlSerializer(typeof(FootingDrawingSession)).Deserialize(stream);
+            using (var reader = XmlReader.Create(stream, new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersInDocument = 4 * 1024 * 1024
+            }))
+                return (FootingDrawingSession)new XmlSerializer(typeof(FootingDrawingSession)).Deserialize(reader);
         }
 
         internal static void Save(string projectKey, FootingDrawingSession session, string directory = null)
         {
+            if (session == null) throw new ArgumentNullException(nameof(session));
             string path = PathFor(projectKey, directory);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
