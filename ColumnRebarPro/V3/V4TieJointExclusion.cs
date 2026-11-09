@@ -49,11 +49,11 @@ namespace ColumnRebarPro.V3
                 // Split into consecutive constant-spacing runs, so no Rebar Set
                 // spans across the intentionally empty joint.
                 var run = new List<double>();
+                double originalStep = band.Count > 1 ? (band.End - band.Start) / (band.Count - 1) : 0;
                 foreach (var z in keep)
                 {
-                    if (run.Count > 0 && run.Count > 1 &&
-                        Math.Abs((z - run[run.Count-1]) -
-                            (run[run.Count-1] - run[run.Count-2])) > 0.01)
+                    if (run.Count > 0 &&
+                        Math.Abs((z - run[run.Count-1]) - originalStep) > 0.01)
                     {
                         AddRun(result, band, run);
                         run.Clear();
