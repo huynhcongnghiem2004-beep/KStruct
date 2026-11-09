@@ -150,32 +150,27 @@ namespace ColumnRebarPro.V3
 
             if (existing != null && !replaceExistingSheet)
                 throw new InvalidOperationException("Sheet đã tồn tại: " + wanted + ". Chọn số sheet mới.");
-            if (existing != null && replaceExistingSheet && !IsKStructV3Sheet(doc, existing))
-                throw new InvalidOperationException("Sheet " + wanted + " không phải sheet triển khai do KStruct V3 tạo; không ghi đè sheet này.");
+            if (existing != null && replaceExistingSheet &&
+                !V4SheetOwnership.IsOwned(doc, existing, works))
+                throw new InvalidOperationException(
+                    "Sheet " + wanted + " chưa có metadata V4 đúng tuyến cột/đúng tập View. " +
+                    "Không thể tự động thay Sheet này. Hồ sơ V3 cũ cần được chuyển đổi có kiểm soát.");
         }
 
-        private static bool IsKStructV3Sheet(Document doc, ViewSheet sheet)
-        {
-            if (sheet == null) return false;
-            // A mixed sheet can contain user-managed views: never treat it as entirely owned
-            // merely because one KStruct view appears on it.
-            var views = sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>().ToList();
-            return V4SheetUpdateGuard.CanReplaceViews(views.Select(view => view.Name));
-        }
-
-        private void RemoveExistingKStructV3Sheet(Document doc)
+        private void RemoveExistingKStructV3Sheet(Document doc, IList<V3SegmentWork> works)
         {
             string wanted = SheetNumberFor();
             ViewSheet existing = new FilteredElementCollector(doc).OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
                 .FirstOrDefault(x => string.Equals((x.SheetNumber ?? "").Trim(), wanted, StringComparison.OrdinalIgnoreCase));
             if (existing == null) return;
-            if (!replaceExistingSheet || !IsKStructV3Sheet(doc, existing))
-                throw new InvalidOperationException("Chỉ có thể thay sheet triển khai KStruct V3 đã chọn.");
-            List<ElementId> generatedViews = existing.GetAllPlacedViews().Select(doc.GetElement).OfType<View>()
-                .Where(view => view.Name.StartsWith("KSTR V3 MCD ", StringComparison.OrdinalIgnoreCase) ||
-                               view.Name.StartsWith("KSTR V3 MCN ", StringComparison.OrdinalIgnoreCase))
-                .Select(view => view.Id).ToList();
+            if (!replaceExistingSheet || !V4SheetOwnership.IsOwned(doc, existing, works))
+                throw new InvalidOperationException(
+                    "Không được thay Sheet chưa xác thực sở hữu V4: " + wanted);
+
+            List<ElementId> generatedViews = existing.GetAllPlacedViews().ToList();
+            // These views are exactly the ones stamped by V4 when the sheet was created.
+            // They must not have been removed, moved to another sheet or mixed with user views.
             doc.Delete(existing.Id);
             foreach (ElementId viewId in generatedViews)
                 if (doc.GetElement(viewId) != null) doc.Delete(viewId);
