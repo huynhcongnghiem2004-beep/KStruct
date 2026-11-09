@@ -25,6 +25,15 @@ static class Program
         Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
     static void Main()
     {
+        Check(!V4TieSetPlacementPolicy.NeedsFixedNumber(7, 7, 600, 100),
+            "Matching Maximum Spacing set preserves its Revit layout rule");
+        Check(V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 100),
+            "Count disagreement can fall back to exactly seven ties at 100 mm");
+        Check(V4TieSetPlacementPolicy.NeedsFixedNumber(6, 5, 500, 100),
+            "Shared zone boundary still uses the approved maximum spacing");
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(3, 4, 500, 100));
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, double.NaN, 100));
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 0));
         var bands = Plan();
         var zs = Positions(bands);
         Check(bands.Count == 3, "Three bands");
