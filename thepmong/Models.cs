@@ -108,8 +108,10 @@ namespace SDK_HD.KStruct.FootingRebar
         {
             if (enabled && (!IsPositiveFinite(diameter) || !IsPositiveFinite(spacing)))
                 throw new ArgumentException("Đường kính và khoảng cách phải lớn hơn 0.");
-            if (!Enum.IsDefined(typeof(SpacingMode), mode))
-                throw new ArgumentException("Chế độ chia khoảng cách không hợp lệ.");
+            if (!Enum.IsDefined(typeof(SpacingMode), mode) || !Enum.IsDefined(typeof(HookTypeOption), hookType))
+                throw new ArgumentException("Chế độ chia khoảng cách hoặc kiểu móc không hợp lệ.");
+            if (double.IsNaN(hookLength) || double.IsInfinity(hookLength))
+                throw new ArgumentException("Chiều dài móc không được NaN hoặc Infinity.");
             Enabled = enabled;
             Diameter = diameter;
             Spacing = spacing;
@@ -177,6 +179,9 @@ namespace SDK_HD.KStruct.FootingRebar
 
         public SideTiesSettings(bool enabled, double diameter = 10, double spacing = 200, bool hasCStirrups = true)
         {
+            if (double.IsNaN(diameter) || double.IsInfinity(diameter) ||
+                double.IsNaN(spacing) || double.IsInfinity(spacing))
+                throw new ArgumentException("Đường kính và bước thép đai hông không được NaN hoặc Infinity.");
             Enabled = enabled;
             Diameter = diameter > 0 ? diameter : 10;
             Spacing = spacing > 0 ? spacing : 200;
