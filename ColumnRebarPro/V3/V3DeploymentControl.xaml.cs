@@ -293,12 +293,19 @@ namespace ColumnRebarPro.V3
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath));
-                string temporary = _settingsPath + ".tmp";
-                using (var output = File.Create(temporary))
-                    new XmlSerializer(typeof(DeploymentSettingsFile)).Serialize(output, file);
+                string temporary = _settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    using (var output = File.Create(temporary))
+                        new XmlSerializer(typeof(DeploymentSettingsFile)).Serialize(output, file);
 
-                File.Copy(temporary, _settingsPath, true);
-                File.Delete(temporary);
+                    if (File.Exists(_settingsPath)) File.Replace(temporary, _settingsPath, null);
+                    else File.Move(temporary, _settingsPath);
+                }
+                finally
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
 
                 StatusText.Text = "Đã lưu cấu hình cho project. Chưa tạo hoặc thay đổi sheet/mặt cắt trong mô hình.";
             }
