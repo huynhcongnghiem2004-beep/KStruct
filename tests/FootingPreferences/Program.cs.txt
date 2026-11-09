@@ -8,6 +8,20 @@ internal static class Program
     private static int checks;
     private static void Check(bool condition, string message)
     { if (!condition) throw new Exception(message); checks++; }
+    private static void RejectSessionUnsafeXml(string directory)
+    {
+        string sessionFile = FootingDrawingSessionStore.PathFor("unsafe-session", directory);
+        File.WriteAllText(sessionFile, "<!DOCTYPE FootingDrawingSession [<!ENTITY injected 'bad'>]><FootingDrawingSession><Remember>true</Remember><Profile><Name>&injected;</Name></Profile></FootingDrawingSession>");
+        bool rejected = false;
+        try { FootingDrawingSessionStore.Load("unsafe-session", directory); }
+        catch (InvalidOperationException) { rejected = true; }
+        catch (System.Xml.XmlException) { rejected = true; }
+        Check(rejected, "Session XML DTD/entities must be rejected");
+        bool nullRejected = false;
+        try { FootingDrawingSessionStore.Save("unsafe-session", null, directory); }
+        catch (ArgumentNullException) { nullRejected = true; }
+        Check(nullRejected, "Null session must be rejected before replacing a saved session");
+    }
     private static void Main()
     {
         string directory = Path.Combine(Path.GetTempPath(), "KStruct-tests-" + Guid.NewGuid().ToString("N"));
@@ -75,6 +89,8 @@ internal static class Program
             catch (InvalidOperationException) { dtdRejected = true; }
             catch (System.Xml.XmlException) { dtdRejected = true; }
             Check(dtdRejected, "Import must reject XML DTD / entity declarations");
+            RejectSessionUnsafeXml(directory);
+            Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Invalid session XML must not leave temporary files");
             File.WriteAllText(FootingDrawingSessionStore.PathFor("broken", directory), "<broken>");
             bool failed = false; try { FootingDrawingSessionStore.Load("broken", directory); } catch (InvalidOperationException) { failed = true; }
             Check(failed, "Corrupt settings must surface to the UI warning handler");
