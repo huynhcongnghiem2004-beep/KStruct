@@ -12,21 +12,20 @@ namespace ColumnRebarPro.V3
         internal const string Prefix = "KSTR_TCVN_BEND_";
         internal static RebarBarType Resolve(Document doc, RebarBarType source, V3RebarConfig config)
         {
+            if (source == null || config == null)
+                throw new InvalidOperationException("Chưa chọn RebarBarType thép chủ thực tế từ project.");
             double minimum = V3Units.Ft(V3BottleneckRules.MinimumBendDiameter(config.MainDiameter, config.BottleneckRibbed));
             if (source.StandardBendDiameter >= minimum - 1e-8) return source;
-            string name = Prefix + source.Id.Value + "_" + Math.Round(V3Units.Mm(minimum), 3).ToString(CultureInfo.InvariantCulture);
-            var existing = new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
-                .FirstOrDefault(t => t.Name == name && Math.Abs(t.BarNominalDiameter - source.BarNominalDiameter) < 1e-8 &&
-                    t.StandardBendDiameter >= minimum - 1e-8);
-            if (existing != null) return existing;
-            // Do not change the source type and all its existing bars.
-            var used = new HashSet<string>(new FilteredElementCollector(doc).OfClass(typeof(RebarBarType))
-                .Cast<RebarBarType>().Select(t => t.Name), StringComparer.OrdinalIgnoreCase);
-            string unique = name;
-            for (int i = 2; used.Contains(unique); i++) unique = name + "_" + i;
-            var clone = (RebarBarType)source.Duplicate(unique);
-            clone.StandardBendDiameter = minimum;
-            return clone;
+            // NEVER duplicate or change RebarBarType in the user's project.
+            // In particular, prior V4 code silently created KSTR_TCVN_BEND_* types.
+            throw new InvalidOperationException(
+                "Thép chủ " + source.Name + " (ID " + source.Id.Value +
+                ") không đủ đường kính uốn cho cổ chai. Yêu cầu tối thiểu " +
+                V3Units.Mm(minimum).ToString("0.##", CultureInfo.InvariantCulture) +
+                " mm; loại hiện tại " +
+                V3Units.Mm(source.StandardBendDiameter).ToString("0.##", CultureInfo.InvariantCulture) +
+                " mm. Hãy chọn RebarBarType khác đã có trong project. " +
+                "KStruct không tự tạo và không chỉnh sửa RebarBarType.");
         }
 
         internal static void CheckBends(Rebar bar, V3RebarConfig config, int minimumArcCount = 2)
