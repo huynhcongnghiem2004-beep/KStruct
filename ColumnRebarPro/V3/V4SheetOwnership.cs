@@ -89,8 +89,9 @@ namespace ColumnRebarPro.V3
                     .Select(id => id.Value.ToString(CultureInfo.InvariantCulture)).ToList();
                 if (!V4SheetOwnershipRules.Matches(StackKey(works), storedStack, stored, current))
                     return false;
-                if (!string.Equals(entity.Get<string>(schema.GetField("ViewContents")),
-                    ViewContents(doc, sheet.GetAllPlacedViews()), StringComparison.Ordinal))
+                if (!V4SheetOwnershipRules.SameViewContents(
+                    entity.Get<string>(schema.GetField("ViewContents")),
+                    ViewContents(doc, sheet.GetAllPlacedViews())))
                     return false;
                 if (new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance))
                     .Cast<ScheduleSheetInstance>().Any(item => item.OwnerViewId == sheet.Id))
