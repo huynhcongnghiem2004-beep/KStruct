@@ -12,7 +12,7 @@ namespace ColumnRebarPro.V3
     internal static class V4SheetOwnership
     {
         private static readonly Guid SchemaId =
-            new Guid("A3CB7F4E-6AF2-40F8-AC62-365E78E14743");
+            new Guid("D5829E37-AC28-4D8D-95C2-5BE332AD6AF1");
 
         private static Schema GetSchema()
         {
@@ -25,6 +25,7 @@ namespace ColumnRebarPro.V3
             builder.AddSimpleField("Version", typeof(int));
             builder.AddSimpleField("StackKey", typeof(string));
             builder.AddSimpleField("ViewIds", typeof(string));
+            builder.AddSimpleField("ViewContents", typeof(string));
             return builder.Finish();
         }
 
@@ -38,17 +39,37 @@ namespace ColumnRebarPro.V3
             return string.Join("|", ids.OrderBy(x => x, StringComparer.Ordinal));
         }
 
-        internal static void Stamp(ViewSheet sheet, IList<V3SegmentWork> works)
+        // Only elements owned by a view (tags, dimensions, text/detail lines) are tracked.
+        // Model geometry visible through the view is not captured.
+        private static string ViewContents(Document doc, IEnumerable<ElementId> viewIds)
         {
+            var snapshots = new List<string>();
+            foreach (ElementId viewId in viewIds.OrderBy(id => id.Value))
+            {
+                string[] content = new FilteredElementCollector(doc, viewId)
+                    .WhereElementIsNotElementType()
+                    .Where(element => element.OwnerViewId == viewId)
+                    .Select(element => element.Id.Value.ToString(CultureInfo.InvariantCulture))
+                    .OrderBy(x => x, StringComparer.Ordinal).ToArray();
+                snapshots.Add(viewId.Value.ToString(CultureInfo.InvariantCulture) +
+                    ":" + string.Join(",", content));
+            }
+            return string.Join(";", snapshots);
+        }
+
+        internal static void Stamp(Document doc, ViewSheet sheet, IList<V3SegmentWork> works)
+        {
+            if (doc == null) throw new ArgumentNullException(nameof(doc));
             if (sheet == null) throw new ArgumentNullException(nameof(sheet));
             var placed = sheet.GetAllPlacedViews().ToList();
             if (placed.Count == 0) throw new InvalidOperationException("Sheet chưa có View để ghi metadata.");
             var schema = GetSchema();
             var entity = new Entity(schema);
-            entity.Set<int>(schema.GetField("Version"), 1);
+            entity.Set<int>(schema.GetField("Version"), 2);
             entity.Set<string>(schema.GetField("StackKey"), StackKey(works));
             entity.Set<string>(schema.GetField("ViewIds"),
                 string.Join(";", placed.Select(id => id.Value.ToString(CultureInfo.InvariantCulture))));
+            entity.Set<string>(schema.GetField("ViewContents"), ViewContents(doc, placed));
             sheet.SetEntity(entity);
         }
 
@@ -59,7 +80,7 @@ namespace ColumnRebarPro.V3
             {
                 var schema = GetSchema();
                 var entity = sheet.GetEntity(schema);
-                if (!entity.IsValid() || entity.Get<int>(schema.GetField("Version")) != 1) return false;
+                if (!entity.IsValid() || entity.Get<int>(schema.GetField("Version")) != 2) return false;
                 string storedStack = entity.Get<string>(schema.GetField("StackKey"));
                 string storedIds = entity.Get<string>(schema.GetField("ViewIds"));
                 if (string.IsNullOrWhiteSpace(storedIds)) return false;
@@ -67,6 +88,12 @@ namespace ColumnRebarPro.V3
                 var current = sheet.GetAllPlacedViews()
                     .Select(id => id.Value.ToString(CultureInfo.InvariantCulture)).ToList();
                 if (!V4SheetOwnershipRules.Matches(StackKey(works), storedStack, stored, current))
+                    return false;
+                if (!string.Equals(entity.Get<string>(schema.GetField("ViewContents")),
+                    ViewContents(doc, sheet.GetAllPlacedViews()), StringComparison.Ordinal))
+                    return false;
+                if (new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance))
+                    .Cast<ScheduleSheetInstance>().Any(item => item.OwnerViewId == sheet.Id))
                     return false;
                 return sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>()
                     .All(view => view.Name.StartsWith("KSTR V3 MCD ", StringComparison.OrdinalIgnoreCase) ||
