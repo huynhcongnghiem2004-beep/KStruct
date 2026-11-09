@@ -8,6 +8,7 @@
     <Page Include="../../thepmong/FootingRebarWindow.xaml" Link="FootingRebarWindow.xaml" />
     <Compile Include="../../thepmong/FootingRebarWindow.xaml.cs" Link="FootingRebarWindow.xaml.cs" />
     <Compile Include="../../thepmong/FootingRebarWindow.Memory.cs" Link="FootingRebarWindow.Memory.cs" />
+    <Compile Include="../../Core/Storage/SafeXmlReader.cs" Link="SafeXmlReader.cs" />
     <Compile Include="../../thepmong/FootingRebarPreferences.cs" Link="FootingRebarPreferences.cs" />
     <Compile Include="../../thepmong/Models.cs" Link="Models.cs" />
     <Compile Include="../../thepmong/RebarPlan.cs" Link="RebarPlan.cs" />
