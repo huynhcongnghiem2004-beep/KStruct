@@ -22,7 +22,7 @@ namespace ColumnRebarPro.V3
             builder.SetWriteAccessLevel(AccessLevel.Public);
             builder.AddSimpleField("Version", typeof(int));
             builder.AddSimpleField("Creator", typeof(string));
-            builder.AddSimpleField("ColumnElementId", typeof(int));
+            builder.AddSimpleField("ColumnElementId", typeof(string));
             builder.AddSimpleField("Group", typeof(string));
             return builder.Finish();
         }
@@ -34,7 +34,7 @@ namespace ColumnRebarPro.V3
             var entity = new Entity(schema);
             entity.Set<int>(schema.GetField("Version"), 1);
             entity.Set<string>(schema.GetField("Creator"), "KStruct Column Rebar V4");
-            entity.Set<int>(schema.GetField("ColumnElementId"), columnId.Value);
+            entity.Set<string>(schema.GetField("ColumnElementId"), columnId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
             entity.Set<string>(schema.GetField("Group"), group ?? "");
             shape.SetEntity(entity);
         }
