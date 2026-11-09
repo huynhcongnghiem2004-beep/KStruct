@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Serialization;
+using SDK_HD.KStruct.Core.Storage;
 
 namespace SDK_HD.KStruct.NativeDocumentation
 {
@@ -80,18 +81,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
     {
         private static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KStruct", "FootingDrawingProfiles.xml");
 
-        // Read user-provided and locally stored profiles with the same bounded XML policy.
-        private static XmlReaderSettings ReaderSettings() => new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null,
-            MaxCharactersInDocument = 4 * 1024 * 1024
-        };
-
+        // Shared DTD policy applies to both imported and local profile XML.
         private static List<FootingDrawingProfile> ReadProfiles(string path)
         {
             using (var stream = File.OpenRead(path))
-            using (var reader = XmlReader.Create(stream, ReaderSettings()))
+            using (var reader = SafeXmlReader.Create(stream, 4 * 1024 * 1024))
             {
                 var file = (FootingDrawingProfileFile)new XmlSerializer(typeof(FootingDrawingProfileFile)).Deserialize(reader);
                 return (file?.Profiles ?? new List<FootingDrawingProfile>())

@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
+using SDK_HD.KStruct.Core.Storage;
 
 namespace SDK_HD.KStruct.FootingRebar
 {
@@ -100,14 +101,12 @@ namespace SDK_HD.KStruct.FootingRebar
         internal static FootingRebarPreference Deserialize(string xml)
         {
             using (var source = new StringReader(xml ?? string.Empty))
-            using (var reader = XmlReader.Create(source, ReaderSettings()))
+            using (var reader = SafeXmlReader.Create(source, 1024 * 1024))
             {
                 var result = (FootingRebarPreference)new XmlSerializer(typeof(FootingRebarPreference)).Deserialize(reader);
                 result.ToSettings(); return result;
             }
         }
-        private static XmlReaderSettings ReaderSettings() => new XmlReaderSettings
-        { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 1024 * 1024 };
         internal static string PathFor(string projectKey, FootingType kind, string directory = null)
         {
             if (string.IsNullOrWhiteSpace(projectKey)) throw new ArgumentException("Thiếu mã project.");
@@ -119,7 +118,7 @@ namespace SDK_HD.KStruct.FootingRebar
         {
             string path = PathFor(projectKey, kind, directory);
             if (!File.Exists(path)) return null;
-            using (var reader = XmlReader.Create(path, ReaderSettings()))
+            using (var reader = SafeXmlReader.Create(path, 1024 * 1024))
             {
                 var result = (FootingRebarSession)new XmlSerializer(typeof(FootingRebarSession)).Deserialize(reader);
                 if (result.Remember && result.Preference != null)
