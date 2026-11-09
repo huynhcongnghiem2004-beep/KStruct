@@ -116,6 +116,22 @@ static class Program
             "Do not silently replace a saved but incompatible RebarShape");
         Check(V4ShapeAutoSelection.Choose(null, new string[0]) == null,
             "Missing compatible RebarShape must not be fabricated");
+        Check(V4TieShapePolicy.Matches(4, 0, 0, false, true, true, false),
+            "Project excludes hooks from Shape definition: recognize a 135/135 tied instance on an open-hook Shape");
+        Check(V4TieShapePolicy.Matches(4, 135, 135, true, true, true, false),
+            "Project includes hooks: accept 135/135 stirrup Shape");
+        Check(!V4TieShapePolicy.Matches(4, 0, 0, true, true, true, false),
+            "Project includes hooks: reject 0/0 Shape for a 135/135 tie");
+        Check(!V4TieShapePolicy.Matches(3, 135, 135, false, true, true, false),
+            "Never accept an outer tie with fewer than four Shape segments");
+        Check(V4TieShapePolicy.Matches(1, 0, 0, false, false, true, true),
+            "Cross-ties can use a valid 1-segment Shape when hooks are separate");
+        Check(!V4TieShapePolicy.Matches(1, 135, 135, true, false, true, true),
+            "When hooks define Shape, alternating cross-ties require 135/90");
+        Check(V4TieShapePolicy.Matches(1, 135, 90, true, false, true, true),
+            "When hooks define Shape, alternating cross-tie 135/90 is recognized");
+        Check(!V4TieShapePolicy.Matches(0, 135, 90, false, false, true, true),
+            "A Shape without segment geometry cannot be used");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
