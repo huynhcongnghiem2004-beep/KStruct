@@ -12,7 +12,7 @@ namespace ColumnRebarPro.V3
         {
             var result=new List<ElementId>();if(!Enabled)return result;
             if(works==null||works.Count==0)return result;
-            RemoveExistingKStructV3Sheet(doc);
+            RemoveExistingKStructV3Sheet(doc, works);
             var first=works[0];var baseGeometry=first.Geometry;
             XYZ x=baseGeometry.X,y=new XYZ(-x.Y,x.X,0),origin=baseGeometry.Center;
             var points=new List<XYZ>();
@@ -71,6 +71,7 @@ namespace ColumnRebarPro.V3
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
+            V4SheetOwnership.Stamp(sheet, works);
             result.Add(sheet.Id);return result;
         }
 
