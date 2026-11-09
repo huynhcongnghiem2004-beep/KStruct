@@ -20,7 +20,10 @@ namespace ColumnRebarPro.V3
         private sealed class BarSizeChoice
         {
             public double Mm { get; set; }
-            public string Label { get { return "D" + Mm.ToString("0.##", CultureInfo.InvariantCulture); } }
+            public string UniqueId { get; set; }
+            public string TypeName { get; set; }
+            public string Label { get { return "D" + Mm.ToString("0.##", CultureInfo.InvariantCulture) +
+                (string.IsNullOrWhiteSpace(TypeName) ? "" : " · " + TypeName); } }
             public override string ToString() { return Label; }
         }
 
@@ -30,6 +33,18 @@ namespace ColumnRebarPro.V3
             public string FloorTitle { get { return "▼ " + Segment.LevelName; } }
             public string HeightText { get { return "H = " + Math.Round(Segment.TopMm - Segment.BottomMm) + " (mm)"; } }
             public string SizeText { get { return "S = " + Math.Round(Segment.WidthMm) + "×" + Math.Round(Segment.DepthMm); } }
+            private ImageSource _sectionPreview;
+            public ImageSource SectionPreview
+            {
+                get { return _sectionPreview; }
+                set { _sectionPreview = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SectionPreview")); }
+            }
+            private string _tieTag;
+            public string TieTag
+            {
+                get { return _tieTag; }
+                set { _tieTag = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("TieTag")); }
+            }
             private string _barText;
             public string BarText
             {
@@ -65,8 +80,22 @@ namespace ColumnRebarPro.V3
                 throw new InvalidOperationException("Chưa chọn được tuyến cột hợp lệ.");
             _document = document;
             _segments = stack.OrderBy(s => s.BottomMm).ToList();
-            _sizes = loadedSizes.Where(n => n >= 6 && n <= 40).Distinct().OrderBy(n => n)
-                .Select(n => new BarSizeChoice { Mm = n }).ToList();
+            // The dropdown is populated from actual RebarBarTypes in this RVT,
+            // never from an unbound nominal diameter list.
+            var loaded = new HashSet<double>(loadedSizes.Where(n => n >= 6 && n <= 40)
+                .Select(n => Math.Round(n, 2)));
+            _sizes = document == null
+                ? loaded.Select(n => new BarSizeChoice { Mm = n }).OrderBy(x => x.Mm).ToList()
+                : new Autodesk.Revit.DB.FilteredElementCollector(document)
+                    .OfClass(typeof(Autodesk.Revit.DB.Structure.RebarBarType))
+                    .Cast<Autodesk.Revit.DB.Structure.RebarBarType>()
+                    .Where(t => !t.Name.StartsWith(V3BottleneckBarType.Prefix, StringComparison.Ordinal))
+                    .Select(t => new BarSizeChoice {
+                        Mm = Math.Round(V3Units.Mm(t.BarNominalDiameter), 2),
+                        UniqueId = t.UniqueId, TypeName = t.Name
+                    })
+                    .Where(x => loaded.Contains(x.Mm))
+                    .OrderBy(x => x.Mm).ThenBy(x => x.TypeName).ToList();
             if (_sizes.Count == 0)
                 throw new InvalidOperationException("Project chưa có RebarBarType phù hợp. Hãy nạp thép vào Project.");
             for (int i = 0; i < _segments.Count; i++)
@@ -116,7 +145,9 @@ namespace ColumnRebarPro.V3
             foreach (ColumnSegment s in _segments.OrderByDescending(s => s.BottomMm))
             {
                 V3RebarConfig c = _configs[s.Id.Value];
-                _rows.Add(new FloorRow { Segment = s, BarText = FormatBars(c) });
+                var floorRow = new FloorRow { Segment = s, BarText = FormatBars(c) };
+                RefreshFloorPreview(floorRow, c);
+                _rows.Add(floorRow);
             }
             FloorList.ItemsSource = _rows;
             CountLabel.Text = "Số lượng: " + _rows.Count;
@@ -170,11 +201,13 @@ namespace ColumnRebarPro.V3
                 throw new InvalidOperationException("Giá trị '" + caption + "' phải là số nguyên dương.");
             return value;
         }
-        private void SetDiameter(ComboBox combo, double diameter)
+        private void SetDiameter(ComboBox combo, double diameter, string uniqueId)
         {
-            combo.SelectedItem = diameter > 0
-                ? _sizes.FirstOrDefault(x => Math.Abs(x.Mm - diameter) <= .01)
-                : null;
+            combo.SelectedItem = !string.IsNullOrWhiteSpace(uniqueId)
+                ? _sizes.FirstOrDefault(x => x.UniqueId == uniqueId)
+                : diameter > 0 && _sizes.Count(x => Math.Abs(x.Mm-diameter) <= .01) == 1
+                    ? _sizes.First(x => Math.Abs(x.Mm-diameter) <= .01)
+                    : null;
         }
         private void LoadHookBox(ComboBox box,string selected,double degrees)
         {
@@ -210,13 +243,7 @@ namespace ColumnRebarPro.V3
             if (_document == null) return null;
             var size = diameterBox.SelectedItem as BarSizeChoice;
             if (size == null) return null;
-            var matches = new Autodesk.Revit.DB.FilteredElementCollector(_document)
-                .OfClass(typeof(Autodesk.Revit.DB.Structure.RebarBarType))
-                .Cast<Autodesk.Revit.DB.Structure.RebarBarType>()
-                .Where(type => !type.Name.StartsWith(V3BottleneckBarType.Prefix, StringComparison.Ordinal) &&
-                    Math.Abs(V3Units.Mm(type.BarNominalDiameter) - size.Mm) <= .01)
-                .ToList();
-            return matches.Count == 1 ? matches[0] : null;
+            return _document.GetElement(size.UniqueId) as Autodesk.Revit.DB.Structure.RebarBarType;
         }
 
         private Autodesk.Revit.DB.Structure.RebarBarType SelectedTieBarType()
@@ -289,14 +316,15 @@ namespace ColumnRebarPro.V3
             _loading = true;
             CxBox.SelectedItem = c.Cx;
             CyBox.SelectedItem = c.Cy;
-            SetDiameter(MainBarBox, c.MainDiameter);
-            SetDiameter(TieBarBox, c.TieDiameter);
+            SetDiameter(MainBarBox, c.MainDiameter, c.MainBarTypeUniqueId);
+            SetDiameter(TieBarBox, c.TieDiameter, c.TieBarTypeUniqueId);
             GroupLongCheck.IsChecked = c.GroupLongBars;
-            GroupTiesCheck.IsChecked = c.GroupTies;
+            GroupTiesCheck.IsChecked = true;
             MainStarterCheck.IsChecked = c.StarterBars;
             MainStarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             StarterCheck.IsChecked = c.StarterBars;
             BottleneckRibbedCheck.IsChecked = c.BottleneckRibbed;
+            AllowExistingBendCheck.IsChecked = c.AllowExistingUndersizeBend;
             BottleneckClearanceBox.Text = c.BottleneckClearanceMm.ToString(CultureInfo.InvariantCulture);
             BottleneckSlopeBox.Text = c.BottleneckSlope.ToString(CultureInfo.InvariantCulture);
             StarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
@@ -304,8 +332,7 @@ namespace ColumnRebarPro.V3
             ZoneBox.Text = c.EndZone.ToString(CultureInfo.InvariantCulture);
             EndStepBox.Text = c.EndSpacing > 0 ? c.EndSpacing.ToString(CultureInfo.InvariantCulture) : "";
             MidStepBox.Text = c.MidSpacing > 0 ? c.MidSpacing.ToString(CultureInfo.InvariantCulture) : "";
-            TieLayoutBox.SelectedIndex = c.TieLayout == V3TieLayout.FixedNumber ? 1 :
-                c.TieLayout == V3TieLayout.MaximumSpacing ? 0 : -1;
+            TieLayoutBox.SelectedIndex = 0;
             EndCountBox.Text = c.EndTieCount > 0 ? c.EndTieCount.ToString(CultureInfo.InvariantCulture) : "";
             MidCountBox.Text = c.MidTieCount > 0 ? c.MidTieCount.ToString(CultureInfo.InvariantCulture) : "";
             RefreshTypeChoices(c);
@@ -336,22 +363,14 @@ namespace ColumnRebarPro.V3
                 c.Cx = (int)CxBox.SelectedItem;
                 c.Cy = (int)CyBox.SelectedItem;
                 c.MainDiameter = main.Mm;
+                c.MainBarTypeUniqueId = main.UniqueId ?? "";
                 c.TieDiameter = tie.Mm;
+                c.TieBarTypeUniqueId = tie.UniqueId ?? "";
                 c.Cover = ReadPositive(CoverBox, "Lớp bảo vệ");
                 c.EndZone = ReadPositive(ZoneBox, "Chiều dài vùng đai đầu", true);
-                if (TieLayoutBox.SelectedIndex < 0)
-                    throw new InvalidOperationException("Chọn quy tắc bố trí đai theo thiết kế đã duyệt.");
-                c.TieLayout = TieLayoutBox.SelectedIndex == 1 ? V3TieLayout.FixedNumber : V3TieLayout.MaximumSpacing;
-                if (c.TieLayout == V3TieLayout.FixedNumber)
-                {
-                    c.EndTieCount = ReadInteger(EndCountBox, "Số đai vùng đầu");
-                    c.MidTieCount = ReadInteger(MidCountBox, "Số đai vùng giữa");
-                }
-                else
-                {
-                    c.EndSpacing = ReadPositive(EndStepBox, "Bước đai hai đầu");
-                    c.MidSpacing = ReadPositive(MidStepBox, "Bước đai giữa");
-                }
+                c.TieLayout = V3TieLayout.MaximumSpacing;
+                c.EndSpacing = ReadPositive(EndStepBox, "Bước đai hai đầu");
+                c.MidSpacing = ReadPositive(MidStepBox, "Bước đai giữa");
                 // Inactive spacing values are unused in Fixed Number, but keep the stored profile valid.
                 if (c.EndSpacing <= 0) c.EndSpacing = 1;
                 if (c.MidSpacing <= 0) c.MidSpacing = 1;
@@ -362,6 +381,7 @@ namespace ColumnRebarPro.V3
                     c.BottleneckClearanceMm = ReadPositive(BottleneckClearanceBox, "Khe hở cổ chai", true);
                     c.BottleneckSlope = ReadPositive(BottleneckSlopeBox, "Tỷ lệ xiên 1:n");
                     c.BottleneckRibbed = BottleneckRibbedCheck.IsChecked == true;
+                    c.AllowExistingUndersizeBend = AllowExistingBendCheck.IsChecked == true;
                     StarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                     MainStarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);
                 }
@@ -382,7 +402,7 @@ namespace ColumnRebarPro.V3
                 c.CrossTieShapeUniqueId = (CrossTieShapeBox.SelectedItem as V3RebarShapeChoice)?.UniqueId ?? "";
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
-                c.JointTies = JointTiesCheck.IsChecked == true;
+                c.JointTies = false; // no reinforcement within intersecting joints
                 if (c.JointTies)
                 {
                     c.JointBeamHeight = ReadPositive(JointHeightBox, "Chiều cao nút dầm sàn");
@@ -397,13 +417,13 @@ namespace ColumnRebarPro.V3
                     ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture)
                     : "";
                 c.GroupLongBars = GroupLongCheck.IsChecked == true;
-                c.GroupTies = GroupTiesCheck.IsChecked == true;
+                c.GroupTies = true;
                 if (LoopRadio.IsChecked != true && HookRadio.IsChecked != true)
                     throw new InvalidOperationException("Chọn hình dạng đai theo chi tiết thiết kế đã duyệt.");
                 c.TieStyle = LoopRadio.IsChecked == true ? V3TieStyle.ClosedLoop : V3TieStyle.Hook135;
                 _configs[_activeId.Value] = c;
                 var row = ActiveRow;
-                if (row != null) row.BarText = FormatBars(c);
+                if (row != null) RefreshFloorPreview(row, c);
                 TieLayoutControlState();
                 UpdateSummary();
                 return true;
@@ -428,16 +448,18 @@ namespace ColumnRebarPro.V3
             StarterLengthBox.IsEnabled = StarterCheck.IsChecked == true;
             MainStarterLengthBox.IsReadOnly = false;
             MainStarterLengthBox.IsEnabled = MainStarterCheck.IsChecked == true;
-            bool enabled = TieLayoutBox.SelectedIndex == 1;
+            bool enabled = false; // Maximum Spacing is the only user-facing tie layout
             EndStepBox.IsEnabled = !enabled;
             MidStepBox.IsEnabled = !enabled;
             EndCountBox.IsEnabled = enabled;
             MidCountBox.IsEnabled = enabled;
+            GroupTiesCheck.IsEnabled = false;
             TieHook135Box.IsEnabled = HookRadio.IsChecked == true || CrossCheck.IsChecked == true;
             TieHook90Box.IsEnabled = CrossCheck.IsChecked == true && CrossAlternateCheck.IsChecked == true;
             CrossAlternateCheck.IsEnabled = CrossCheck.IsChecked == true;
-            JointHeightBox.IsEnabled = JointTiesCheck.IsChecked == true;
-            JointStepBox.IsEnabled = JointTiesCheck.IsChecked == true;
+            JointTiesCheck.IsEnabled = false;
+            JointHeightBox.IsEnabled = false;
+            JointStepBox.IsEnabled = false;
         }
 
         private void FloorList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -479,7 +501,8 @@ namespace ColumnRebarPro.V3
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            SaveActive(false);
+            if (SaveActive(false) && ActiveConfig != null)
+                V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
             RefreshTypeChoices(ActiveConfig);
         }
         private void Text_LostFocus(object sender, RoutedEventArgs e)
@@ -504,7 +527,7 @@ namespace ColumnRebarPro.V3
             foreach (ColumnSegment s in _segments)
                 _configs[s.Id.Value] = c.Copy();
             foreach (FloorRow row in _rows)
-                row.BarText = FormatBars(_configs[row.Segment.Id.Value]);
+                RefreshFloorPreview(row, _configs[row.Segment.Id.Value]);
             LoadActive();
             MessageBox.Show(this, "Đã áp dụng cấu hình cho " + _segments.Count + " tầng trong cửa sổ. Chưa thay đổi mô hình Revit.",
                 "KStruct", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -514,6 +537,7 @@ namespace ColumnRebarPro.V3
             if (!SaveActive(true)) return;
             // One explicit Hook selection on a floor should apply to other floors
             // using the same tie diameter, unless they already have their own IDs.
+            V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
             V4FloorHookInheritance.Apply(_configs.Values);
             if (DistributedRadio.IsChecked != true)
             {
@@ -664,6 +688,54 @@ namespace ColumnRebarPro.V3
         {
             Accepted = false;
             DialogResult = false;
+        }
+
+        // Lightweight, dimensioned cross-section for every floor in the stack.
+        // This preview depicts the configured Cx/Cy and is not a native Revit View.
+        private static void RefreshFloorPreview(FloorRow row, V3RebarConfig config)
+        {
+            row.BarText = FormatBars(config);
+            row.TieTag = config.TieDiameter > 0
+                ? "Đai Ø" + config.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) +
+                    " a" + config.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) +
+                    "/" + config.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture)
+                : "Đai: chưa cấu hình";
+            var drawing = new DrawingGroup();
+            using (var dc = drawing.Open())
+            {
+                const double width = 120, height = 86;
+                dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
+                var concrete = new Pen(Brushes.SeaGreen, 1.5);
+                var tie = new Pen(Brushes.DarkCyan, 1.7);
+                double w = Math.Max(35, Math.Min(96, row.Segment.WidthMm /
+                    Math.Max(row.Segment.WidthMm, row.Segment.DepthMm) * 88));
+                double h = Math.Max(35, Math.Min(63, row.Segment.DepthMm /
+                    Math.Max(row.Segment.WidthMm, row.Segment.DepthMm) * 63));
+                double x = (width-w)/2, y = (height-h)/2;
+                dc.DrawRectangle(null, concrete, new Rect(x,y,w,h));
+                dc.DrawRectangle(null, tie, new Rect(x+5,y+5,Math.Max(8,w-10),Math.Max(8,h-10)));
+                if (config.Cx >= 2 && config.Cy >= 2)
+                {
+                    var fill = Brushes.Firebrick;
+                    double x1=x+9, x2=x+w-9, y1=y+9, y2=y+h-9;
+                    for (int i=0;i<config.Cx;i++)
+                    {
+                        double px=x1+(x2-x1)*i/(config.Cx-1);
+                        dc.DrawEllipse(fill, null, new Point(px,y1), 2.2, 2.2);
+                        dc.DrawEllipse(fill, null, new Point(px,y2), 2.2, 2.2);
+                    }
+                    for (int i=1;i<config.Cy-1;i++)
+                    {
+                        double py=y1+(y2-y1)*i/(config.Cy-1);
+                        dc.DrawEllipse(fill, null, new Point(x1,py), 2.2, 2.2);
+                        dc.DrawEllipse(fill, null, new Point(x2,py), 2.2, 2.2);
+                    }
+                }
+            }
+            drawing.Freeze();
+            var image = new DrawingImage(drawing);
+            image.Freeze();
+            row.SectionPreview = image;
         }
 
         private void UpdateSummary()
@@ -977,8 +1049,23 @@ namespace ColumnRebarPro.V3
             try
             {
                 var bands = V3TieLayoutPlan.Create(heightMm, c.Cover, c.TieDiameter,
-                    c.EndZone, c.EndSpacing, c.MidSpacing, c.TieLayout == V3TieLayout.FixedNumber,
-                    c.EndTieCount, c.MidTieCount, c.JointTies, c.JointBeamHeight, c.JointSpacing);
+                    c.EndZone, c.EndSpacing, c.MidSpacing, false,
+                    c.EndTieCount, c.MidTieCount, false, 0, 0);
+                // Same joint exclusion as used when constructing actual Rebar Sets.
+                if (_document != null && _geometry.TryGetValue(row.Segment.Id.Value, out var geometry))
+                {
+                    var column = _document.GetElement(row.Segment.Id) as Autodesk.Revit.DB.FamilyInstance;
+                    if (column != null)
+                    {
+                        var work = new V3SegmentWork { Column=column, Segment=row.Segment,
+                            Geometry=geometry, Config=c };
+                        var excluded = V4TieJointExclusion.Find(_document, work);
+                        bands = V4TieBandExclusion.KeepOutside(bands, excluded);
+                        if (excluded.Count > 0)
+                            addTxt(4, cH-16, "Đã loại đai tại " + excluded.Count +
+                                " vùng giao dầm/sàn", Brushes.Firebrick, 9);
+                    }
+                }
                 foreach (var band in bands)
                     for (int i = 0; i < band.Count; i++)
                     {

@@ -97,8 +97,8 @@ namespace ColumnRebarPro.V3
                 {
                     foreach (var work in works)
                     {
-                        RebarBarType mainType = FindBarType(types, work.Config.MainDiameter);
-                        RebarBarType tieType = FindBarType(types, work.Config.TieDiameter);
+                        RebarBarType mainType = FindBarType(types, work.Config.MainDiameter, work.Config.MainBarTypeUniqueId);
+                        RebarBarType tieType = FindBarType(types, work.Config.TieDiameter, work.Config.TieBarTypeUniqueId);
                         if (mainType == null || tieType == null)
                             throw new InvalidOperationException("Không tìm thấy loại thép đúng đường kính cho cột " + work.Column.Id.Value);
 
@@ -147,9 +147,9 @@ namespace ColumnRebarPro.V3
             var types=new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
             foreach(var work in works)
             {
-                var type=FindBarType(types,work.Config.TieDiameter);
+                var type=FindBarType(types,work.Config.TieDiameter,work.Config.TieBarTypeUniqueId);
                 if(type==null)throw new InvalidOperationException("Không tìm thấy loại thép đai D"+work.Config.TieDiameter+" trong project.");
-                var mainType=FindBarType(types,work.Config.MainDiameter);
+                var mainType=FindBarType(types,work.Config.MainDiameter,work.Config.MainBarTypeUniqueId);
                 // V4 finds existing project Shapes from the design curves at creation.
                 // No manual RebarShape selection is required at preflight.
                 if (mainType == null)
@@ -192,8 +192,16 @@ namespace ColumnRebarPro.V3
                 .Select(r => r.Id).ToList();
         }
 
-        private static RebarBarType FindBarType(List<RebarBarType> types, double diameterMm)
+        private static RebarBarType FindBarType(List<RebarBarType> types, double diameterMm, string uniqueId = null)
         {
+            if (!string.IsNullOrWhiteSpace(uniqueId))
+            {
+                var selected = types.SingleOrDefault(t => t.UniqueId == uniqueId);
+                if (selected == null || Math.Abs(V3Units.Mm(selected.BarNominalDiameter) - diameterMm) > 0.01)
+                    throw new InvalidOperationException("RebarBarType đã lưu không còn tồn tại hoặc sai đường kính D" +
+                        diameterMm + " trong project. Hãy chọn lại thép chủ từ danh sách thực tế.");
+                return selected;
+            }
             List<RebarBarType> matches = types
                 .Where(t => !t.Name.StartsWith(V3BottleneckBarType.Prefix, StringComparison.Ordinal) &&
                     Math.Abs(V3Units.Mm(t.BarNominalDiameter) - diameterMm) <= .01)

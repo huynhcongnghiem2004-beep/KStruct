@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
   <ItemGroup>
     <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4TieSetPlacementPolicy.cs" Link="V4TieSetPlacementPolicy.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3RebarOwnership.cs" Link="V3RebarOwnership.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4DeletionGuard.cs" Link="V4DeletionGuard.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V4SheetUpdateGuard.cs" Link="V4SheetUpdateGuard.cs" />
@@ -16,6 +17,11 @@
     <Compile Include="../../ColumnRebarPro/V3/V3ColumnPairing.cs" Link="V3ColumnPairing.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3ConnectionAdapter.cs" Link="V3ConnectionAdapter.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3ProfileGeometry.cs" Link="V3ProfileGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4AnchorGeometry.cs" Link="V4AnchorGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4TieBandExclusion.cs" Link="V4TieBandExclusion.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4StackTieSettings.cs" Link="V4StackTieSettings.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ShapeCreationPolicy.cs" Link="V4ShapeCreationPolicy.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ExistingBarTypePolicy.cs" Link="V4ExistingBarTypePolicy.cs" />
     <Compile Include="PairingTests.cs.txt" />
     <Compile Include="HookTests.cs.txt" />
     <Compile Include="../../ColumnRebarPro/V3/V3HookSelection.cs" Link="V3HookSelection.cs" />

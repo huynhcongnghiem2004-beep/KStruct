@@ -8,6 +8,8 @@ namespace ColumnRebarPro.V3
     {
         public int Cx, Cy;
         public double MainDiameter, TieDiameter, Cover;
+        // Exact physical bar types in the active RVT, not nominal diameter alone.
+        public string MainBarTypeUniqueId = "", TieBarTypeUniqueId = "";
         public double EndZone, EndSpacing, MidSpacing;
         // Revit Shape-Driven Rebar Set (not Autodesk.Revit.DB.Group).
         public bool GroupLongBars = true, GroupTies = true;
@@ -31,6 +33,9 @@ namespace ColumnRebarPro.V3
         public double StarterLength;
         public bool StaggerSplices;
         public bool BottleneckRibbed = true;
+        // Explicit engineering-review exception: use selected project's bend radius
+        // despite falling below the configured TCVN minimum. Not compliant by default.
+        public bool AllowExistingUndersizeBend;
         public double BottleneckClearanceMm = 2;
         // Geometric detailing default, not a slope mandated by TCVN 5574.
         public double BottleneckSlope = 6;

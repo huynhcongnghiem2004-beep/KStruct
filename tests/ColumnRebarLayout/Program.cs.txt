@@ -25,6 +25,79 @@ static class Program
         Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
     static void Main()
     {
+        Check(!V4TieSetPlacementPolicy.NeedsFixedNumber(7, 7, 600, 100),
+            "Matching Maximum Spacing set preserves its Revit layout rule");
+        Check(V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 100),
+            "Count disagreement can fall back to exactly seven ties at 100 mm");
+        Check(V4TieSetPlacementPolicy.NeedsFixedNumber(6, 5, 500, 100),
+            "Shared zone boundary still uses the approved maximum spacing");
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(3, 4, 500, 100));
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, double.NaN, 100));
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 0));
+        // Anchor plane validation: two-point bars, L anchor, tilted transition,
+        // out-of-plane kinks and unsafe array directions.
+        var P = new Func<double,double,double,V3Point3>((x,y,z)=>new V3Point3(x,y,z));
+        var straight = V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,1000) }, P(1,0,0));
+        Check(Math.Abs(straight.X-1)<1e-8, "Straight bars use perpendicular set direction");
+        var bend = V4AnchorGeometry.PlaneNormal(
+            new[] { P(-250,0,0), P(0,0,0), P(0,0,2000) });
+        Check(Math.Abs(Math.Abs(bend.Y)-1)<1e-8, "L-shaped anchor plane derives from actual legs");
+        var tilted = V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,700), P(50,50,1000) });
+        Check(Math.Abs(tilted.Dot(P(1,1,0)))<1e-7, "Tilted in-plane transition computes correct plane");
+        Reject(()=>V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,500), P(100,0,600), P(100,100,1000) }));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(0,0,0) }));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(0,0,1000) },P(0,0,50)));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,1000), P(100,0,1500) }, P(0,1,0.1)));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(double.NaN,0,1000) }));
+        Check(V4ShapeCreationPolicy.CanCreate("thanh neo/chuyển tiếp"), "Only anchor paths can create a new Shape");
+        Check(V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
+            V4ShapeCreationPolicy.CanCreate("đai bao") &&
+            V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"),
+            "Generate missing project Shapes for all supported column bar groups");
+        Check(!V4ShapeCreationPolicy.CanCreate(null) &&
+            !V4ShapeCreationPolicy.CanCreate("unknown") &&
+            !V4ShapeCreationPolicy.CanCreate("foundation"),
+            "Do not generate Shapes for unrelated or unknown commands");
+        // No auto-generated RebarBarType allowed for bottleneck bends.
+        V4ExistingBarTypePolicy.RequireAdequateBend("D20",120,120);
+        V4ExistingBarTypePolicy.RequireAdequateBend("D20",150,120);
+        Reject(()=>V4ExistingBarTypePolicy.RequireAdequateBend("D20",100,120));
+        Reject(()=>V4ExistingBarTypePolicy.RequireAdequateBend("D20",double.NaN,120));
+        // Do not place ties inside beam/slab joint intervals. Split Rebar Sets
+        // at excluded positions, preserving spacing on each remaining run.
+        var jointSource = new[] { new V3TieBand {
+            Start=0, End=600, Count=7, MaximumSpacing=100, FixedNumber=false
+        }};
+        var split = V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(250.0,350.0) });
+        Check(split.Count==2 && split[0].Count==3 && split[1].Count==3 &&
+              split[0].End==200 && split[1].Start==400,
+            "Intersecting joint must remove tie at 300mm and split sets");
+        Check(V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(0.0,600.0) }).Count==0,
+            "Entirely intersected joint cannot create a tie");
+        Check(V4TieBandExclusion.KeepOutside(jointSource,
+            new Tuple<double,double>[0]).Single().Count==7,
+            "No intersection preserves all seven ties");
+        var typeA = new V3RebarConfig { TieStyle=V3TieStyle.Hook135, TieDiameter=8,
+            TieBarTypeUniqueId="D8a", TieHook135UniqueId="H135",
+            TieLayout=V3TieLayout.MaximumSpacing };
+        var typeB = new V3RebarConfig { TieStyle=V3TieStyle.ClosedLoop,
+            TieDiameter=8, TieBarTypeUniqueId="D8a", TieHook135UniqueId="" };
+        var typeC = new V3RebarConfig { TieStyle=V3TieStyle.ClosedLoop,
+            TieDiameter=10, TieBarTypeUniqueId="D10", TieHook135UniqueId="" };
+        V4StackTieSettings.Apply(typeA,new[]{typeA,typeB,typeC});
+        Check(typeB.TieStyle==V3TieStyle.Hook135 && typeB.TieHook135UniqueId=="H135",
+            "Tie style and Hook selected once apply to compatible floors");
+        Check(typeC.TieStyle==V3TieStyle.Hook135 && typeC.TieHook135UniqueId=="",
+            "All floors share tie style but differing bar types never inherit Hook");
+        Check(typeA.TieLayout==V3TieLayout.MaximumSpacing &&
+              typeB.TieLayout==V3TieLayout.MaximumSpacing,
+            "All floors use Maximum Spacing");
         var bands = Plan();
         var zs = Positions(bands);
         Check(bands.Count == 3, "Three bands");
