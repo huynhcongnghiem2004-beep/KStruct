@@ -33,6 +33,18 @@ namespace ColumnRebarPro.V3
             public string FloorTitle { get { return "▼ " + Segment.LevelName; } }
             public string HeightText { get { return "H = " + Math.Round(Segment.TopMm - Segment.BottomMm) + " (mm)"; } }
             public string SizeText { get { return "S = " + Math.Round(Segment.WidthMm) + "×" + Math.Round(Segment.DepthMm); } }
+            private ImageSource _sectionPreview;
+            public ImageSource SectionPreview
+            {
+                get { return _sectionPreview; }
+                set { _sectionPreview = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SectionPreview")); }
+            }
+            private string _tieTag;
+            public string TieTag
+            {
+                get { return _tieTag; }
+                set { _tieTag = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("TieTag")); }
+            }
             private string _barText;
             public string BarText
             {
@@ -133,7 +145,9 @@ namespace ColumnRebarPro.V3
             foreach (ColumnSegment s in _segments.OrderByDescending(s => s.BottomMm))
             {
                 V3RebarConfig c = _configs[s.Id.Value];
-                _rows.Add(new FloorRow { Segment = s, BarText = FormatBars(c) });
+                var floorRow = new FloorRow { Segment = s, BarText = FormatBars(c) };
+                RefreshFloorPreview(floorRow, c);
+                _rows.Add(floorRow);
             }
             FloorList.ItemsSource = _rows;
             CountLabel.Text = "Số lượng: " + _rows.Count;
@@ -407,7 +421,7 @@ namespace ColumnRebarPro.V3
                 c.TieStyle = LoopRadio.IsChecked == true ? V3TieStyle.ClosedLoop : V3TieStyle.Hook135;
                 _configs[_activeId.Value] = c;
                 var row = ActiveRow;
-                if (row != null) row.BarText = FormatBars(c);
+                if (row != null) RefreshFloorPreview(row, c);
                 TieLayoutControlState();
                 UpdateSummary();
                 return true;
@@ -484,7 +498,8 @@ namespace ColumnRebarPro.V3
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
-            SaveActive(false);
+            if (SaveActive(false) && ActiveConfig != null)
+                V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
             RefreshTypeChoices(ActiveConfig);
         }
         private void Text_LostFocus(object sender, RoutedEventArgs e)
@@ -509,7 +524,7 @@ namespace ColumnRebarPro.V3
             foreach (ColumnSegment s in _segments)
                 _configs[s.Id.Value] = c.Copy();
             foreach (FloorRow row in _rows)
-                row.BarText = FormatBars(_configs[row.Segment.Id.Value]);
+                RefreshFloorPreview(row, _configs[row.Segment.Id.Value]);
             LoadActive();
             MessageBox.Show(this, "Đã áp dụng cấu hình cho " + _segments.Count + " tầng trong cửa sổ. Chưa thay đổi mô hình Revit.",
                 "KStruct", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -670,6 +685,54 @@ namespace ColumnRebarPro.V3
         {
             Accepted = false;
             DialogResult = false;
+        }
+
+        // Lightweight, dimensioned cross-section for every floor in the stack.
+        // This preview depicts the configured Cx/Cy and is not a native Revit View.
+        private static void RefreshFloorPreview(FloorRow row, V3RebarConfig config)
+        {
+            row.BarText = FormatBars(config);
+            row.TieTag = config.TieDiameter > 0
+                ? "Đai Ø" + config.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) +
+                    " a" + config.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) +
+                    "/" + config.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture)
+                : "Đai: chưa cấu hình";
+            var drawing = new DrawingGroup();
+            using (var dc = drawing.Open())
+            {
+                const double width = 120, height = 86;
+                dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
+                var concrete = new Pen(Brushes.SeaGreen, 1.5);
+                var tie = new Pen(Brushes.DarkCyan, 1.7);
+                double w = Math.Max(35, Math.Min(96, row.Segment.WidthMm /
+                    Math.Max(row.Segment.WidthMm, row.Segment.DepthMm) * 88));
+                double h = Math.Max(35, Math.Min(63, row.Segment.DepthMm /
+                    Math.Max(row.Segment.WidthMm, row.Segment.DepthMm) * 63));
+                double x = (width-w)/2, y = (height-h)/2;
+                dc.DrawRectangle(null, concrete, new Rect(x,y,w,h));
+                dc.DrawRectangle(null, tie, new Rect(x+5,y+5,Math.Max(8,w-10),Math.Max(8,h-10)));
+                if (config.Cx >= 2 && config.Cy >= 2)
+                {
+                    var fill = Brushes.Firebrick;
+                    double x1=x+9, x2=x+w-9, y1=y+9, y2=y+h-9;
+                    for (int i=0;i<config.Cx;i++)
+                    {
+                        double px=x1+(x2-x1)*i/(config.Cx-1);
+                        dc.DrawEllipse(fill, null, new Point(px,y1), 2.2, 2.2);
+                        dc.DrawEllipse(fill, null, new Point(px,y2), 2.2, 2.2);
+                    }
+                    for (int i=1;i<config.Cy-1;i++)
+                    {
+                        double py=y1+(y2-y1)*i/(config.Cy-1);
+                        dc.DrawEllipse(fill, null, new Point(x1,py), 2.2, 2.2);
+                        dc.DrawEllipse(fill, null, new Point(x2,py), 2.2, 2.2);
+                    }
+                }
+            }
+            drawing.Freeze();
+            var image = new DrawingImage(drawing);
+            image.Freeze();
+            row.SectionPreview = image;
         }
 
         private void UpdateSummary()
