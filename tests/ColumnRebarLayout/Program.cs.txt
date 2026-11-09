@@ -104,6 +104,18 @@ static class Program
             "User-added annotation must block destructive refresh");
         Check(!V4SheetOwnershipRules.SameViewContents("101:7,8", "101:7"),
             "Removed annotation must block destructive refresh");
+        Check(V4ShapeAutoSelection.Choose(null, new[] { "shape-A" }) == "shape-A",
+            "Automatically select the only compatible project shape");
+        Check(V4ShapeAutoSelection.Choose("", new[] { "shape-A", "shape-A" }) == "shape-A",
+            "Duplicate identities do not create false ambiguity");
+        Check(V4ShapeAutoSelection.Choose("", new[] { "shape-A", "shape-B" }) == null,
+            "Never guess between different compatible RebarShapes");
+        Check(V4ShapeAutoSelection.Choose("shape-B", new[] { "shape-A", "shape-B" }) == "shape-B",
+            "Preserve previously selected compatible shape");
+        Check(V4ShapeAutoSelection.Choose("stale-shape", new[] { "shape-A" }) == null,
+            "Do not silently replace a saved but incompatible RebarShape");
+        Check(V4ShapeAutoSelection.Choose(null, new string[0]) == null,
+            "Missing compatible RebarShape must not be fabricated");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();
