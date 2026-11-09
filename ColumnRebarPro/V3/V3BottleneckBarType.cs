@@ -15,17 +15,9 @@ namespace ColumnRebarPro.V3
             if (source == null || config == null)
                 throw new InvalidOperationException("Chưa chọn RebarBarType thép chủ thực tế từ project.");
             double minimum = V3Units.Ft(V3BottleneckRules.MinimumBendDiameter(config.MainDiameter, config.BottleneckRibbed));
-            if (source.StandardBendDiameter >= minimum - 1e-8) return source;
-            // NEVER duplicate or change RebarBarType in the user's project.
-            // In particular, prior V4 code silently created KSTR_TCVN_BEND_* types.
-            throw new InvalidOperationException(
-                "Thép chủ " + source.Name + " (ID " + source.Id.Value +
-                ") không đủ đường kính uốn cho cổ chai. Yêu cầu tối thiểu " +
-                V3Units.Mm(minimum).ToString("0.##", CultureInfo.InvariantCulture) +
-                " mm; loại hiện tại " +
-                V3Units.Mm(source.StandardBendDiameter).ToString("0.##", CultureInfo.InvariantCulture) +
-                " mm. Hãy chọn RebarBarType khác đã có trong project. " +
-                "KStruct không tự tạo và không chỉnh sửa RebarBarType.");
+            V4ExistingBarTypePolicy.RequireAdequateBend(source.Name,
+                V3Units.Mm(source.StandardBendDiameter), V3Units.Mm(minimum));
+            return source;
         }
 
         internal static void CheckBends(Rebar bar, V3RebarConfig config, int minimumArcCount = 2)
