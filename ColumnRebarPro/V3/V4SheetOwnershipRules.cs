@@ -7,6 +7,11 @@ namespace ColumnRebarPro.V3
     // Pure matching rule for stamped sheets, tested without Revit API.
     internal static class V4SheetOwnershipRules
     {
+        // Snapshot changes indicate user-added/removed view-specific annotations.
+        internal static bool SameViewContents(string created, string current) =>
+            !string.IsNullOrWhiteSpace(created) &&
+            string.Equals(created, current, StringComparison.Ordinal);
+
         internal static bool Matches(string expectedStack, string storedStack,
             IEnumerable<string> storedViews, IEnumerable<string> placedViews)
         {
