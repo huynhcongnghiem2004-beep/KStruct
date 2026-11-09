@@ -34,6 +34,29 @@ static class Program
         Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(3, 4, 500, 100));
         Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, double.NaN, 100));
         Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 0));
+        // Anchor plane validation: two-point bars, L anchor, tilted transition,
+        // out-of-plane kinks and unsafe array directions.
+        var P = new Func<double,double,double,V3Point3>((x,y,z)=>new V3Point3(x,y,z));
+        var straight = V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,1000) }, P(1,0,0));
+        Check(Math.Abs(straight.X-1)<1e-8, "Straight bars use perpendicular set direction");
+        var bend = V4AnchorGeometry.PlaneNormal(
+            new[] { P(-250,0,0), P(0,0,0), P(0,0,2000) });
+        Check(Math.Abs(Math.Abs(bend.Y)-1)<1e-8, "L-shaped anchor plane derives from actual legs");
+        var tilted = V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,700), P(50,50,1000) });
+        Check(Math.Abs(tilted.Dot(P(1,1,0)))<1e-7, "Tilted in-plane transition computes correct plane");
+        Reject(()=>V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,500), P(100,0,600), P(100,100,1000) }));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(0,0,0) }));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(0,0,1000) },P(0,0,50)));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,1000), P(100,0,1500) }, P(0,1,0.1)));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(double.NaN,0,1000) }));
+        Check(V4ShapeCreationPolicy.CanCreate("thanh neo/chuyển tiếp"), "Only anchor paths can create a new Shape");
+        Check(!V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
+            !V4ShapeCreationPolicy.CanCreate("đai bao") &&
+            !V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"), "Never grow Shape library for other bar groups");
         var bands = Plan();
         var zs = Positions(bands);
         Check(bands.Count == 3, "Three bands");
