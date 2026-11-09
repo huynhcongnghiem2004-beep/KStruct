@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
+using SDK_HD.KStruct.Core.Storage;
 
 namespace SDK_HD.KStruct.NativeDocumentation
 {
@@ -32,12 +33,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             string path = PathFor(projectKey, directory);
             if (!File.Exists(path)) return null;
             using (var stream = File.OpenRead(path))
-            using (var reader = XmlReader.Create(stream, new XmlReaderSettings
-            {
-                DtdProcessing = DtdProcessing.Prohibit,
-                XmlResolver = null,
-                MaxCharactersInDocument = 4 * 1024 * 1024
-            }))
+            using (var reader = SafeXmlReader.Create(stream, 4 * 1024 * 1024))
                 return (FootingDrawingSession)new XmlSerializer(typeof(FootingDrawingSession)).Deserialize(reader);
         }
 
