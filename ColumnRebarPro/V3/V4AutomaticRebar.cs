@@ -34,6 +34,9 @@ namespace ColumnRebarPro.V3
                     Tuple.Create(RebarHookOrientation.Left, RebarHookOrientation.Left)
                 };
 
+            if (allowNewShape && !V4ShapeCreationPolicy.CanCreate(group))
+                throw new InvalidOperationException("Không cho phép tự tạo RebarShape cho nhóm " + group + ".");
+
             // Revit 2024 can throw InternalException when no matching shape is
             // available with createNewShape:false (Autodesk REVIT-217050).
             // Always isolate the initial probe; only a validated anchor may retry
