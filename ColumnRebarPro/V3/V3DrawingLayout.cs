@@ -222,6 +222,20 @@ namespace ColumnRebarPro.V3
             CenterViewportTitle(doc, longPort);
             foreach (var port in ports) CenterViewportTitle(doc, port);
 
+            // Validate model viewports against the printable region before commit.
+            // The transaction will rollback a stack that does not fit instead of
+            // silently leaving cross sections outside the sheet or overlapping.
+            doc.Regenerate();
+            var viewportRects = new[] { longPort }.Concat(ports).Select(port =>
+            {
+                Outline box = port.GetBoxOutline();
+                return new V4SheetLayoutGuard.Rect(
+                    box.MinimumPoint.X, box.MinimumPoint.Y,
+                    box.MaximumPoint.X, box.MaximumPoint.Y);
+            }).ToList();
+            V4SheetLayoutGuard.Validate(
+                new V4SheetLayoutGuard.Rect(left, bottom, right, top), viewportRects);
+
             // Không tự chèn schedule đầu tiên của project: nó có thể thống kê toàn mô hình,
             // không giới hạn vào tuyến cột đang triển khai. Tạo schedule riêng qua nút nhóm "Tạo thép cột".
         }
