@@ -1,7 +1,7 @@
 <Window x:Class="ColumnRebarPro.V3.ColumnRebarV3Window"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KStruct | Column Rebar Pro v3.2" Width="1210" Height="720"
+        Title="KStruct | Column Rebar Pro V4 (tương thích V3)" Width="1210" Height="720"
         MinWidth="900" MinHeight="560" WindowStartupLocation="CenterScreen"
         Background="#FFF9FAFC" FontFamily="Segoe UI" FontSize="12"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
@@ -45,12 +45,12 @@
         <Grid DockPanel.Dock="Bottom" Height="43" Background="#FFF7F7F7">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="9,0">
-                <CheckBox x:Name="OverwriteCheck" Content="Ghi đè thép có Partition V3" ToolTip="Chỉ thay thép mang đúng Partition KSTR_V3_ID của cột, kể cả thanh neo host móng. Giữ thép có Partition khác." VerticalAlignment="Center"/>
+                <CheckBox x:Name="OverwriteCheck" Content="Thay thép V3 cũ (bảo vệ Tag/Dim)" ToolTip="Chỉ thay thép mang đúng Partition KSTR_V3_ID của cột, kể cả thanh neo host móng. Giữ thép có Partition khác." VerticalAlignment="Center"/>
                 <TextBlock Margin="14,0,0,0" Foreground="#FF8A3A32" VerticalAlignment="Center"
                            Text="Đối chiếu thiết kế trước khi chạy"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,9,0">
-                <Button x:Name="RunButton" Style="{StaticResource FlatButton}" Width="190" Content="Tạo thép 3D" Background="#FFE9F1FF" IsDefault="True" Click="Run_Click"/>
+                <Button x:Name="RunButton" Style="{StaticResource FlatButton}" Width="190" Content="Kiểm tra &amp; tạo thép 3D" Background="#FFE9F1FF" IsDefault="True" Click="Run_Click"/>
                 <Button Style="{StaticResource FlatButton}" Width="75" Content="Hủy" IsCancel="True" Click="Cancel_Click"/>
             </StackPanel>
         </Grid>

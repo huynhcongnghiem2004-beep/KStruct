@@ -67,6 +67,55 @@ static class Program
         Check(V3RebarOwnership.Matches(42,"KSTR_V3_42"), "Recognize legacy V3 partition, regardless of column/foundation host");
         foreach (string partition in new[]{null,"","KSTR_V3_420","KSTR_V3_41","kstr_v3_42","Manual"," KSTR_V3_42"})
             Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
+        V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 2, 1 }, "test");
+        Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 1, 2, 99 }, "test"));
+        Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { "bar-a" }, new[] { "bar-a", "tag-a" }, "test"));
+        Check(true, "V4 deletion guard keeps exact planned IDs and detects cascade deletion");
+        Check(V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1 - DRAFT", "KSTR V3 MCN C1 - DRAFT" }), "V4 accepts unmodified KStruct-only sheet");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1", "User Detail View" }), "V4 never adopts mixed sheets");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCN C1" }), "V4 requires a longitudinal view");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new string[0]), "V4 never adopts empty sheets");
+        Check(V4SheetOwnershipRules.Matches("C1|C2", "C1|C2", new[] { "21", "22" }, new[] { "22", "21" }),
+            "Owned sheet accepts the exact same view identities regardless of order");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C2", new[] { "21", "22" }, new[] { "21", "22" }),
+            "Sheet from another column stack must never be adopted");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new[] { "21", "22" }, new[] { "21", "22", "99" }),
+            "User-added view blocks replacement");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new[] { "21", "22" }, new[] { "21" }),
+            "Missing generated view blocks replacement");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new string[0], new string[0]),
+            "Empty sheet identity is not owned");
+        var printable = new V4SheetLayoutGuard.Rect(0, 0, 100, 100);
+        V4SheetLayoutGuard.Validate(printable, new[] {
+            new V4SheetLayoutGuard.Rect(5, 5, 45, 60),
+            new V4SheetLayoutGuard.Rect(55, 5, 95, 60)
+        });
+        Reject(() => V4SheetLayoutGuard.Validate(printable,
+            new[] { new V4SheetLayoutGuard.Rect(90, 10, 110, 50) }));
+        Reject(() => V4SheetLayoutGuard.Validate(printable, new[] {
+            new V4SheetLayoutGuard.Rect(5, 5, 55, 60),
+            new V4SheetLayoutGuard.Rect(50, 10, 95, 55)
+        }));
+        Reject(() => V4SheetLayoutGuard.Validate(printable,
+            new[] { new V4SheetLayoutGuard.Rect(double.NaN, 0, 10, 10) }));
+        Check(V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8;102:9"),
+            "Unchanged view annotation ownership permits refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8,99;102:9"),
+            "User-added annotation must block destructive refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8", "101:7"),
+            "Removed annotation must block destructive refresh");
+        Check(V4ShapeAutoSelection.Choose(null, new[] { "shape-A" }) == "shape-A",
+            "Automatically select the only compatible project shape");
+        Check(V4ShapeAutoSelection.Choose("", new[] { "shape-A", "shape-A" }) == "shape-A",
+            "Duplicate identities do not create false ambiguity");
+        Check(V4ShapeAutoSelection.Choose("", new[] { "shape-A", "shape-B" }) == null,
+            "Never guess between different compatible RebarShapes");
+        Check(V4ShapeAutoSelection.Choose("shape-B", new[] { "shape-A", "shape-B" }) == "shape-B",
+            "Preserve previously selected compatible shape");
+        Check(V4ShapeAutoSelection.Choose("stale-shape", new[] { "shape-A" }) == null,
+            "Do not silently replace a saved but incompatible RebarShape");
+        Check(V4ShapeAutoSelection.Choose(null, new string[0]) == null,
+            "Missing compatible RebarShape must not be fabricated");
         AnchorTests.Run();
         StarterTests.Run();
         PairingTests.Run();

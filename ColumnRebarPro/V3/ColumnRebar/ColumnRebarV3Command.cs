@@ -63,34 +63,46 @@ namespace ColumnRebarPro.V3
                 V3FoundationAnchor.Attach(doc, firstWorks.FirstOrDefault(), firstWindow.FoundationAnchorSettings);
                 jobs.Add(NewJob(stacks[0], firstWorks, firstWindow));
 
-                bool asked = false, reuse = false;
+                // Read each selected stack once; batch selection applies only to genuinely
+                // equivalent geometry. Non-matching stacks still get their own editor.
+                var prepared = new Dictionary<int, List<V3SegmentWork>>();
+                var candidates = new List<V4BatchReuseCandidate>();
                 for (int k = 1; k < stacks.Count; k++)
                 {
-                    var stack = stacks[k];
-                    List<V3SegmentWork> works;
-                    try { works = MakeWorks(doc, stack); }
-                    catch (Exception ex) { failures.Add(StackLabel(stack) + ": " + ex.Message); continue; }
-
-                    if (SameShape(works, firstWorks))
+                    try
                     {
-                        if (!asked)
-                        {
-                            asked = true;
-                            reuse = TaskDialog.Show("KStruct V3 - Nhiều tuyến cột",
-                                "Có tuyến cột cùng số tầng và cùng tiết diện với tuyến đầu.\n" +
-                                "Dùng lại cấu hình thép và thiết lập triển khai của tuyến đầu cho các tuyến như vậy?\n" +
-                                "(Chọn No để cấu hình riêng từng tuyến.)",
-                                TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No) == TaskDialogResult.Yes;
-                        }
+                        var works = MakeWorks(doc, stacks[k]);
+                        prepared[k] = works;
+                        if (SameShape(works, firstWorks))
+                            candidates.Add(new V4BatchReuseCandidate
+                            {
+                                Index = k,
+                                Label = StackLabel(stacks[k]) + " · " + works.Count +
+                                    " tầng · " + Math.Round(V3Units.Mm(works[0].Geometry.Width)) + " × " +
+                                    Math.Round(V3Units.Mm(works[0].Geometry.Depth)) + " mm"
+                            });
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add(StackLabel(stacks[k]) + ": " + ex.Message);
+                    }
+                }
+                HashSet<int> reuseIndices = V4BatchReuseDialog.Choose(
+                    data.Application.MainWindowHandle, candidates);
+                if (reuseIndices == null) return Result.Cancelled;
 
-                        if (reuse)
-                        {
-                            for (int i = 0; i < works.Count; i++)
-                                works[i].Config = firstConfigs[i].Copy();
-                            V3FoundationAnchor.Attach(doc, works.FirstOrDefault(), firstWindow.FoundationAnchorSettings);
-                            jobs.Add(NewJob(stack, works, firstWindow));
-                            continue;
-                        }
+                for (int k = 1; k < stacks.Count; k++)
+                {
+                    List<V3SegmentWork> works;
+                    if (!prepared.TryGetValue(k, out works)) continue;
+                    var stack = stacks[k];
+                    if (reuseIndices.Contains(k))
+                    {
+                        for (int i = 0; i < works.Count; i++)
+                            works[i].Config = firstConfigs[i].Copy();
+                        V3FoundationAnchor.Attach(doc, works.FirstOrDefault(), firstWindow.FoundationAnchorSettings);
+                        jobs.Add(NewJob(stack, works, firstWindow));
+                        continue;
                     }
 
                     var window = ShowWindow(data, stack, loadedDiameters, doc);
@@ -100,11 +112,9 @@ namespace ColumnRebarPro.V3
                         continue;
                     }
                     V3DeploymentControl.PersistSettings(doc, window.DeploymentSettings);
-
                     var configMap = window.Configurations;
                     for (int i = 0; i < works.Count; i++)
                         works[i].Config = configMap[stack[i].Id.Value];
-
                     V3FoundationAnchor.Attach(doc, works.FirstOrDefault(), window.FoundationAnchorSettings);
                     jobs.Add(NewJob(stack, works, window));
                 }
@@ -142,17 +152,26 @@ namespace ColumnRebarPro.V3
                 if (jobs.Count == 0)
                     throw new InvalidOperationException("Không còn tuyến cột hợp lệ để tạo thép.\n" + string.Join("\n", failures));
 
+                // V4 preflight summary: no document modification has happened yet.
                 var allWorks = jobs.SelectMany(x => x.Works).ToList();
+                int drawingsRequested = jobs.Count(job => job.Drawings.Enabled);
+                int replacementJobs = jobs.Count(job => job.ReplaceOld);
+                string previewSummary =
+                    "Tuyến cột hợp lệ: " + jobs.Count + "\n" +
+                    "Tổng số đoạn cột: " + allWorks.Count + "\n" +
+                    "Tuyến có triển khai bản vẽ: " + drawingsRequested + "\n" +
+                    "Tuyến bật thay thép V3 cũ: " + replacementJobs + "\n" +
+                    "Tuyến bị bỏ qua trong kiểm tra: " + failures.Count + "\n\n" +
+                    "KStruct V4 sẽ rollback tuyến nếu Revit xóa kèm phần tử ngoài bộ thép cũ.\n" +
+                    "Thao tác tạo bản vẽ sử dụng cấu hình hồ sơ của project.";
                 if (allWorks.Any(w => w.Config.StarterBars))
-                {
-                    var confirm = TaskDialog.Show("KStruct - Thép chờ theo thiết kế",
-                        "KStruct sẽ tạo thép chờ theo đúng chiều dài đã nhập từ hồ sơ thiết kế. " +
-                        "Không tự tính nối chồng hoặc cấu tạo chuyển tiếp tiết diện.\n\n" +
-                        "Tạo Rebar 3D dạng DRAFT cho " + jobs.Count + " tuyến cột?",
-                        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-
-                    if (confirm != TaskDialogResult.Yes) return Result.Cancelled;
-                }
+                    previewSummary += "\n\nThép chờ lấy theo đúng chiều dài thiết kế đã nhập; " +
+                        "chưa tự tính nối chồng hoặc chuyển tiếp tiết diện.";
+                var confirmation = TaskDialog.Show("KStruct V4 - Kiểm tra trước khi tạo",
+                    previewSummary + "\n\nTiếp tục tạo Rebar 3D" +
+                    (drawingsRequested > 0 ? " và hồ sơ bản vẽ" : "") + "?",
+                    TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                if (confirmation != TaskDialogResult.Yes) return Result.Cancelled;
 
                 var reports = new List<V3BuildReport>();
                 int sheetCount = 0;

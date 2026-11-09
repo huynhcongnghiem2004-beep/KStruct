@@ -12,7 +12,7 @@ namespace ColumnRebarPro.V3
         {
             var result=new List<ElementId>();if(!Enabled)return result;
             if(works==null||works.Count==0)return result;
-            RemoveExistingKStructV3Sheet(doc);
+            RemoveExistingKStructV3Sheet(doc, works);
             var first=works[0];var baseGeometry=first.Geometry;
             XYZ x=baseGeometry.X,y=new XYZ(-x.Y,x.X,0),origin=baseGeometry.Center;
             var points=new List<XYZ>();
@@ -71,6 +71,7 @@ namespace ColumnRebarPro.V3
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
+            V4SheetOwnership.Stamp(doc, sheet, works);
             result.Add(sheet.Id);return result;
         }
 
@@ -220,6 +221,20 @@ namespace ColumnRebarPro.V3
             doc.Regenerate();
             CenterViewportTitle(doc, longPort);
             foreach (var port in ports) CenterViewportTitle(doc, port);
+
+            // Validate model viewports against the printable region before commit.
+            // The transaction will rollback a stack that does not fit instead of
+            // silently leaving cross sections outside the sheet or overlapping.
+            doc.Regenerate();
+            var viewportRects = new[] { longPort }.Concat(ports).Select(port =>
+            {
+                Outline box = port.GetBoxOutline();
+                return new V4SheetLayoutGuard.Rect(
+                    box.MinimumPoint.X, box.MinimumPoint.Y,
+                    box.MaximumPoint.X, box.MaximumPoint.Y);
+            }).ToList();
+            V4SheetLayoutGuard.Validate(
+                new V4SheetLayoutGuard.Rect(left, bottom, right, top), viewportRects);
 
             // Không tự chèn schedule đầu tiên của project: nó có thể thống kê toàn mô hình,
             // không giới hạn vào tuyến cột đang triển khai. Tạo schedule riêng qua nút nhóm "Tạo thép cột".
