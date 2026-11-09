@@ -156,9 +156,11 @@ namespace ColumnRebarPro.V3
 
         private static bool IsKStructV3Sheet(Document doc, ViewSheet sheet)
         {
-            return sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>()
-                .Any(view => view.Name.StartsWith("KSTR V3 MCD ", StringComparison.OrdinalIgnoreCase) ||
-                             view.Name.StartsWith("KSTR V3 MCN ", StringComparison.OrdinalIgnoreCase));
+            if (sheet == null) return false;
+            // A mixed sheet can contain user-managed views: never treat it as entirely owned
+            // merely because one KStruct view appears on it.
+            var views = sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>().ToList();
+            return V4SheetUpdateGuard.CanReplaceViews(views.Select(view => view.Name));
         }
 
         private void RemoveExistingKStructV3Sheet(Document doc)
