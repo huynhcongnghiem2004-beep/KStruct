@@ -19,6 +19,7 @@
     <Compile Include="PairingTests.cs.txt" />
     <Compile Include="HookTests.cs.txt" />
     <Compile Include="../../ColumnRebarPro/V3/V3HookSelection.cs" Link="V3HookSelection.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4FloorHookInheritance.cs" Link="V4FloorHookInheritance.cs" />
     <Compile Include="LegacySpliceTests.cs.txt" />
     <Compile Include="../../ColumnRebarPro/V3/V3LegacySplice.cs" Link="V3LegacySplice.cs" />
     <Compile Include="StarterTests.cs.txt" />

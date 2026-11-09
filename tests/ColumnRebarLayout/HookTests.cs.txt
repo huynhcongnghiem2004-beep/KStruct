@@ -42,6 +42,21 @@ static class HookTests
             Reject(()=>V3HookSelection.Resolve(hooks,id,135,true),"Chọn lại");
         Check(V3HookSelection.Resolve(hooks,"deleted",90,false)==null,"Closed ties do not require unused hooks");
         Reject(()=>V3HookSelection.Resolve(new V3HookChoice[0],"",135,true),"chưa có móc");
+        var level1 = new V3RebarConfig { TieDiameter = 8, TieHook135UniqueId = "tie", TieHook90UniqueId = "90" };
+        var level2 = new V3RebarConfig { TieDiameter = 8 };
+        var level3 = new V3RebarConfig { TieDiameter = 10 };
+        var levels = new[] { level1, level2, level3 };
+        V4FloorHookInheritance.Apply(levels);
+        Check(level2.TieHook135UniqueId == "tie" && level2.TieHook90UniqueId == "90",
+            "One explicitly chosen Hook propagates to other floors with same tie diameter");
+        Check(level3.TieHook135UniqueId == "" && level3.TieHook90UniqueId == "",
+            "Never copy Hook across different bar diameters");
+        var selected = new V3RebarConfig { TieDiameter = 8, TieHook135UniqueId = "seismic" };
+        var omitted = new V3RebarConfig { TieDiameter = 8 };
+        V4FloorHookInheritance.Apply(new[] { level1, selected, omitted });
+        Check(level1.TieHook135UniqueId == "tie" && selected.TieHook135UniqueId == "seismic"
+            && omitted.TieHook135UniqueId == "",
+            "Distinct explicit Hook choices are preserved; unresolved floor stays ambiguous");
         var c=new V3RebarConfig{TieHook135UniqueId="seismic",TieHook90UniqueId="90"};
         var serializer=new XmlSerializer(typeof(V3RebarConfig));string xml;
         using(var w=new StringWriter()){serializer.Serialize(w,c);xml=w.ToString();}

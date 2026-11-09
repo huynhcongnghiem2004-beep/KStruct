@@ -227,19 +227,27 @@ namespace ColumnRebarPro.V3
         private void RefreshTypeChoices(V3RebarConfig config)
         {
             if (config == null) return;
-            var mainType = SelectedBarType(MainBarBox);
-            var tieType = SelectedTieBarType();
-            LoadHookBox(TieHook135Box, config.TieHook135UniqueId, 135);
-            LoadHookBox(TieHook90Box, config.TieHook90UniqueId, 90);
-            LoadShapeBox(LongitudinalShapeBox, V3RebarShapeFactory.Choices(_document, mainType,
-                V3RebarShapeGroup.Longitudinal, config.TieStyle, false), config.LongitudinalShapeUniqueId);
-            LoadShapeBox(AnchorShapeBox, V3RebarShapeFactory.Choices(_document, mainType,
-                V3RebarShapeGroup.Anchor, config.TieStyle, false), config.AnchorShapeUniqueId);
-            LoadShapeBox(OuterTieShapeBox, V3RebarShapeFactory.Choices(_document, tieType,
-                V3RebarShapeGroup.OuterTie, config.TieStyle, false), config.OuterTieShapeUniqueId);
-            LoadShapeBox(CrossTieShapeBox, V3RebarShapeFactory.Choices(_document, tieType,
-                V3RebarShapeGroup.CrossTie, config.TieStyle, config.CrossTiesAlternating),
-                config.CrossTieShapeUniqueId);
+            // Replacing ComboBox.ItemsSource raises SelectionChanged. Suppress those
+            // intermediate events so they cannot overwrite a saved Hook ID with "".
+            bool wasLoading = _loading;
+            _loading = true;
+            try
+            {
+                var mainType = SelectedBarType(MainBarBox);
+                var tieType = SelectedTieBarType();
+                LoadHookBox(TieHook135Box, config.TieHook135UniqueId, 135);
+                LoadHookBox(TieHook90Box, config.TieHook90UniqueId, 90);
+                LoadShapeBox(LongitudinalShapeBox, V3RebarShapeFactory.Choices(_document, mainType,
+                    V3RebarShapeGroup.Longitudinal, config.TieStyle, false), config.LongitudinalShapeUniqueId);
+                LoadShapeBox(AnchorShapeBox, V3RebarShapeFactory.Choices(_document, mainType,
+                    V3RebarShapeGroup.Anchor, config.TieStyle, false), config.AnchorShapeUniqueId);
+                LoadShapeBox(OuterTieShapeBox, V3RebarShapeFactory.Choices(_document, tieType,
+                    V3RebarShapeGroup.OuterTie, config.TieStyle, false), config.OuterTieShapeUniqueId);
+                LoadShapeBox(CrossTieShapeBox, V3RebarShapeFactory.Choices(_document, tieType,
+                    V3RebarShapeGroup.CrossTie, config.TieStyle, config.CrossTiesAlternating),
+                    config.CrossTieShapeUniqueId);
+            }
+            finally { _loading = wasLoading; }
         }
 
         private static void LoadShapeBox(ComboBox box, IEnumerable<V3RebarShapeChoice> shapes, string selected)
@@ -504,6 +512,9 @@ namespace ColumnRebarPro.V3
         private void Run_Click(object sender, RoutedEventArgs e)
         {
             if (!SaveActive(true)) return;
+            // One explicit Hook selection on a floor should apply to other floors
+            // using the same tie diameter, unless they already have their own IDs.
+            V4FloorHookInheritance.Apply(_configs.Values);
             if (DistributedRadio.IsChecked != true)
             {
                 MessageBox.Show(this, "Chỉ hỗ trợ phân bố đều. Chọn kiểu này sau khi đối chiếu với thiết kế đã duyệt.",
@@ -535,7 +546,19 @@ namespace ColumnRebarPro.V3
                         Segment = s, Geometry = _geometry[s.Id.Value], Config = _configs[s.Id.Value].Copy() }).ToList();
                     V3StarterConnection.Resolve(works);
                     V3RebarValidator.Preflight(works);
-                    V3RebarBuilder.ValidateProjectTypes(_document,works);
+                    // Report the exact floor if its project Hook remains ambiguous.
+                    foreach (var candidate in works)
+                    {
+                        try
+                        {
+                            V3RebarBuilder.ValidateProjectTypes(_document, new List<V3SegmentWork> { candidate });
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new InvalidOperationException(
+                                "Tầng " + candidate.Column.Id.Value + ": " + ex.Message, ex);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
