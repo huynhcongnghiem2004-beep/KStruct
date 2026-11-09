@@ -6,14 +6,15 @@ using Autodesk.Revit.DB.Structure;
 
 namespace ColumnRebarPro.V3
 {
-    // Controlled Shape Driven rebar creation. RebarShape creation is opt-in for
-    // anchor/transition bars; never silently create a Shape for ties/straight bars.
+    // Controlled Shape Driven rebar creation. Reuse project Shapes first,
+    // then create a Shape ONLY for known column-rebar groups when missing.
+    // No RebarBarType is cloned or modified by this factory.
     internal static class V4AutomaticRebar
     {
         internal static Rebar Create(Document doc, RebarStyle style, RebarBarType type,
             Element host, XYZ normal, IList<Curve> curves,
             RebarHookType startHook, RebarHookType endHook,
-            ElementId columnId, string group, bool allowNewShape = false)
+            ElementId columnId, string group, bool allowNewShape = true)
         {
             if (doc == null || type == null || host == null || normal == null ||
                 normal.GetLength() < 1e-6 || curves == null || curves.Count == 0)
@@ -34,15 +35,16 @@ namespace ColumnRebarPro.V3
                     Tuple.Create(RebarHookOrientation.Left, RebarHookOrientation.Left)
                 };
 
-            if (allowNewShape && !V4ShapeCreationPolicy.CanCreate(group))
-                throw new InvalidOperationException("Không cho phép tự tạo RebarShape cho nhóm " + group + ".");
+            // The caller can opt out explicitly; the allowlist protects the
+            // entire add-in even if a different caller passes true.
+            bool tryCreateShape = allowNewShape && V4ShapeCreationPolicy.CanCreate(group);
 
             // Revit 2024 can throw InternalException when no matching shape is
             // available with createNewShape:false (Autodesk REVIT-217050).
-            // Always isolate the initial probe; only a validated anchor may retry
-            // in a fresh SubTransaction with createNewShape:true.
+            // Isolate each probe in a SubTransaction. Retry with createNewShape:true
+            // only for validated column bars, ties and cross-ties.
             string lastError = null;
-            foreach (bool createNew in allowNewShape ? new[] { false, true } : new[] { false })
+            foreach (bool createNew in tryCreateShape ? new[] { false, true } : new[] { false })
             {
                 foreach (var orientation in orientations)
                 {
@@ -95,7 +97,7 @@ namespace ColumnRebarPro.V3
 
             throw new InvalidOperationException("Cột " + columnId.Value +
                 ": không dựng được " + group + " với RebarShape trong project" +
-                (allowNewShape ? " hoặc Shape tự sinh có kiểm soát" : "") + ". " +
+                (tryCreateShape ? " hoặc Shape tự sinh có kiểm soát" : "") + ". " +
                 "Kiểm tra Curve, RebarBarType, host và thư viện Shape. " +
                 "Mọi lần thử thất bại đều rollback." +
                 (string.IsNullOrEmpty(lastError) ? "" : " Chi tiết: " + lastError));
