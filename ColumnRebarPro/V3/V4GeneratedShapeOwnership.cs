@@ -1,6 +1,7 @@
 using System;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
+using Autodesk.Revit.DB.Structure;
 
 namespace ColumnRebarPro.V3
 {
