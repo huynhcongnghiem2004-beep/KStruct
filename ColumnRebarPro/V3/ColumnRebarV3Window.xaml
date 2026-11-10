@@ -129,8 +129,8 @@
                                             <ColumnDefinition Width="0.95*"/><ColumnDefinition Width="1.5*"/>
                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions><RowDefinition Height="55"/><RowDefinition Height="55"/><RowDefinition Height="55"/></Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Thép chủ" VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="QuickMainBarBox" Height="34" VerticalAlignment="Center" Margin="0,0,14,0" SelectionChanged="QuickInput_Changed"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Thép chủ (RebarBarType)" VerticalAlignment="Center"/>
+                                        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="QuickMainBarBox" Height="34" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip="Chọn loại thép thật đang có trong RebarBarType của project." SelectionChanged="QuickInput_Changed"/>
                                         <TextBlock Grid.Row="0" Grid.Column="2" Text="Lớp bảo vệ" VerticalAlignment="Center"/>
                                         <TextBox Grid.Row="0" Grid.Column="3" x:Name="QuickCoverBox" Height="34" VerticalContentAlignment="Center" Padding="8,0" LostFocus="QuickText_LostFocus"/>
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Đai hai đầu" VerticalAlignment="Center"/>
@@ -236,7 +236,7 @@
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Số lượng thép cạnh Cy"/><ComboBox Grid.Column="1" x:Name="CyBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                                     </Grid>
                                     <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="107"/></Grid.ColumnDefinitions>
-                                        <TextBlock Style="{StaticResource FormLabel}" Text="Đường kính cốt thép chính"/><ComboBox Grid.Column="1" x:Name="MainBarBox" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="Thép chủ (RebarBarType trong project)"/><ComboBox Grid.Column="1" x:Name="MainBarBox" Style="{StaticResource EditorCombo}" ToolTip="Mỗi lựa chọn là một RebarBarType thật trong project; cấu hình lưu riêng theo tầng." SelectionChanged="Edit_Changed"/>
                                     </Grid>
                                     <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="107"/></Grid.ColumnDefinitions>
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Đường kính thép bổ sung"/><ComboBox Grid.Column="1" IsEnabled="False" Style="{StaticResource EditorCombo}" ToolTip="Dự kiến giai đoạn tiếp theo"/>
