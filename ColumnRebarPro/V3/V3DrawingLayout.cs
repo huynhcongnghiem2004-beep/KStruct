@@ -233,8 +233,17 @@ namespace ColumnRebarPro.V3
                     box.MinimumPoint.X, box.MinimumPoint.Y,
                     box.MaximumPoint.X, box.MaximumPoint.Y);
             }).ToList();
-            V4SheetLayoutGuard.Validate(
+            // The operator prefers a generated sheet even when all viewports cannot
+            // fit. Inspect the placement but do not roll back for overlap/overflow.
+            // All views remain editable in Revit for manual layout corrections.
+            var layoutWarnings = V4SheetLayoutGuard.Inspect(
                 new V4SheetLayoutGuard.Rect(left, bottom, right, top), viewportRects);
+            if (layoutWarnings.Count > 0)
+            {
+                const string suffix = " [CẦN CHỈNH VIEWPORT]";
+                string currentName = sheet.Name ?? "";
+                sheet.Name = currentName.Substring(0, Math.Min(currentName.Length, 240 - suffix.Length)) + suffix;
+            }
 
             // Không tự chèn schedule đầu tiên của project: nó có thể thống kê toàn mô hình,
             // không giới hạn vào tuyến cột đang triển khai. Tạo schedule riêng qua nút nhóm "Tạo thép cột".
