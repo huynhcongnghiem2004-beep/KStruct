@@ -67,7 +67,9 @@ namespace ColumnRebarPro.V3
             string stackName=B("UseMarkForStackName")?markName:("TUYEN COT "+first.Column.Id.Value);
             string sheetName=B("UseMarkForSheetName")?markName:S("SheetName");
             string draftName = "DRAFT - " + sheetName + " - " + stackName;
-            if (draftName.Length > 240) draftName = draftName.Substring(0, 237) + "...";
+            // Project Marks and user-provided Sheet Names may contain symbols which
+            // are not allowed in Revit element names. Normalize before assigning.
+            draftName = SafeSheetTitle(draftName, 240);
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
@@ -185,6 +187,22 @@ namespace ColumnRebarPro.V3
             view.CropBox=box;
         }
 
+        // Revit 2024 rejects names containing these punctuation/control characters.
+        // Keep Unicode Vietnamese letters while replacing invalid punctuation with '-'.
+        private static string SafeSheetTitle(string proposed, int maxLength)
+        {
+            if (maxLength < 1) throw new ArgumentOutOfRangeException(nameof(maxLength));
+            var forbidden = new HashSet<char>("{ }[ ]|;<>?`~\\:".Replace(" ", "").ToCharArray());
+            var normalized = new string((proposed ?? "").Select(ch =>
+                char.IsControl(ch) || forbidden.Contains(ch) ? '-' : ch).ToArray()).Trim();
+            if (normalized.Length > maxLength) normalized = normalized.Substring(0, maxLength).Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+                throw new InvalidOperationException("Không có tên Sheet hợp lệ sau khi chuẩn hóa.");
+            if (!NamingUtils.IsValidName(normalized))
+                throw new InvalidOperationException("Tên Sheet vẫn chứa ký tự không được Revit cho phép: " + normalized);
+            return normalized;
+        }
+
         private void PlaceStack(Document doc,ViewSheet sheet,View longitudinal,IList<View> sections)
         {
             var bounds=sheet.Outline;
@@ -240,9 +258,10 @@ namespace ColumnRebarPro.V3
                 new V4SheetLayoutGuard.Rect(left, bottom, right, top), viewportRects);
             if (layoutWarnings.Count > 0)
             {
-                const string suffix = " [CẦN CHỈNH VIEWPORT]";
+                // Square brackets are forbidden by Revit for element names.
+                const string suffix = " - CẦN CHỈNH VIEWPORT";
                 string currentName = sheet.Name ?? "";
-                sheet.Name = currentName.Substring(0, Math.Min(currentName.Length, 240 - suffix.Length)) + suffix;
+                sheet.Name = SafeSheetTitle(currentName, 240 - suffix.Length) + suffix;
             }
 
             // Không tự chèn schedule đầu tiên của project: nó có thể thống kê toàn mô hình,
