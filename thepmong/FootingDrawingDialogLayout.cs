@@ -104,8 +104,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Field(view, "Template mặt bằng", _planTemplate); view.Children.Add(_templateOnce);
             view.Children.Add(Note("Sao chép định dạng vào view rồi chỉnh view range/hiển thị riêng; template gốc không bị sửa."));
             Field(view, "Tỷ lệ mặt bằng 1:", _planScale);
-            var crop = new StackPanel(); Field(crop, "Mép móng → crop (mm)", _cropMargin);
-            crop.Children.Add(Note("Kích thước thực tế, không nhân tỷ lệ view. Crop theo trục móng; biên annotation riêng."));
+            var crop = new StackPanel();
+            Field(crop, "Mép móng → crop (mm)", _cropMargin);
+            Field(crop, "Mở rộng đáy thấy cọc (mm)", _cropBottomMargin);
+            crop.Children.Add(Note("Kích thước thực tế. Mở rộng đáy áp dụng cho mặt cắt Detail A–A/B–B để thấy cọc ngàm và thân cọc dưới đáy đài."));
             view.Children.Add(new Border { Background = Brush("#E7F2FF"), Padding = new Thickness(8), Margin = new Thickness(0, 8, 0, 8), Child = crop });
             Field(view, "Detail Type (A–A / B–B)", _detailType); Field(view, "Template mặt cắt", _sectionTemplate);
             Field(view, "Tỷ lệ mặt cắt 1:", _sectionScale);
