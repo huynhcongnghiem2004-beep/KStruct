@@ -360,6 +360,7 @@ namespace ColumnRebarPro.V3
             UpdateSummary();
             UpdateFoundationAnchorSummary();
             SyncCompactFromLegacy();
+            RefreshLivePreviews();
         }
 
         private bool SaveActive(bool showError)
@@ -540,6 +541,7 @@ namespace ColumnRebarPro.V3
             }
             SaveActive(false);
             SyncCompactFromLegacy();
+            RefreshLivePreviews();
         }
 
         private static string QuickNumber(string value, string caption)
@@ -687,6 +689,7 @@ namespace ColumnRebarPro.V3
                 RefreshTypeChoices(ActiveConfig);
             UpdateFoundationAnchorSummary();
             SyncCompactFromLegacy();
+            RefreshLivePreviews();
         }
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
@@ -705,11 +708,17 @@ namespace ColumnRebarPro.V3
             else if (ReferenceEquals(sender, StarterLengthBox)) MainStarterLengthBox.Text = StarterLengthBox.Text;
             SaveActive(false);
             SyncCompactFromLegacy();
+            RefreshLivePreviews();
         }
-        private void SectionCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void RefreshLivePreviews()
         {
             DrawSection();
             DrawLongSection();
+        }
+
+        private void SectionCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            RefreshLivePreviews();
         }
         private void ApplyAll_Click(object sender, RoutedEventArgs e)
         {
@@ -1047,18 +1056,24 @@ namespace ColumnRebarPro.V3
                     AddLine(bx1, yy, bx2, yy, Brushes.Firebrick);
                 }
             }
+            double barRadius = Math.Max(3.5, Math.Min(12, c.MainDiameter * factor / 2.0));
             for (int i = 0; i < c.Cx; i++)
             {
                 double xx = bx1 + (bx2 - bx1) * i / (c.Cx - 1);
-                AddBar(xx, by1); AddBar(xx, by2);
+                AddBar(xx, by1, barRadius); AddBar(xx, by2, barRadius);
             }
             for (int j = 1; j < c.Cy - 1; j++)
             {
                 double yy = by1 + (by2 - by1) * j / (c.Cy - 1);
-                AddBar(bx1, yy); AddBar(bx2, yy);
+                AddBar(bx1, yy, barRadius); AddBar(bx2, yy, barRadius);
             }
+            var selectedMainType = MainBarBox.SelectedItem as BarSizeChoice;
+            string mainTypeLabel = selectedMainType == null
+                ? "D" + c.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture)
+                : selectedMainType.Label;
             var sizeLabel = new TextBlock {
-                Text = Math.Round(widthMm) + " × " + Math.Round(depthMm) + " mm",
+                Text = Math.Round(widthMm) + " × " + Math.Round(depthMm) + " mm  ·  " +
+                    c.BarCount + " thanh  ·  " + mainTypeLabel,
                 FontSize = 11, Foreground = Brushes.DimGray
             };
             Canvas.SetLeft(sizeLabel, Math.Max(4, left));
@@ -1079,12 +1094,11 @@ namespace ColumnRebarPro.V3
             SectionCanvas.Children.Add(new Line { X1 = x1, X2 = x2, Y1 = y1, Y2 = y2,
                 Stroke = brush, StrokeThickness = 2.1 });
         }
-        private void AddBar(double x, double y)
+        private void AddBar(double x, double y, double radius)
         {
-            const double r = 6.5;
-            var circle = new Ellipse { Width = r * 2, Height = r * 2, Stroke = Brushes.DarkRed,
+            var circle = new Ellipse { Width = radius * 2, Height = radius * 2, Stroke = Brushes.DarkRed,
                 StrokeThickness = 1.2, Fill = Brushes.Red };
-            Canvas.SetLeft(circle, x - r); Canvas.SetTop(circle, y - r);
+            Canvas.SetLeft(circle, x - radius); Canvas.SetTop(circle, y - radius);
             SectionCanvas.Children.Add(circle);
         }
     
@@ -1147,6 +1161,11 @@ namespace ColumnRebarPro.V3
 
             double colHalfW = widthMm / 2;
             double colH = heightMm;
+            var selectedMainType = MainBarBox.SelectedItem as BarSizeChoice;
+            string mainTypeLabel = selectedMainType == null
+                ? "D" + c.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture)
+                : selectedMainType.Label;
+            addTxt(8,4,"Thép chủ: " + mainTypeLabel,Brushes.DimGray,9);
 
             // === Thân cột ===
             double cLeft = mmToX(-colHalfW), cRight = mmToX(colHalfW);
@@ -1203,7 +1222,7 @@ namespace ColumnRebarPro.V3
             double cover = c.Cover + c.TieDiameter + c.MainDiameter / 2;
             double barXL = -colHalfW + cover, barXR = colHalfW - cover;
             Brush barBrush = Brushes.Red;
-            double barThick = 2.8;
+            double barThick = Math.Max(1.5, Math.Min(6.0, c.MainDiameter * scale));
 
             double barBot = c.Cover + c.MainDiameter / 2;
             double barTop = colH - c.Cover - c.MainDiameter / 2;
@@ -1213,21 +1232,21 @@ namespace ColumnRebarPro.V3
                 foreach(var pair in preview.Bars)
                 {
                     double x=project(pair.Lower), endX=project(pair.End), upperX=project(pair.Upper);
-                    addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(colH-pair.Height),barBrush,1.5);
+                    addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(colH-pair.Height),barBrush,barThick);
                     if(pair.Height>0)
-                        addLn(mmToX(x),mmToY(colH-pair.Height),mmToX(endX),mmToY(colH),barBrush,1.5);
-                    addLn(mmToX(endX),mmToY(colH),mmToX(endX),mmToY(colH+starterMm),Brushes.OrangeRed,1.5);
+                        addLn(mmToX(x),mmToY(colH-pair.Height),mmToX(endX),mmToY(colH),barBrush,barThick);
+                    addLn(mmToX(endX),mmToY(colH),mmToX(endX),mmToY(colH+starterMm),Brushes.OrangeRed,barThick);
                     addLn(mmToX(upperX),mmToY(colH+upperGapMm+preview.Upper.Cover+preview.Upper.Diameter/2),
                         mmToX(upperX),mmToY(colH+upperGapMm+upperDrawH),Brushes.Firebrick,1.2);
                 }
-                addTxt(4,4,"Chiếu theo trục X cột dưới; các thanh có thể chồng hình.",Brushes.DimGray,9);
+                addTxt(8,18,"Chiếu theo trục X cột dưới; các thanh có thể chồng hình.",Brushes.DimGray,9);
             }
             else
             {
                 foreach(double x in new[]{barXL,barXR})
                     addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(barTop),barBrush,barThick);
                 if(hasUpper && c.StarterBars)
-                    addTxt(4,4,"Chưa có phương án ghép hợp lệ — xem bảng so sánh.",Brushes.Firebrick,9);
+                    addTxt(8,18,"Chưa có phương án ghép hợp lệ — xem bảng so sánh.",Brushes.Firebrick,9);
             }
             if (c.StarterBars)
             {
