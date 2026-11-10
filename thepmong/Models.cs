@@ -14,6 +14,32 @@ namespace SDK_HD.KStruct.FootingRebar
     }
 
     /// <summary>
+    /// Thông tin hình học cọc trong hệ tọa độ cục bộ của đài (mm).
+    /// </summary>
+    public sealed class PileInfo
+    {
+        /// <summary>Tọa độ X tâm cọc (mm, gốc tại góc min của đài).</summary>
+        public double CenterX { get; }
+        /// <summary>Tọa độ Y tâm cọc (mm, gốc tại góc min của đài).</summary>
+        public double CenterY { get; }
+        /// <summary>Đường kính cọc tròn hoặc bề rộng cọc vuông (mm).</summary>
+        public double DiameterOrWidth { get; }
+        /// <summary>Chiều sâu cọc ngàm vào đài (mm, mặc định 100mm theo TCVN 10304).</summary>
+        public double EmbedmentDepth { get; }
+        /// <summary>Cọc tròn (true) hay cọc vuông (false).</summary>
+        public bool IsRound { get; }
+
+        public PileInfo(double centerX, double centerY, double diameterOrWidth, double embedmentDepth = 100, bool isRound = true)
+        {
+            CenterX = centerX;
+            CenterY = centerY;
+            DiameterOrWidth = diameterOrWidth > 0 ? diameterOrWidth : 300;
+            EmbedmentDepth = embedmentDepth >= 0 ? embedmentDepth : 100;
+            IsRound = isRound;
+        }
+    }
+
+    /// <summary>
     /// Mô hình hình học móng chữ nhật. Toàn bộ đơn vị: mm.
     /// Gốc tọa độ cục bộ: góc dưới (min) của hộp bao móng.
     /// </summary>
@@ -24,10 +50,12 @@ namespace SDK_HD.KStruct.FootingRebar
         public double Height { get; }
         public FootingType FootingType { get; }
         public string Name { get; }
+        public System.Collections.Generic.IReadOnlyList<PileInfo> Piles { get; }
 
         public FootingModel(double lengthX, double widthY, double height,
                             FootingType footingType = FootingType.SpreadFooting,
-                            string name = "")
+                            string name = "",
+                            System.Collections.Generic.IEnumerable<PileInfo> piles = null)
         {
             if (!IsPositiveFinite(lengthX) || !IsPositiveFinite(widthY) || !IsPositiveFinite(height))
                 throw new ArgumentException("Kích thước móng phải lớn hơn 0.");
@@ -36,6 +64,8 @@ namespace SDK_HD.KStruct.FootingRebar
             Height = height;
             FootingType = footingType;
             Name = name ?? string.Empty;
+            Piles = piles != null ? new System.Collections.Generic.List<PileInfo>(piles).AsReadOnly()
+                                  : new System.Collections.Generic.List<PileInfo>().AsReadOnly();
         }
 
         private static bool IsPositiveFinite(double value) =>

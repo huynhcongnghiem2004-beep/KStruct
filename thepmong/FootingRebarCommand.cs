@@ -71,7 +71,7 @@ namespace SDK_HD.KStruct.FootingRebar
             try { frame = GeometryReader.Read(fi); }
             catch (InvalidOperationException ex) { return Fail("Không đọc được móng", ex.Message); }
 
-            // Nhận diện loại móng: Móng cọc hay Móng đơn
+            // Nhận diện loại móng và cọc bên dưới đài (nếu có)
             string famName = fi.Symbol?.FamilyName ?? "";
             string typeName = fi.Name ?? "";
             bool isPileCap = famName.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -83,10 +83,14 @@ namespace SDK_HD.KStruct.FootingRebar
                              typeName.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
                              typeName.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
 
+            List<PileInfo> detectedPiles = DetectPilesForFooting(doc, fi, frame);
+            if (detectedPiles.Count > 0) isPileCap = true;
+
             var modelWithType = new FootingModel(
                 frame.Model.LengthX, frame.Model.WidthY, frame.Model.Height,
                 isPileCap ? FootingType.PileCap : FootingType.SpreadFooting,
-                $"{famName} : {typeName}");
+                $"{famName} : {typeName}",
+                detectedPiles);
 
             // 3. Lấy thông số từ cửa sổ cấu hình và các loại thép trong dự án
             List<double> availableDiameters = new FilteredElementCollector(doc)
@@ -147,7 +151,7 @@ namespace SDK_HD.KStruct.FootingRebar
 
             // UI may explicitly switch the footing classification; validate/build/report the same classification.
             modelWithType = new FootingModel(modelWithType.LengthX, modelWithType.WidthY, modelWithType.Height,
-                fullSettings.FootingType, modelWithType.Name);
+                fullSettings.FootingType, modelWithType.Name, modelWithType.Piles);
             if (owned.Count > 0 && !settingsWindow.ReplaceOwnedRebar)
                 return Fail("Thép đã tồn tại", "Hãy chọn cập nhật bộ thép đã nhận diện; không tạo trùng.");
             if (!updateOnly && otherCount > 0 && !settingsWindow.AllowAlongsideOtherRebar)
@@ -323,6 +327,62 @@ namespace SDK_HD.KStruct.FootingRebar
                 foreach (string p in postIssues) sb.AppendLine("• " + p);
             }
             TaskDialog.Show("KStruct - Cốt thép móng theo TCVN", sb.ToString());
+        }
+
+        private static List<PileInfo> DetectPilesForFooting(Document doc, FamilyInstance footing, FootingFrame frame)
+        {
+            var piles = new List<PileInfo>();
+            if (doc == null || footing == null || frame == null) return piles;
+            try
+            {
+                BoundingBoxXYZ hostBox = footing.get_BoundingBox(null);
+                if (hostBox == null) return piles;
+
+                var collector = new FilteredElementCollector(doc, doc.ActiveView?.Id ?? footing.LevelId)
+                    .OfCategory(BuiltInCategory.OST_StructuralFoundation)
+                    .OfClass(typeof(FamilyInstance))
+                    .Cast<FamilyInstance>()
+                    .Where(fi => fi.Id != footing.Id);
+
+                Transform inv = frame.LocalToWorld.Inverse;
+
+                foreach (var fi in collector)
+                {
+                    BoundingBoxXYZ bb = fi.get_BoundingBox(null);
+                    if (bb == null) continue;
+                    string fam = fi.Symbol?.FamilyName ?? "";
+                    string typ = fi.Name ?? "";
+                    bool isPile = fam.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 fam.IndexOf("coc", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 fam.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    // Cọc phải nằm ngay dưới đáy đài hoặc giao cắt với đài
+                    if (isPile || bb.Max.Z <= hostBox.Min.Z + 0.5)
+                    {
+                        if (bb.Min.X >= hostBox.Min.X - 1.5 && bb.Max.X <= hostBox.Max.X + 1.5 &&
+                            bb.Min.Y >= hostBox.Min.Y - 1.5 && bb.Max.Y <= hostBox.Max.Y + 1.5)
+                        {
+                            XYZ centerWorld = (bb.Min + bb.Max) * 0.5;
+                            // Tính tâm trong hệ tọa độ frame của đài
+                            XYZ centerLocal = inv.OfPoint(centerWorld);
+                            double localXMm = UnitConv.ToMm(centerLocal.X - frame.LocalMin.X);
+                            double localYMm = UnitConv.ToMm(centerLocal.Y - frame.LocalMin.Y);
+
+                            double widthMm = UnitConv.ToMm(Math.Max(bb.Max.X - bb.Min.X, bb.Max.Y - bb.Min.Y));
+                            if (widthMm < 150) widthMm = 300; // kích thước cọc hợp lý tối thiểu
+                            if (widthMm > 1500) widthMm = 400;
+
+                            bool isRound = fam.IndexOf("tròn", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                           fam.IndexOf("tron", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                           fam.IndexOf("round", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                            piles.Add(new PileInfo(localXMm, localYMm, widthMm, 100, isRound));
+                        }
+                    }
+                }
+            }
+            catch { }
+            return piles;
         }
 
         private static FamilyInstance ResolveUpdateHost(Element element)
