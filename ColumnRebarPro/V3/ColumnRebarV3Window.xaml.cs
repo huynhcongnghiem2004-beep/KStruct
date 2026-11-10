@@ -150,6 +150,9 @@ namespace ColumnRebarPro.V3
                 _rows.Add(floorRow);
             }
             FloorList.ItemsSource = _rows;
+            if (document != null)
+                deployment.BindColumnStack(document, _segments,
+                    () => _configs.ToDictionary(kv => kv.Key, kv => kv.Value.Copy()));
             CountLabel.Text = "Số lượng: " + _rows.Count;
             _loading = false;
             FloorList.SelectedIndex = Math.Max(0, _rows.Count - 1);
