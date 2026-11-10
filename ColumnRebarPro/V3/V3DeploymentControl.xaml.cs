@@ -38,24 +38,27 @@ namespace ColumnRebarPro.V3
         private Document _analysisDocument;
         private IList<ColumnSegment> _analysisSegments;
         private Func<IDictionary<long, V3RebarConfig>> _configProvider;
+        private Func<bool> _commitCurrentFloor;
 
         // Read-only preview: bind the active stack after the parent window has
         // initialized the editable per-floor configurations.
         internal void BindColumnStack(Document document, IList<ColumnSegment> segments,
-            Func<IDictionary<long, V3RebarConfig>> configurations)
+            Func<IDictionary<long, V3RebarConfig>> configurations,
+            Func<bool> commitCurrentFloor)
         {
             _analysisDocument = document;
             _analysisSegments = segments;
             _configProvider = configurations;
-            RefreshAnalysis();
+            _commitCurrentFloor = commitCurrentFloor;
+            RefreshAnalysis(false);
         }
 
         private void RefreshAnalysis_Click(object sender, RoutedEventArgs e)
         {
-            RefreshAnalysis();
+            RefreshAnalysis(true);
         }
 
-        private void RefreshAnalysis()
+        private void RefreshAnalysis(bool commitEdits)
         {
             try
             {
@@ -64,17 +67,23 @@ namespace ColumnRebarPro.V3
                     AnalysisSummary.Text = "Chưa chọn tuyến cột để phân tích.";
                     return;
                 }
+                if (commitEdits && _commitCurrentFloor != null && !_commitCurrentFloor())
+                {
+                    AnalysisNotes.Text = "Dữ liệu đang sửa chưa hợp lệ; chưa cập nhật bảng phân tích.";
+                    return;
+                }
                 V4ColumnDrawingAnalysis result = V4ColumnDrawingAnalyzer.Analyze(
                     _analysisDocument, _analysisSegments, _configProvider());
                 ColumnAnalysisGrid.ItemsSource = result.Floors;
                 ProposedSectionList.ItemsSource = result.SectionPositions;
                 AnalysisSummary.Text = result.Floors.Count + " tầng · " +
-                    result.ExistingRebarElements + " đối tượng Rebar 3D · " +
+                    result.ExistingRebarElements + " Rebar Set/đối tượng · " +
+                    result.ExistingBarPositions + " vị trí thanh · " +
                     result.SectionPositions.Count + " mặt cắt ngang đề xuất";
                 AnalysisNotes.Text = result.NeedsReview > 0
-                    ? result.NeedsReview + " tầng chưa có Rebar trong cột hoặc thiếu thông số. " +
-                      "Không tạo Sheet theo dữ liệu chưa đủ. Các cao độ cắt mới là gợi ý."
-                    : "Dữ liệu ban đầu đã có Rebar host cột. Cần xác minh hướng cắt, " +
+                    ? result.NeedsReview + " tầng chưa có Rebar host cột hoặc thiếu thông số. " +
+                      "Rebar neo vào móng có thể không được đếm. Các cao độ cắt mới là gợi ý."
+                    : "Đã tìm thấy Rebar có host là cột (không bao gồm mọi thanh neo móng). Cần xác minh hướng cắt, " +
                       "thanh nối/neo, Rebar Set tại từng cao độ trước khi xuất hồ sơ.";
             }
             catch (Exception ex)
