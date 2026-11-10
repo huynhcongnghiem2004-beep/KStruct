@@ -35,6 +35,56 @@ namespace ColumnRebarPro.V3
 
         private string _settingsPath;
         private bool _ready;
+        private Document _analysisDocument;
+        private IList<ColumnSegment> _analysisSegments;
+        private Func<IDictionary<long, V3RebarConfig>> _configProvider;
+
+        // Read-only preview: bind the active stack after the parent window has
+        // initialized the editable per-floor configurations.
+        internal void BindColumnStack(Document document, IList<ColumnSegment> segments,
+            Func<IDictionary<long, V3RebarConfig>> configurations)
+        {
+            _analysisDocument = document;
+            _analysisSegments = segments;
+            _configProvider = configurations;
+            RefreshAnalysis();
+        }
+
+        private void RefreshAnalysis_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshAnalysis();
+        }
+
+        private void RefreshAnalysis()
+        {
+            try
+            {
+                if (_analysisSegments == null || _configProvider == null)
+                {
+                    AnalysisSummary.Text = "Chưa chọn tuyến cột để phân tích.";
+                    return;
+                }
+                V4ColumnDrawingAnalysis result = V4ColumnDrawingAnalyzer.Analyze(
+                    _analysisDocument, _analysisSegments, _configProvider());
+                ColumnAnalysisGrid.ItemsSource = result.Floors;
+                ProposedSectionList.ItemsSource = result.SectionPositions;
+                AnalysisSummary.Text = result.Floors.Count + " tầng · " +
+                    result.ExistingRebarElements + " đối tượng Rebar 3D · " +
+                    result.SectionPositions.Count + " mặt cắt ngang đề xuất";
+                AnalysisNotes.Text = result.NeedsReview > 0
+                    ? result.NeedsReview + " tầng chưa có Rebar trong cột hoặc thiếu thông số. " +
+                      "Không tạo Sheet theo dữ liệu chưa đủ. Các cao độ cắt mới là gợi ý."
+                    : "Dữ liệu ban đầu đã có Rebar host cột. Cần xác minh hướng cắt, " +
+                      "thanh nối/neo, Rebar Set tại từng cao độ trước khi xuất hồ sơ.";
+            }
+            catch (Exception ex)
+            {
+                AnalysisSummary.Text = "Không đọc được dữ liệu tuyến cột.";
+                AnalysisNotes.Text = ex.Message;
+                ColumnAnalysisGrid.ItemsSource = null;
+                ProposedSectionList.ItemsSource = null;
+            }
+        }
 
         private readonly string[] _textNames =
         {
