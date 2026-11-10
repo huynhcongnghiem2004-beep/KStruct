@@ -54,7 +54,7 @@ namespace SDK_HD.KStruct.FootingRebar
                     !Equivalent(s.Top.AlongX, s.Top.AlongY) || !s.SideTies.HasCStirrups)
                     throw new InvalidOperationException("Cấu hình cũ có cách chia thép/thép trên không thể biểu diễn đầy đủ trong cửa sổ này. Giữ cấu hình hiện tại để tránh thay đổi ngầm.");
                 _restoringPreference = true;
-                _model = new FootingModel(_model.LengthX, _model.WidthY, _model.Height, s.FootingType, _model.Name);
+                _model = new FootingModel(_model.LengthX, _model.WidthY, _model.Height, s.FootingType, _model.Name, _model.Piles);
                 CboFootingType.SelectedIndex = s.FootingType == FootingType.PileCap ? 1 : 0;
                 if (_restoreSavedLean) ChkHasLeanConcrete.IsChecked = s.Cover.HasLeanConcrete;
                 TxtCoverBottom.Text = Number(s.Cover.Bottom); TxtCoverSide.Text = Number(s.Cover.Side); TxtCoverTop.Text = Number(s.Cover.Top);

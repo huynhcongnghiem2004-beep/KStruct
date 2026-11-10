@@ -178,6 +178,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             XYZ center = axes.OfPoint((bounds.Min + bounds.Max) * 0.5);
             List<XYZ> vertices = FootingDrawingGeometry.WorldVertices(host);
             double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
+            double bottomMargin = UnitUtils.ConvertToInternalUnits(p.CropBottomMarginMm > 0 ? p.CropBottomMarginMm : p.CropMarginMm, UnitTypeId.Millimeters);
             var result = new List<ViewSection>();
             for (int i = 0; i < 2; i++)
             {
@@ -196,7 +197,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 double depth = UnitUtils.ConvertToInternalUnits(p.SectionDepthMm, UnitTypeId.Millimeters);
                 if (depth <= doc.Application.ShortCurveTolerance) throw new InvalidOperationException("Chiều sâu mặt cắt không hợp lệ.");
                 var crop = new BoundingBoxXYZ { Transform = t,
-                    Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-margin, 0),
+                    Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-bottomMargin, 0),
                     Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
                 view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y"), names);

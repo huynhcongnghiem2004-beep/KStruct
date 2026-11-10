@@ -15,6 +15,10 @@ namespace SDK_HD.KStruct.FootingRebar
         public BottomLayerSettings OutputBottom { get; private set; }
         public FootingRebarFullSettings OutputFull { get; private set; }
 
+        private double _zoomScale = 1.0;
+        private Point _lastPanPoint;
+        private bool _isPanning = false;
+
         public FootingRebarWindow(FootingModel model, List<double> availableDiameters, bool hasLeanConcrete,
             FootingRebarPreference saved = null, string historySummary = null, bool remember = true,
             int ownedCount = 0, int otherCount = 0, bool restoreSavedLean = false)
@@ -82,7 +86,7 @@ namespace SDK_HD.KStruct.FootingRebar
             if (!IsLoaded || _restoringPreference) return;
             bool isPileCap = CboFootingType.SelectedIndex == 1;
             _model = new FootingModel(_model.LengthX, _model.WidthY, _model.Height,
-                isPileCap ? FootingType.PileCap : FootingType.SpreadFooting, _model.Name);
+                isPileCap ? FootingType.PileCap : FootingType.SpreadFooting, _model.Name, _model.Piles);
 
             if (isPileCap)
             {
@@ -145,22 +149,107 @@ namespace SDK_HD.KStruct.FootingRebar
                 CoverSettings cover = full.Cover;
 
                 // Tỷ lệ Scale vẽ vừa Canvas (640x420)
-                double margin = 45;
-                double drawWidth = PreviewCanvas.Width - 2 * margin;
-                double drawHeight = PreviewCanvas.Height - 2 * margin;
+                // Dành margin rộng hơn để vẽ Dimension và Tag bên ngoài đài
+                double marginLeft = 70;
+                double marginRight = 70;
+                double marginTop = 45;
+                double marginBottom = 70;
+                double drawWidth = PreviewCanvas.Width - marginLeft - marginRight;
+                double drawHeight = PreviewCanvas.Height - marginTop - marginBottom;
 
                 double scaleX = drawWidth / _model.LengthX;
-                double scaleZ = drawHeight / (_model.Height + (cover.HasLeanConcrete ? 100 : 0));
+                double totalH = _model.Height + (cover.HasLeanConcrete ? 100 : 0);
+                double scaleZ = drawHeight / totalH;
                 double scale = Math.Min(scaleX, scaleZ);
 
-                double totalH = _model.Height + (cover.HasLeanConcrete ? 100 : 0);
-                double offsetX = (PreviewCanvas.Width - _model.LengthX * scale) / 2.0;
-                double offsetZ = (PreviewCanvas.Height - totalH * scale) / 2.0;
+                double offsetX = marginLeft + (drawWidth - _model.LengthX * scale) / 2.0;
+                double offsetZ = marginBottom + (drawHeight - totalH * scale) / 2.0;
 
                 double ToCanvasX(double mmX) => offsetX + mmX * scale;
                 double ToCanvasZ(double mmZ) => PreviewCanvas.Height - (offsetZ + mmZ * scale);
 
-                // 1. Vẽ lớp bê tông lót (nếu có)
+                // 1. Vẽ cọc (Pile) nếu là đài cọc và có dữ liệu cọc
+                if (_model.FootingType == FootingType.PileCap)
+                {
+                    var pilesToDraw = new List<Tuple<double, double>>(); // (localX, width)
+                    if (_model.Piles != null && _model.Piles.Count > 0)
+                    {
+                        foreach (var p in _model.Piles)
+                        {
+                            pilesToDraw.Add(Tuple.Create(p.CenterX, p.DiameterOrWidth));
+                        }
+                    }
+                    else
+                    {
+                        // Giả lập vị trí cọc tiêu biểu cho đài cọc khi chưa kết nối cọc thực tế trong mô hình
+                        double dPile = 350;
+                        double edgeDist = Math.Max(250, _model.LengthX * 0.22);
+                        if (_model.LengthX > 1800)
+                        {
+                            pilesToDraw.Add(Tuple.Create(edgeDist, dPile));
+                            pilesToDraw.Add(Tuple.Create(_model.LengthX / 2.0, dPile));
+                            pilesToDraw.Add(Tuple.Create(_model.LengthX - edgeDist, dPile));
+                        }
+                        else
+                        {
+                            pilesToDraw.Add(Tuple.Create(edgeDist, dPile));
+                            pilesToDraw.Add(Tuple.Create(_model.LengthX - edgeDist, dPile));
+                        }
+                    }
+
+                    // Loại trừ các cọc trùng tọa độ X trên mặt cắt chiếu
+                    var distinctX = pilesToDraw.GroupBy(p => Math.Round(p.Item1 / 10.0)).Select(g => g.First()).ToList();
+                    double pileEmbedDepth = 100; // Ngàm vào đài 100mm theo chuẩn TCVN
+                    double pileVisibleH = 80;   // Chiều cao cọc thò xuống dưới để thấy ký hiệu
+
+                    foreach (var pile in distinctX)
+                    {
+                        double pX = pile.Item1;
+                        double pW = pile.Item2;
+                        double leftMm = pX - pW / 2.0;
+                        double rightMm = pX + pW / 2.0;
+
+                        // Thân cọc cắm vào đài
+                        var pileRect = new Rectangle
+                        {
+                            Width = Math.Max(10, pW * scale),
+                            Height = (pileEmbedDepth + pileVisibleH) * scale,
+                            Stroke = new SolidColorBrush(Color.FromRgb(2, 132, 199)),
+                            StrokeThickness = 1.5,
+                            Fill = new SolidColorBrush(Color.FromArgb(50, 56, 189, 248))
+                        };
+                        Canvas.SetLeft(pileRect, ToCanvasX(leftMm));
+                        Canvas.SetTop(pileRect, ToCanvasZ(pileEmbedDepth));
+                        PreviewCanvas.Children.Add(pileRect);
+
+                        // Trục tim cọc (Dash-dot line)
+                        var centerLine = new Line
+                        {
+                            X1 = ToCanvasX(pX),
+                            Y1 = ToCanvasZ(pileEmbedDepth + 25),
+                            X2 = ToCanvasX(pX),
+                            Y2 = ToCanvasZ(-pileVisibleH - 15),
+                            Stroke = new SolidColorBrush(Color.FromRgb(14, 165, 233)),
+                            StrokeThickness = 1,
+                            StrokeDashArray = new DoubleCollection { 6, 2, 2, 2 }
+                        };
+                        PreviewCanvas.Children.Add(centerLine);
+
+                        // Ký hiệu tim cọc (chữ C hoặc Ø)
+                        var pileText = new TextBlock
+                        {
+                            Text = $"Cọc Ø{pW:0}",
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161)),
+                            FontWeight = FontWeights.SemiBold
+                        };
+                        Canvas.SetLeft(pileText, ToCanvasX(pX) - 20);
+                        Canvas.SetTop(pileText, ToCanvasZ(-pileVisibleH - 12));
+                        PreviewCanvas.Children.Add(pileText);
+                    }
+                }
+
+                // 2. Vẽ lớp bê tông lót (nếu có)
                 if (cover.HasLeanConcrete)
                 {
                     double leanH = 100;
@@ -179,7 +268,7 @@ namespace SDK_HD.KStruct.FootingRebar
                     PreviewCanvas.Children.Add(leanRect);
                 }
 
-                // 2. Vẽ bê tông móng
+                // 3. Vẽ bê tông móng
                 var footingRect = new Rectangle
                 {
                     Width = _model.LengthX * scale,
@@ -192,7 +281,7 @@ namespace SDK_HD.KStruct.FootingRebar
                 Canvas.SetTop(footingRect, ToCanvasZ(_model.Height));
                 PreviewCanvas.Children.Add(footingRect);
 
-                // 3. Đường bao lớp bảo vệ (Dash line)
+                // 4. Đường bao lớp bảo vệ (Dash line)
                 var coverRect = new Rectangle
                 {
                     Width = Math.Max(0, (_model.LengthX - 2 * cover.Side) * scale),
@@ -205,7 +294,7 @@ namespace SDK_HD.KStruct.FootingRebar
                 Canvas.SetTop(coverRect, ToCanvasZ(_model.Height - cover.Top));
                 PreviewCanvas.Children.Add(coverRect);
 
-                // 4. Vẽ Thép đáy phương X (Bottom-X - Blue, bẻ móc lên hoặc xuống)
+                // 5. Vẽ Thép đáy phương X (Bottom-X - Blue, bẻ móc lên hoặc xuống)
                 var setX = plan.Sets.FirstOrDefault(s => s.Name == "Bottom-X");
                 if (setX != null && setX.FirstBarPoints != null && setX.FirstBarPoints.Count >= 2)
                 {
@@ -220,9 +309,13 @@ namespace SDK_HD.KStruct.FootingRebar
                         polyline.Points.Add(new Point(ToCanvasX(pt.X), ToCanvasZ(pt.Z)));
                     }
                     PreviewCanvas.Children.Add(polyline);
+
+                    // Tag Thép đáy X
+                    string tagX = $"Đáy X: Ø{setX.Diameter:0.#} a{full.Bottom.AlongX.Spacing:0.#}";
+                    DrawLeaderTag(ToCanvasX(_model.LengthX * 0.3), ToCanvasZ(cover.Bottom), -35, -45, tagX, Brushes.RoyalBlue);
                 }
 
-                // 5. Vẽ Thép đáy phương Y (Bottom-Y - Chấm tròn Red)
+                // 6. Vẽ Thép đáy phương Y (Bottom-Y - Chấm tròn Red)
                 var setY = plan.Sets.FirstOrDefault(s => s.Name == "Bottom-Y");
                 if (setY != null && setY.FirstBarPoints != null && setY.FirstBarPoints.Count > 0)
                 {
@@ -234,6 +327,8 @@ namespace SDK_HD.KStruct.FootingRebar
                     double span = _model.LengthX - 2 * xFirst;
                     SpacingCalculator.Compute(span, full.Bottom.AlongY.Spacing, full.Bottom.AlongY.Mode, out int count, out double step);
 
+                    double tagDotX = 0;
+                    double tagDotZ = 0;
                     for (int i = 0; i < count; i++)
                     {
                         double xMm = xFirst + i * step;
@@ -248,10 +343,23 @@ namespace SDK_HD.KStruct.FootingRebar
                         Canvas.SetLeft(circle, ToCanvasX(xMm) - radiusPx);
                         Canvas.SetTop(circle, ToCanvasZ(zCenter) - radiusPx);
                         PreviewCanvas.Children.Add(circle);
+
+                        if (i == Math.Min(3, count - 1))
+                        {
+                            tagDotX = ToCanvasX(xMm);
+                            tagDotZ = ToCanvasZ(zCenter);
+                        }
+                    }
+
+                    // Tag Thép đáy Y
+                    if (count > 0)
+                    {
+                        string tagY = $"Đáy Y: Ø{setY.Diameter:0.#} a{full.Bottom.AlongY.Spacing:0.#}";
+                        DrawLeaderTag(tagDotX, tagDotZ, 35, -35, tagY, Brushes.Crimson);
                     }
                 }
 
-                // 6. Vẽ Thép lớp trên (Top Rebar - Orange, bẻ móc xuống hoặc lên)
+                // 7. Vẽ Thép lớp trên (Top Rebar - Orange, bẻ móc xuống hoặc lên)
                 var setTopX = plan.Sets.FirstOrDefault(s => s.Name == "Top-X");
                 if (setTopX != null && setTopX.FirstBarPoints != null && setTopX.FirstBarPoints.Count >= 2)
                 {
@@ -266,6 +374,10 @@ namespace SDK_HD.KStruct.FootingRebar
                         polyline.Points.Add(new Point(ToCanvasX(pt.X), ToCanvasZ(pt.Z)));
                     }
                     PreviewCanvas.Children.Add(polyline);
+
+                    // Tag Thép trên
+                    string tagTop = $"Thép trên: Ø{setTopX.Diameter:0.#} a{full.Top.AlongX.Spacing:0.#}";
+                    DrawLeaderTag(ToCanvasX(_model.LengthX * 0.65), ToCanvasZ(_model.Height - cover.Top), 40, -35, tagTop, Brushes.DarkOrange);
                 }
 
                 var setTopY = plan.Sets.FirstOrDefault(s => s.Name == "Top-Y");
@@ -295,7 +407,7 @@ namespace SDK_HD.KStruct.FootingRebar
                     }
                 }
 
-                // 7. Vẽ Thép đai cấu tạo hông (Side Ties - Purple)
+                // 8. Vẽ Thép đai cấu tạo hông (Side Ties - Purple)
                 var setTies = plan.Sets.FirstOrDefault(s => s.Name == "SideTies");
                 if (setTies != null)
                 {
@@ -331,6 +443,15 @@ namespace SDK_HD.KStruct.FootingRebar
                         PreviewCanvas.Children.Add(dotRight);
                     }
                 }
+
+                // 9. Vẽ đường gióng kích thước (DIMENSION)
+                // 9.1 Dim ngang chiều dài móng Lx
+                DrawHorizontalDimension(ToCanvasX(0), ToCanvasX(_model.LengthX), ToCanvasZ(_model.Height) - 22, $"{_model.LengthX:0}");
+                // 9.2 Dim dọc chiều cao móng H
+                DrawVerticalDimension(ToCanvasZ(0), ToCanvasZ(_model.Height), ToCanvasX(_model.LengthX) + 24, $"{_model.Height:0}");
+                // 9.3 Dim lớp bảo vệ cạnh và đáy
+                DrawHorizontalDimension(ToCanvasX(0), ToCanvasX(cover.Side), ToCanvasZ(0) + 18, $"C={cover.Side:0}", 8);
+                DrawVerticalDimension(ToCanvasZ(0), ToCanvasZ(cover.Bottom), ToCanvasX(0) - 20, $"C={cover.Bottom:0}", 8);
 
                 string hookXDesc = full.Bottom.AlongX.HookType == HookTypeOption.HookUp ? $"Bẻ lên {full.Bottom.AlongX.HookLength:0}mm"
                                  : full.Bottom.AlongX.HookType == HookTypeOption.HookDown ? $"Bẻ xuống {full.Bottom.AlongX.HookLength:0}mm" : "Thẳng";
@@ -428,6 +549,207 @@ namespace SDK_HD.KStruct.FootingRebar
             full = new FootingRebarFullSettings(_model.FootingType, cover, bottom, top, sideTies);
             return true;
         }
+
+        private void DrawLeaderTag(double targetX, double targetY, double dx, double dy, string text, Brush brush)
+        {
+            double endX = targetX + dx;
+            double endY = targetY + dy;
+            double shoulderLen = dx >= 0 ? 30 : -30;
+            double shoulderEndX = endX + shoulderLen;
+
+            // Đường chỉ dẫn (Leader)
+            var leader = new Polyline
+            {
+                Stroke = brush,
+                StrokeThickness = 1.2,
+                Points = new PointCollection
+                {
+                    new Point(targetX, targetY),
+                    new Point(endX, endY),
+                    new Point(shoulderEndX, endY)
+                }
+            };
+            PreviewCanvas.Children.Add(leader);
+
+            // Chấm tròn tại đầu thanh thép
+            var dot = new Ellipse
+            {
+                Width = 4,
+                Height = 4,
+                Fill = brush
+            };
+            Canvas.SetLeft(dot, targetX - 2);
+            Canvas.SetTop(dot, targetY - 2);
+            PreviewCanvas.Children.Add(dot);
+
+            // Chữ text
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = brush
+            };
+            Canvas.SetLeft(tb, dx >= 0 ? endX + 4 : shoulderEndX);
+            Canvas.SetTop(tb, endY - 14);
+            PreviewCanvas.Children.Add(tb);
+        }
+
+        private void DrawHorizontalDimension(double x1, double x2, double y, string text, double fontSize = 10)
+        {
+            double minX = Math.Min(x1, x2);
+            double maxX = Math.Max(x1, x2);
+            if (maxX - minX < 2) return;
+
+            // Đường dim ngang
+            var line = new Line
+            {
+                X1 = minX, Y1 = y,
+                X2 = maxX, Y2 = y,
+                Stroke = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+                StrokeThickness = 1
+            };
+            PreviewCanvas.Children.Add(line);
+
+            // Hai gạch chéo 45 độ ở hai đầu dim (Tick mark kiến trúc/kết cấu)
+            double tick = 4;
+            var tick1 = new Line { X1 = minX - tick, Y1 = y + tick, X2 = minX + tick, Y2 = y - tick, Stroke = line.Stroke, StrokeThickness = 1.2 };
+            var tick2 = new Line { X1 = maxX - tick, Y1 = y + tick, X2 = maxX + tick, Y2 = y - tick, Stroke = line.Stroke, StrokeThickness = 1.2 };
+            PreviewCanvas.Children.Add(tick1);
+            PreviewCanvas.Children.Add(tick2);
+
+            // Text số đo
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = fontSize,
+                FontWeight = FontWeights.Medium,
+                Foreground = line.Stroke
+            };
+            tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(tb, (minX + maxX) / 2.0 - tb.DesiredSize.Width / 2.0);
+            Canvas.SetTop(tb, y - tb.DesiredSize.Height - 1);
+            PreviewCanvas.Children.Add(tb);
+        }
+
+        private void DrawVerticalDimension(double y1, double y2, double x, string text, double fontSize = 10)
+        {
+            double minY = Math.Min(y1, y2);
+            double maxY = Math.Max(y1, y2);
+            if (maxY - minY < 2) return;
+
+            // Đường dim dọc
+            var line = new Line
+            {
+                X1 = x, Y1 = minY,
+                X2 = x, Y2 = maxY,
+                Stroke = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+                StrokeThickness = 1
+            };
+            PreviewCanvas.Children.Add(line);
+
+            // Hai gạch chéo 45 độ ở hai đầu dim
+            double tick = 4;
+            var tick1 = new Line { X1 = x - tick, Y1 = minY + tick, X2 = x + tick, Y2 = minY - tick, Stroke = line.Stroke, StrokeThickness = 1.2 };
+            var tick2 = new Line { X1 = x - tick, Y1 = maxY + tick, X2 = x + tick, Y2 = maxY - tick, Stroke = line.Stroke, StrokeThickness = 1.2 };
+            PreviewCanvas.Children.Add(tick1);
+            PreviewCanvas.Children.Add(tick2);
+
+            // Text số đo
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = fontSize,
+                FontWeight = FontWeights.Medium,
+                Foreground = line.Stroke
+            };
+            tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(tb, x + 4);
+            Canvas.SetTop(tb, (minY + maxY) / 2.0 - tb.DesiredSize.Height / 2.0);
+            PreviewCanvas.Children.Add(tb);
+        }
+
+        #region Zoom and Pan Preview
+
+        private void OnBtnZoomInClick(object sender, RoutedEventArgs e) => ApplyZoom(1.2);
+
+        private void OnBtnZoomOutClick(object sender, RoutedEventArgs e) => ApplyZoom(1.0 / 1.2);
+
+        private void OnBtnZoomResetClick(object sender, RoutedEventArgs e)
+        {
+            _zoomScale = 1.0;
+            CanvasScaleTransform.ScaleX = 1.0;
+            CanvasScaleTransform.ScaleY = 1.0;
+            CanvasTranslateTransform.X = 0;
+            CanvasTranslateTransform.Y = 0;
+        }
+
+        private void ApplyZoom(double factor, Point? center = null)
+        {
+            double newScale = _zoomScale * factor;
+            if (newScale < 0.3) newScale = 0.3;
+            if (newScale > 5.0) newScale = 5.0;
+
+            double actualFactor = newScale / _zoomScale;
+            _zoomScale = newScale;
+
+            if (center.HasValue)
+            {
+                // Zoom hướng về tâm con trỏ chuột
+                Point c = center.Value;
+                CanvasTranslateTransform.X = c.X - (c.X - CanvasTranslateTransform.X) * actualFactor;
+                CanvasTranslateTransform.Y = c.Y - (c.Y - CanvasTranslateTransform.Y) * actualFactor;
+            }
+
+            CanvasScaleTransform.ScaleX = _zoomScale;
+            CanvasScaleTransform.ScaleY = _zoomScale;
+        }
+
+        private void OnPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            Point mousePos = e.GetPosition(PreviewViewport);
+            if (e.Delta > 0)
+                ApplyZoom(1.15, mousePos);
+            else if (e.Delta < 0)
+                ApplyZoom(1.0 / 1.15, mousePos);
+
+            e.Handled = true;
+        }
+
+        private void OnPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == System.Windows.Input.MouseButton.Middle || e.ChangedButton == System.Windows.Input.MouseButton.Left)
+            {
+                _isPanning = true;
+                _lastPanPoint = e.GetPosition(PreviewViewport);
+                PreviewViewport.CaptureMouse();
+                PreviewViewport.Cursor = System.Windows.Input.Cursors.SizeAll;
+            }
+        }
+
+        private void OnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_isPanning)
+            {
+                Point currentPoint = e.GetPosition(PreviewViewport);
+                Vector delta = currentPoint - _lastPanPoint;
+                CanvasTranslateTransform.X += delta.X;
+                CanvasTranslateTransform.Y += delta.Y;
+                _lastPanPoint = currentPoint;
+            }
+        }
+
+        private void OnPreviewMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (_isPanning)
+            {
+                _isPanning = false;
+                PreviewViewport.ReleaseMouseCapture();
+                PreviewViewport.Cursor = System.Windows.Input.Cursors.Arrow;
+            }
+        }
+
+        #endregion
 
         private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 

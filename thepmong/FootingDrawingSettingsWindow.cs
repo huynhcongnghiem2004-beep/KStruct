@@ -62,6 +62,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly TextBox _planScale = new TextBox { Text = "20", MinWidth = 90 };
         private readonly TextBox _sectionScale = new TextBox { Text = "20", MinWidth = 90 };
         private readonly TextBox _cropMargin = new TextBox { Text = "6", MinWidth = 90 };
+        private readonly TextBox _cropBottomMargin = new TextBox { Text = "500", MinWidth = 90 };
         private readonly TextBox _sheetPrefix = new TextBox { Text = "KSMD-", MinWidth = 240 };
         private readonly TextBox _sheetName = new TextBox { Text = "Móng đơn - {Mark}", MinWidth = 240 };
         private readonly TextBox _viewName = new TextBox { Text = "KStruct - MĐ {Id} - {Role}", MinWidth = 240 };
@@ -136,6 +137,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _planScale.TextChanged += (s, e) => RefreshPreviews();
             _sectionScale.TextChanged += (s, e) => RefreshPreviews();
             _cropMargin.TextChanged += (s, e) => RefreshPreviews();
+            _cropBottomMargin.TextChanged += (s, e) => RefreshPreviews();
 
             Content = BuildMockupLayout(footings ?? new List<FamilyInstance>());
             RefreshProfiles();
@@ -291,6 +293,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
             SheetPrefix = _sheetPrefix.Text.Trim(), SheetNamePattern = _sheetName.Text.Trim(), ViewNamePattern = _viewName.Text.Trim(),
             PlanScale = ParseInt(_planScale.Text, 20), SectionScale = ParseInt(_sectionScale.Text, 20), CropMarginMm = ParseDouble(_cropMargin.Text, 6),
+            CropBottomMarginMm = ParseDouble(_cropBottomMargin.Text, 500),
             ApplyViewTemplatesOnce = _templateOnce.IsChecked == true,
             CreateBeamBreakLines = _beamBreaks.IsChecked == true, BreakLineFamily = FamilyName(Selected(_breakLine)), BreakLineType = TypeName(Selected(_breakLine)),
             BreakLinePaddingPaperMm = ParseDouble(_breakPadding.Text, 1), ReverseBreakLineMask = _reverseBreak.IsChecked == true,
@@ -329,6 +332,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _bottomLayer.IsChecked = p.OutputLayers == "Bot" || p.OutputLayers == "Both";
             _sheetPrefix.Text = p.SheetPrefix ?? "KSMD-"; _sheetName.Text = p.SheetNamePattern ?? "Móng đơn - {Mark}"; _viewName.Text = p.ViewNamePattern ?? "KStruct - MĐ {Id} - {Role}";
             _planScale.Text = p.PlanScale.ToString(); _sectionScale.Text = p.SectionScale.ToString(); _cropMargin.Text = p.CropMarginMm.ToString("0.##");
+            _cropBottomMargin.Text = (p.CropBottomMarginMm > 0 ? p.CropBottomMarginMm : 500).ToString("0.##");
             _callouts.IsChecked = p.CreateCallouts; _detailA.IsChecked = p.WantsDetailA; _detailB.IsChecked = p.WantsDetailB; _dimensions.IsChecked = p.CreateDimensions; _tags.IsChecked = p.CreateTags;
             _newSheet.IsChecked = p.PlaceOnNewSheet; _existingSheet.IsEnabled = !p.PlaceOnNewSheet;
             var sheet = new FilteredElementCollector(_doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>().FirstOrDefault(x => x.UniqueId == p.ExistingSheetUniqueId);
@@ -420,8 +424,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Callout phải dùng View Type cùng họ với mặt bằng nguồn.", "View Type không tương thích", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             int planScale = ParseInt(_planScale.Text, -1), sectionScale = ParseInt(_sectionScale.Text, -1);
             double margin = ParseDouble(_cropMargin.Text, -1);
-            if (planScale <= 0 || (AnyDetailSelected && sectionScale <= 0) || double.IsNaN(margin) || double.IsInfinity(margin) || margin < 0)
-            { MessageBox.Show(this, "Tỷ lệ phải là số nguyên dương; lề crop không được âm.", "Thông số chưa hợp lệ", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            double cropBottom = ParseDouble(_cropBottomMargin.Text, -1);
+            if (planScale <= 0 || (AnyDetailSelected && sectionScale <= 0) || double.IsNaN(margin) || double.IsInfinity(margin) || margin < 0 ||
+                double.IsNaN(cropBottom) || double.IsInfinity(cropBottom) || cropBottom < 0)
+            { MessageBox.Show(this, "Tỷ lệ phải là số nguyên dương; lề crop và mở rộng đáy không được âm.", "Thông số chưa hợp lệ", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             if (_newSheet.IsChecked != true && !(Selected(_existingSheet) is ViewSheet))
             { MessageBox.Show(this, "Hãy chọn sheet hiện có hoặc bật tạo sheet mới.", "Thiếu sheet", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             if (!ValidateExtraFields()) return;

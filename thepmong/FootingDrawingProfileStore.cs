@@ -58,6 +58,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public int PlanScale { get; set; } = 20;
         public int SectionScale { get; set; } = 20;
         public double CropMarginMm { get; set; } = 6;
+        public double CropBottomMarginMm { get; set; } = 500;
         public bool CreateCallouts { get; set; } = true;
         public bool CreateSections { get; set; } = true; // Legacy switch, used when per-axis options are absent.
         public bool? CreateDetailA { get; set; }
