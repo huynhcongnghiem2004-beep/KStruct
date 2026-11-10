@@ -318,7 +318,7 @@
                     <Border x:Name="InputStatusBanner" Visibility="Collapsed" Background="#FFF7ED" CornerRadius="6" Padding="10" Margin="0,0,0,10">
                         <TextBlock x:Name="TxtInputStatus" TextWrapping="Wrap" Foreground="#9A3412" FontSize="12"/>
                     </Border>
-                    <TextBlock x:Name="TxtPreviewInfo" TextWrapping="Wrap" FontSize="12" Foreground="#64748B" Margin="0,0,10"/>
+                    <TextBlock x:Name="TxtPreviewInfo" TextWrapping="Wrap" FontSize="12" Foreground="#64748B" Margin="0,0,0,10"/>
                     <WrapPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#4169E1" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đáy X" FontSize="12"/></StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,4,16,4"><Border Width="9" Height="9" Background="#DC143C" CornerRadius="2" Margin="0,0,6,0"/><TextBlock Text="Đáy Y" FontSize="12"/></StackPanel>
