@@ -477,7 +477,7 @@ namespace ColumnRebarPro.V3
 
         private void SyncCompactFromLegacy()
         {
-            if (QuickMainBarBox == null || ActiveConfig == null) return;
+            if (_compactSync || QuickMainBarBox == null || ActiveConfig == null) return;
             _compactSync = true;
             try
             {
@@ -584,7 +584,11 @@ namespace ColumnRebarPro.V3
                     MidStepBox.Text = mid;
                 }
                 finally { _compactSync = false; }
-                if (!SaveActive(true)) return;
+                if (!SaveActive(true))
+                {
+                    LoadActive();
+                    return;
+                }
                 SyncCompactFromLegacy();
             }
             catch (Exception ex)
@@ -607,8 +611,11 @@ namespace ColumnRebarPro.V3
         }
         private void QuickAdvanced_Click(object sender, RoutedEventArgs e)
         {
-            if (!SaveActive(true)) return;
-            MainTabs.SelectedIndex = ReferenceEquals(sender, null) ? 0 : 1;
+            // Always allow opening Advanced to fix an incomplete design profile.
+            SaveActive(false);
+            string caption = (sender as Button)?.Content?.ToString() ?? "";
+            MainTabs.SelectedIndex = caption.Contains("Hook") ? 2 :
+                caption.Contains("Neo") ? 1 : 0;
             ShowAdvanced(true);
         }
         private void QuickAdvanced_Changed(object sender, RoutedEventArgs e)
@@ -679,6 +686,7 @@ namespace ColumnRebarPro.V3
                 ReferenceEquals(sender, CrossAlternateCheck))
                 RefreshTypeChoices(ActiveConfig);
             UpdateFoundationAnchorSummary();
+            SyncCompactFromLegacy();
         }
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
@@ -686,6 +694,7 @@ namespace ColumnRebarPro.V3
             if (SaveActive(false) && ActiveConfig != null)
                 V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
             RefreshTypeChoices(ActiveConfig);
+            SyncCompactFromLegacy();
         }
         private void Text_LostFocus(object sender, RoutedEventArgs e)
         {
