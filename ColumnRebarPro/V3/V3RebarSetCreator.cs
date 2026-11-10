@@ -263,8 +263,38 @@ namespace ColumnRebarPro.V3
         {
             if (band.FixedNumber || band.Count < 2)
                 throw new InvalidOperationException("Thép đai chỉ cho phép Maximum Spacing; Rebar Set cần ít nhất hai vị trí.");
-            using (var accessor = bar.GetShapeDrivenAccessor())
-                accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(band.MaximumSpacing), length, true, true, true);
+            // Revit may choose fewer positions than the planner expects for a
+            // Maximum Spacing set. Re-measure the actual set and tighten the
+            // spacing input until the resulting center-to-center distance
+            // meets the design limit. Keep the native Maximum Spacing rule;
+            // never silently switch to Fixed Number.
+            double appliedSpacingMm = band.MaximumSpacing;
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                using (var accessor = bar.GetShapeDrivenAccessor())
+                    accessor.SetLayoutAsMaximumSpacing(V3Units.Ft(appliedSpacingMm), length,
+                        true, true, true);
+                bar.Document.Regenerate();
+
+                int count = bar.NumberOfBarPositions;
+                if (count < 2 || count > 1002)
+                    throw new InvalidOperationException("Revit tạo số vị trí đai không hợp lệ khi hiệu chỉnh Maximum Spacing.");
+                double actualSpacingMm;
+                using (var accessor = bar.GetShapeDrivenAccessor())
+                {
+                    XYZ first = accessor.GetBarPositionTransform(0).Origin;
+                    XYZ last = accessor.GetBarPositionTransform(count - 1).Origin;
+                    actualSpacingMm = V3Units.Mm(first.DistanceTo(last)) / (count - 1);
+                }
+                if (actualSpacingMm <= band.MaximumSpacing + .1)
+                    return;
+
+                double nextSpacingMm = appliedSpacingMm * band.MaximumSpacing / actualSpacingMm * .9;
+                if (nextSpacingMm <= .1 || nextSpacingMm >= appliedSpacingMm)
+                    break;
+                appliedSpacingMm = nextSpacingMm;
+            }
+            throw new InvalidOperationException("Không thể hiệu chỉnh Rebar Set để bước đai thực tế nằm trong Maximum Spacing thiết kế.");
             // Never silently switch to Fixed Number even if Revit returns a
             // different number of placements from the preview/planner.
         }
@@ -292,7 +322,9 @@ namespace ColumnRebarPro.V3
                 double spacing = delta.GetLength() / (count - 1);
                 if (spacing > V3Units.Ft(requestedMm + .1))
                     throw new InvalidOperationException("Cột " + columnId.Value +
-                        ": bước đai của " + group + " vượt Maximum Spacing thiết kế.");
+                        ": bước đai của " + group + " là " + V3Units.Mm(spacing).ToString("0.##") +
+                        " mm, vượt Maximum Spacing " + requestedMm.ToString("0.##") +
+                        " mm (" + count + " vị trí trên " + V3Units.Mm(delta.GetLength()).ToString("0.##") + " mm).");
                 for (int i = 1; i < count; i++)
                 {
                     XYZ expected = first + delta * ((double)i / (count - 1));
