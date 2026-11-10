@@ -57,22 +57,22 @@
         <Grid Margin="10,6">
             <Grid x:Name="CompactSurface">
                 <Grid.RowDefinitions><RowDefinition Height="80"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <Grid Grid.Row="0" Margin="8,0,8,8">
+                <Grid Grid.Row="0" Margin="8,0,8,8" Background="#FF1E293B">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="▥" FontSize="34" Foreground="#FF103A7A" VerticalAlignment="Center" Margin="12,0,18,0"/>
-                        <Border Width="2" Height="34" Background="#FFB7C4D7" Margin="0,0,20,0"/>
-                        <TextBlock Text="THÉP CỘT — GIAO DIỆN TINH GỌN" FontWeight="Bold" FontSize="22" Foreground="#FF103A7A" VerticalAlignment="Center"/>
+                        <TextBlock Text="▥" FontSize="34" Foreground="#FFF8FAFC" VerticalAlignment="Center" Margin="12,0,18,0"/>
+                        <Border Width="2" Height="34" Background="#FF64748B" Margin="0,0,20,0"/>
+                        <TextBlock Text="BỐ TRÍ CỐT THÉP CỘT NHIỀU TẦNG" FontWeight="Bold" FontSize="20" Foreground="#FFF8FAFC" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Border Grid.Column="1" Background="#FFEAF0F8" Padding="12,6" CornerRadius="5" VerticalAlignment="Center">
-                        <TextBlock Text="Revit Add-in" Foreground="#FF455876" FontSize="13"/>
+                    <Border Grid.Column="1" Background="#FF334155" Padding="12,6" CornerRadius="5" VerticalAlignment="Center">
+                        <TextBlock Text="KStruct · Column Rebar V4" Foreground="#FFE2E8F0" FontSize="13"/>
                     </Border>
                 </Grid>
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="23*"/><ColumnDefinition Width="9"/>
-                        <ColumnDefinition Width="34*"/><ColumnDefinition Width="9"/>
-                        <ColumnDefinition Width="43*"/>
+                        <ColumnDefinition Width="19*"/><ColumnDefinition Width="9"/>
+                        <ColumnDefinition Width="51*"/><ColumnDefinition Width="9"/>
+                        <ColumnDefinition Width="30*"/>
                     </Grid.ColumnDefinitions>
                     <!-- 01 — compact stack selection -->
                     <Border Grid.Column="0" BorderBrush="#FFCED6E3" BorderThickness="1" CornerRadius="8" Background="White">
@@ -115,11 +115,11 @@
                             </ListBox>
                         </DockPanel>
                     </Border>
-                    <!-- 02 — functional shortcuts backed by the original V4 controls -->
+                    <!-- 03 — compact property inspector backed by existing V4 controls -->
                     <Border Grid.Column="4" BorderBrush="#FFCED6E3" BorderThickness="1" CornerRadius="8" Background="White">
                         <DockPanel>
                             <Border DockPanel.Dock="Top" Background="#FFF0F3F8" Padding="12,11">
-                                <TextBlock Text="02. Cấu hình thép" FontSize="18" FontWeight="Bold" Foreground="#FF123A79"/>
+                                <TextBlock Text="03. Cấu hình thép" FontSize="18" FontWeight="Bold" Foreground="#FF123A79"/>
                             </Border>
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel Margin="18,17,16,12">
@@ -166,27 +166,50 @@
                         </DockPanel>
                     </Border>
                     <!-- 03 — the real existing V4 canvases, not mock graphics -->
-                    <Border Grid.Column="2" BorderBrush="#FFCED6E3" BorderThickness="1" CornerRadius="8" Background="White">
-                        <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="46"/><RowDefinition Height="*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                            <Border Background="#FFF0F3F8" Padding="12,11">
-                                <TextBlock Text="03. Xem trước" FontSize="18" FontWeight="Bold" Foreground="#FF123A79"/>
-                            </Border>
-                            <Border Grid.Row="1" BorderBrush="#FFD4DCE8" BorderThickness="1" CornerRadius="6" Margin="10,10,10,5" Background="#FFFAFCFE">
-                                <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-                                    <Canvas x:Name="SectionCanvas" Margin="6" ClipToBounds="True" SizeChanged="SectionCanvas_SizeChanged"/>
-                                    <TextBlock Grid.Row="1" Text="Mặt cắt ngang" FontWeight="SemiBold" Foreground="#FF183E80" TextAlignment="Center"/>
+                    <!-- 02 — existing live previews, restyled to match the reference add-in -->
+                    <Border Grid.Column="2" BorderBrush="#FFCED6E3" BorderThickness="1" CornerRadius="6" Background="White" Margin="0,0,8,0">
+                        <TabControl x:Name="PreviewTabs" BorderThickness="0" Background="Transparent">
+                            <TabItem Header="Mặt cắt ngang (Cross-section)">
+                                <Grid Background="White">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <Border Background="#FFF8FAFC" Padding="10,7" BorderBrush="#FFE2E8F0" BorderThickness="0,0,0,1">
+                                        <WrapPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
+                                                <Rectangle Width="12" Height="12" Stroke="#FF2F8F56" StrokeThickness="2" Margin="0,0,5,0"/>
+                                                <TextBlock Text="Cột bê tông" FontSize="11" Foreground="#FF475569"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
+                                                <Rectangle Width="12" Height="12" Stroke="#FF00999D" StrokeThickness="2" Margin="0,0,5,0"/>
+                                                <TextBlock Text="Đai ngoài" FontSize="11" Foreground="#FF475569"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
+                                                <Ellipse Width="10" Height="10" Fill="#FFFF0000" Stroke="#FF8B0000" Margin="0,0,5,0"/>
+                                                <TextBlock Text="Thép dọc" FontSize="11" Foreground="#FF475569"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Rectangle Width="12" Height="2" Fill="#FFB22222" Margin="0,5,5,0"/>
+                                                <TextBlock Text="Đai phụ" FontSize="11" Foreground="#FF475569"/>
+                                            </StackPanel>
+                                        </WrapPanel>
+                                    </Border>
+                                    <Canvas Grid.Row="1" x:Name="SectionCanvas" Margin="8" ClipToBounds="True" Background="White" SizeChanged="SectionCanvas_SizeChanged"/>
+                                    <Border Grid.Row="2" Background="#FFF8FAFC" Padding="9,5" BorderBrush="#FFE2E8F0" BorderThickness="0,1,0,0">
+                                        <TextBlock Text="Preview mặt cắt theo tầng đang chọn · Chỉ minh họa hình học" FontSize="11" Foreground="#FF64748B" HorizontalAlignment="Right"/>
+                                    </Border>
                                 </Grid>
-                            </Border>
-                            <Border Grid.Row="2" BorderBrush="#FFD4DCE8" BorderThickness="1" CornerRadius="6" Margin="10,5,10,10" Background="#FFFAFCFE">
-                                <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-                                    <Canvas x:Name="LongSectionCanvas" Margin="6" ClipToBounds="True" SizeChanged="LongSectionCanvas_SizeChanged"/>
-                                    <TextBlock Grid.Row="1" Text="Mặt cắt dọc" FontWeight="SemiBold" Foreground="#FF183E80" TextAlignment="Center"/>
+                            </TabItem>
+                            <TabItem Header="Mặt đứng liên tầng (Elevation)">
+                                <Grid Background="White">
+                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                                        <Canvas x:Name="LongSectionCanvas" MinWidth="420" MinHeight="500" Background="White" SizeChanged="LongSectionCanvas_SizeChanged"/>
+                                    </ScrollViewer>
+                                    <Border Grid.Row="1" Background="#FFF1F5F9" Padding="8,5" BorderBrush="#FFE2E8F0" BorderThickness="0,1,0,0">
+                                        <TextBlock Text="Mặt đứng minh họa theo tầng đang chọn; kiểm tra cấu tạo theo hồ sơ được duyệt." FontSize="11" Foreground="#FF64748B" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                                    </Border>
                                 </Grid>
-                            </Border>
-                        </Grid>
+                            </TabItem>
+                        </TabControl>
                     </Border>
                 </Grid>
             </Grid>
