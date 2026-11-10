@@ -63,6 +63,19 @@ namespace ColumnRebarPro.V3
         private readonly List<BarSizeChoice> _sizes;
         private long? _activeId;
         private bool _loading = true;
+        private bool _compactSync;
+        private V3DeploymentControl _deployment;
+        private sealed class QuickBarChoice
+        {
+            public BarSizeChoice Size;
+            public int Count;
+            public override string ToString()
+            {
+                return Count + "Ø" + Size.Mm.ToString("0.##", CultureInfo.InvariantCulture) +
+                    (string.IsNullOrWhiteSpace(Size.TypeName) ? "" : " (" + Size.TypeName + ")");
+            }
+        }
+
 
         public DeploymentSettingsFile DeploymentSettings { get { return DeploymentHost.Children.OfType<V3DeploymentControl>().Single().Capture(); } }
         public bool Accepted { get; private set; }
@@ -133,13 +146,11 @@ namespace ColumnRebarPro.V3
                 ? (int)bottomConfig.FoundationAnchorDirection : 0;
             SetFoundationControlState();
             var deployment = new V3DeploymentControl();
+            _deployment = deployment;
             DeploymentHost.Children.Add(deployment);
             if (document != null) deployment.Initialize(document);
-            RoutedEventHandler updateCaption = (sender, args) =>
-                RunButton.Content = deployment.IsDeploymentEnabled ? "Kiểm tra & tạo thép + bản vẽ" : "Kiểm tra & tạo thép 3D";
-            deployment.AddHandler(CheckBox.CheckedEvent, updateCaption);
-            deployment.AddHandler(CheckBox.UncheckedEvent, updateCaption);
-            updateCaption(null, null);
+            // Keep the mockup's primary-button caption stable. The drawing flag
+            // is controlled by the deployment settings, not by changing the label.
             for (int n = 2; n <= 20; n++) { CxBox.Items.Add(n); CyBox.Items.Add(n); }
             foreach (BarSizeChoice size in _sizes) { MainBarBox.Items.Add(size); TieBarBox.Items.Add(size); }
             foreach (ColumnSegment s in _segments.OrderByDescending(s => s.BottomMm))
@@ -348,6 +359,7 @@ namespace ColumnRebarPro.V3
             TieLayoutControlState();
             UpdateSummary();
             UpdateFoundationAnchorSummary();
+            SyncCompactFromLegacy();
         }
 
         private bool SaveActive(bool showError)
@@ -462,6 +474,183 @@ namespace ColumnRebarPro.V3
             JointStepBox.IsEnabled = false;
         }
 
+
+        private void SyncCompactFromLegacy()
+        {
+            if (_compactSync || QuickMainBarBox == null || ActiveConfig == null) return;
+            _compactSync = true;
+            try
+            {
+                int count = ActiveConfig.BarCount;
+                var current = MainBarBox.SelectedItem as BarSizeChoice;
+                QuickMainBarBox.Items.Clear();
+                QuickBarChoice selected = null;
+                foreach (var size in _sizes)
+                {
+                    var option = new QuickBarChoice { Size = size, Count = count };
+                    QuickMainBarBox.Items.Add(option);
+                    if (current != null && option.Size.UniqueId == current.UniqueId &&
+                        Math.Abs(option.Size.Mm - current.Mm) < .01) selected = option;
+                }
+                QuickMainBarBox.SelectedItem = selected;
+                string diameter = ActiveConfig.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture);
+                QuickCoverBox.Text = CoverBox.Text + " mm";
+                QuickZoneBox.Text = ZoneBox.Text + " mm";
+                QuickEndBox.Text = "Ø" + diameter + "a" + EndStepBox.Text;
+                QuickMidBox.Text = "Ø" + diameter + "a" + MidStepBox.Text;
+                QuickStarterCheck.IsChecked = MainStarterCheck.IsChecked == true;
+                QuickTieStyleBox.SelectedIndex = LoopRadio.IsChecked == true ? 1 : 0;
+                QuickDrawingCheck.IsChecked = _deployment != null && _deployment.IsDeploymentEnabled;
+            }
+            finally { _compactSync = false; }
+        }
+
+        // The mockup fields are shortcuts to the original V4 controls. No
+        // parallel reinforcement configuration is stored.
+        private void QuickInput_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || _compactSync || !_activeId.HasValue) return;
+            _compactSync = true;
+            try
+            {
+                if (ReferenceEquals(sender, QuickMainBarBox))
+                {
+                    var selected = QuickMainBarBox.SelectedItem as QuickBarChoice;
+                    if (selected != null) MainBarBox.SelectedItem = selected.Size;
+                }
+                else if (ReferenceEquals(sender, QuickTieStyleBox))
+                {
+                    if (QuickTieStyleBox.SelectedIndex == 1) LoopRadio.IsChecked = true;
+                    else HookRadio.IsChecked = true;
+                }
+                else if (ReferenceEquals(sender, QuickStarterCheck))
+                {
+                    MainStarterCheck.IsChecked = QuickStarterCheck.IsChecked;
+                    StarterCheck.IsChecked = QuickStarterCheck.IsChecked;
+                }
+            }
+            finally { _compactSync = false; }
+            // A checked starter requires a genuine engineer-specified length,
+            // which is intentionally edited in the advanced tab.
+            if (ReferenceEquals(sender, QuickStarterCheck) && QuickStarterCheck.IsChecked == true &&
+                string.IsNullOrWhiteSpace(MainStarterLengthBox.Text))
+            {
+                MessageBox.Show(this, "Hãy nhập chiều dài thép chờ ở Thiết lập nâng cao → Thép chờ / Neo móng trước khi tạo.",
+                    "KStruct - Thép chờ", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            SaveActive(false);
+            SyncCompactFromLegacy();
+        }
+
+        private static string QuickNumber(string value, string caption)
+        {
+            string clean = (value ?? "").Replace("mm", "").Trim();
+            if (!double.TryParse(clean, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
+                || double.IsNaN(parsed) || double.IsInfinity(parsed) || parsed <= 0)
+                throw new InvalidOperationException(caption + " phải là số mm dương.");
+            return parsed.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+
+        private string QuickTieSpacing(string notation, string caption)
+        {
+            string text = (notation ?? "").Replace(" ", "").ToLowerInvariant();
+            int divider = text.IndexOf('a');
+            if (!text.StartsWith("ø") || divider < 2)
+                throw new InvalidOperationException(caption + ": nhập dạng Ø8a100.");
+            string inputDiameter = QuickNumber(text.Substring(1, divider - 1), caption + " - đường kính");
+            string actualDiameter = ActiveConfig.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture);
+            if (inputDiameter != actualDiameter)
+                throw new InvalidOperationException(caption + ": đường kính đai hiện chọn là Ø" + actualDiameter +
+                    ". Để đổi đường kính đai, sử dụng Thiết lập nâng cao.");
+            return QuickNumber(text.Substring(divider + 1), caption + " - bước đai");
+        }
+
+        private void QuickText_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_loading || _compactSync || !_activeId.HasValue) return;
+            try
+            {
+                // Validate *all* visible fields before changing any legacy values.
+                string cover = QuickNumber(QuickCoverBox.Text, "Lớp bảo vệ");
+                string zone = QuickNumber(QuickZoneBox.Text, "Chiều dài vùng đầu");
+                string end = QuickTieSpacing(QuickEndBox.Text, "Đai hai đầu");
+                string mid = QuickTieSpacing(QuickMidBox.Text, "Đai giữa");
+                _compactSync = true;
+                try
+                {
+                    CoverBox.Text = cover;
+                    ZoneBox.Text = zone;
+                    EndStepBox.Text = end;
+                    MidStepBox.Text = mid;
+                }
+                finally { _compactSync = false; }
+                if (!SaveActive(true))
+                {
+                    LoadActive();
+                    return;
+                }
+                SyncCompactFromLegacy();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "KStruct - Dữ liệu thép", MessageBoxButton.OK, MessageBoxImage.Warning);
+                SyncCompactFromLegacy();
+            }
+        }
+
+        private void ShowAdvanced(bool show)
+        {
+            CompactSurface.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
+            AdvancedSurface.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (QuickAdvancedCheck.IsChecked != show)
+            {
+                _compactSync = true;
+                QuickAdvancedCheck.IsChecked = show;
+                _compactSync = false;
+            }
+        }
+        private void QuickAdvanced_Click(object sender, RoutedEventArgs e)
+        {
+            // Always allow opening Advanced to fix an incomplete design profile.
+            SaveActive(false);
+            string caption = (sender as Button)?.Content?.ToString() ?? "";
+            MainTabs.SelectedIndex = caption.Contains("Hook") ? 2 :
+                caption.Contains("Neo") ? 1 : 0;
+            ShowAdvanced(true);
+        }
+        private void QuickAdvanced_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || _compactSync) return;
+            if (QuickAdvancedCheck.IsChecked == true)
+                QuickAdvanced_Click(sender, e);
+            else ShowAdvanced(false);
+        }
+        private void QuickBack_Click(object sender, RoutedEventArgs e)
+        {
+            if (!SaveActive(true)) return;
+            SyncCompactFromLegacy();
+            ShowAdvanced(false);
+        }
+        private void QuickDrawing_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || _compactSync || _deployment == null) return;
+            _deployment.SetDeploymentEnabled(QuickDrawingCheck.IsChecked == true);
+        }
+        private void QuickPreview_Click(object sender, RoutedEventArgs e)
+        {
+            if (!SaveActive(true)) return;
+            DrawSection();
+            DrawLongSection();
+            var config = ActiveConfig;
+            MessageBox.Show(this, config == null ? "Chưa chọn tầng." :
+                "Tầng: " + ActiveRow.Segment.LevelName +
+                "\nThép chủ: " + config.BarCount + "Ø" + config.MainDiameter +
+                "\nĐai hai đầu/giữa: Ø" + config.TieDiameter + "a" +
+                config.EndSpacing + " / a" + config.MidSpacing +
+                "\nĐây là bản xem trước hình học; không thay thế kiểm tra kết cấu và bản vẽ thi công.",
+                "KStruct - Xem trước dữ liệu", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         private void FloorList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_loading) return;
@@ -497,6 +686,7 @@ namespace ColumnRebarPro.V3
                 ReferenceEquals(sender, CrossAlternateCheck))
                 RefreshTypeChoices(ActiveConfig);
             UpdateFoundationAnchorSummary();
+            SyncCompactFromLegacy();
         }
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
@@ -504,6 +694,7 @@ namespace ColumnRebarPro.V3
             if (SaveActive(false) && ActiveConfig != null)
                 V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
             RefreshTypeChoices(ActiveConfig);
+            SyncCompactFromLegacy();
         }
         private void Text_LostFocus(object sender, RoutedEventArgs e)
         {
@@ -513,6 +704,7 @@ namespace ColumnRebarPro.V3
             else if (ReferenceEquals(sender, MainStarterLengthBox)) StarterLengthBox.Text = MainStarterLengthBox.Text;
             else if (ReferenceEquals(sender, StarterLengthBox)) MainStarterLengthBox.Text = StarterLengthBox.Text;
             SaveActive(false);
+            SyncCompactFromLegacy();
         }
         private void SectionCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
@@ -589,6 +781,7 @@ namespace ColumnRebarPro.V3
             {
                 MainTabs.SelectedIndex = ex.Message.IndexOf("móc",StringComparison.OrdinalIgnoreCase)>=0 ||
                     ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 2 : 1;
+                ShowAdvanced(true);
                 MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

@@ -67,6 +67,12 @@ namespace ColumnRebarPro.V3
         };
 
         public bool IsDeploymentEnabled => EnableCheck.IsChecked == true;
+        // Invoked by compact V4 front page. The deployment tab remains the
+        // source of truth for all Sheet/Tag/Dimension preferences.
+        public void SetDeploymentEnabled(bool enabled)
+        {
+            EnableCheck.IsChecked = enabled;
+        }
 
         public V3DeploymentControl() { InitializeComponent(); }
 
