@@ -37,7 +37,8 @@
                             <DataGridTextColumn Header="Tiết diện" Binding="{Binding Size}" Width="105"/>
                             <DataGridTextColumn Header="Thép chủ" Binding="{Binding MainBars}" Width="100"/>
                             <DataGridTextColumn Header="Đai đầu/giữa" Binding="{Binding Ties}" Width="125"/>
-                            <DataGridTextColumn Header="Rebar 3D" Binding="{Binding ExistingRebarElements}" Width="75"/>
+                            <DataGridTextColumn Header="Rebar Set/đối tượng" Binding="{Binding ExistingRebarElements}" Width="125"/>
+                            <DataGridTextColumn Header="Vị trí thanh" Binding="{Binding ExistingBarPositions}" Width="88"/>
                             <DataGridTextColumn Header="Mặt cắt đề xuất" Binding="{Binding ProposedSections}" Width="180"/>
                             <DataGridTextColumn Header="Trạng thái" Binding="{Binding State}" Width="*"/>
                         </DataGrid.Columns>
