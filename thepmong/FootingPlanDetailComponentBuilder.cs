@@ -75,14 +75,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 }
                 // Without an explicit angle parameter, keep existing rotation on update to avoid drift.
                 warnings.Add("Detail Item " + placed.Id.Value + ": giữ nguyên góc xoay cũ; cần kiểm tra sau khi xoay móng.");
-                return;
             }
-            if (Math.Abs(angle) > 1e-9)
+            if (owned.Count == 0 && Math.Abs(angle) > 1e-9)
                 ElementTransformUtils.RotateElement(doc, placed.Id, Line.CreateUnbound(point, view.ViewDirection), angle);
 
-            // The uploaded family has instance dimensions L/W/L1/L2/X1/X2/Y1/Y2, but their
-            // formula dependencies are not verified. Deliberately do NOT overwrite these values.
-            warnings.Add(view.Name + ": đã đặt Detail Component; cần ánh xạ L/W/L1/L2/X/Y theo công thức Family trước khi tự đổi kích thước.");
+            // Re-apply the user's confirmed mapping at creation AND on every update.
+            // A failed readback throws and the owning footing SubTransaction rolls back.
+            FootingPlanDetailComponentSizing.Apply(doc, placed, local, profile);
         }
     }
 
