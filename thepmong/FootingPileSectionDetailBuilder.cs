@@ -45,17 +45,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
             XYZ up = view.UpDirection.Normalize();
             XYZ origin = view.Origin;
             double tol = UnitUtils.ConvertToInternalUnits(1.0, UnitTypeId.Millimeters);
-            double shiftX = UnitUtils.ConvertToInternalUnits(profile.PileSymbolOffsetXmm, UnitTypeId.Millimeters);
-            double shiftY = UnitUtils.ConvertToInternalUnits(profile.PileSymbolOffsetYmm, UnitTypeId.Millimeters);
-            if (double.IsNaN(shiftX) || double.IsInfinity(shiftX) ||
-                double.IsNaN(shiftY) || double.IsInfinity(shiftY))
-                throw new InvalidOperationException("Offset ký hiệu Cọc 2D phải là số hữu hạn.");
+            // No manual XY offsets. The family insertion axis MUST coincide with the
+            // actual pile center line in the section. A shifted RFA origin is a family defect.
+
 
             var piles = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFoundation)
                 .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
                 .Where(p => p.Id.Value != cap.Id.Value && IsPile(p))
                 .OrderBy(p => p.Id.Value).ToList();
-            var targets = new List<Tuple<FamilyInstance, XYZ>>();
+            var targets = new List<Tuple<FamilyInstance, XYZ, double>>();
             foreach (FamilyInstance pile in piles)
             {
                 List<XYZ> vertices;
@@ -81,8 +79,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 XYZ pileCenter = axis.OfPoint(new XYZ(centerX, centerY, 0));
                 XYZ pileHead = new XYZ(pileCenter.X, pileCenter.Y, pileTop);
                 XYZ cutPoint = pileHead - normal * (pileHead - origin).DotProduct(normal);
-                XYZ point = cutPoint + right * shiftX + up * shiftY;
-                targets.Add(Tuple.Create(pile, point));
+                XYZ point = cutPoint;
+                double diameter = FootingPileSectionDiameter.ReadPileDiameter(doc, pile);
+                targets.Add(Tuple.Create(pile, point, diameter));
             }
             if (targets.Count == 0)
                 warnings.Add(view.Name + ": không tìm thấy cọc thật cắt qua tuyến Detail. Không đặt ký hiệu Cọc 2D suy đoán.");
@@ -92,21 +91,34 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 FamilyInstance pile = target.Item1;
                 XYZ point = target.Item2;
+                double diameter = target.Item3;
+                FamilySymbol diameterSymbol = FootingPileSectionDiameter.ResolveSymbol(doc, symbol, diameter);
+                if (!diameterSymbol.IsActive) { diameterSymbol.Activate(); doc.Regenerate(); }
                 var matches = existing.Where(x => FootingDrawingDetailState.SourceId(x) == pile.UniqueId).ToList();
-                FamilyInstance placed = matches.FirstOrDefault(x => x.Symbol.Id.Value == symbol.Id.Value);
+                FamilyInstance placed = matches.FirstOrDefault();
                 if (placed == null)
                 {
-                    placed = doc.Create.NewFamilyInstance(point, symbol, view);
+                    placed = doc.Create.NewFamilyInstance(point, diameterSymbol, view);
                     if (placed == null) throw new InvalidOperationException("Không đặt được Family Cọc 2D: " + pile.Id.Value);
                     FootingDrawingDetailState.Mark(placed, cap, view, Kind, pile.UniqueId);
                 }
                 else
                 {
+                    if (placed.Symbol.Id.Value != diameterSymbol.Id.Value)
+                        placed.Symbol = diameterSymbol;
                     XYZ prior = (placed.Location as LocationPoint)?.Point ??
                         throw new InvalidOperationException("Family Cọc 2D không có điểm đặt: " + placed.Id.Value);
                     if ((point - prior).GetLength() > tol)
                         ElementTransformUtils.MoveElement(doc, placed.Id, point - prior);
                 }
+                // Validate the insertion point itself, not just the user's selected type.
+                doc.Regenerate();
+                XYZ actualPoint = (placed.Location as LocationPoint)?.Point ??
+                    throw new InvalidOperationException("Ký hiệu Cọc 2D không còn điểm đặt.");
+                if ((actualPoint - point).GetLength() > tol)
+                    throw new InvalidOperationException("Tim Family Cọc 2D không trùng tim cọc " + pile.Id.Value +
+                        " sau khi cập nhật.");
+                FootingPileSectionDiameter.Verify(placed, diameter);
                 kept.Add(placed.Id.Value);
             }
             // Delete only KStruct-owned extra symbols, including piles moved away from the cut.
