@@ -51,7 +51,6 @@ namespace SDK_HD.KStruct.NativeDocumentation
             double angle = Math.Atan2(axis.DotProduct(view.UpDirection), axis.DotProduct(view.RightDirection));
             var owned = FootingDrawingDetailState.Annotations(view, footing, Kind).OfType<FamilyInstance>().ToList();
             FamilyInstance placed = owned.FirstOrDefault(x => x.Symbol.Id == symbol.Id);
-            bool created = placed == null;
             if (placed == null)
             {
                 if (owned.Count > 0) FootingDrawingDetailState.Clear(view, footing, Kind);
@@ -61,25 +60,33 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
             else
             {
+                // Never delete and recreate a matching type: preserve its ElementId and references.
                 XYZ oldPoint = (placed.Location as LocationPoint)?.Point ??
                     throw new InvalidOperationException("Detail Component không có LocationPoint.");
-                ElementTransformUtils.MoveElement(doc, placed.Id, point - oldPoint);
-                // Reset to stable orientation using a recorded angle rather than accumulating rotations.
-                Parameter stored = placed.LookupParameter("KStruct_PlanAngle");
-                if (stored != null && stored.StorageType == StorageType.Double && !stored.IsReadOnly)
-                {
-                    double delta = angle - stored.AsDouble();
-                    if (Math.Abs(delta) > 1e-9)
-                        ElementTransformUtils.RotateElement(doc, placed.Id, Line.CreateUnbound(point, view.ViewDirection), delta);
-                    stored.Set(angle);
-                    return;
-                }
-                // Without an explicit angle parameter, keep existing rotation on update to avoid drift.
-                warnings.Add("Detail Item " + placed.Id.Value + ": giữ nguyên góc xoay cũ; cần kiểm tra sau khi xoay móng.");
+                if ((point - oldPoint).GetLength() > 1e-8)
+                    ElementTransformUtils.MoveElement(doc, placed.Id, point - oldPoint);
             }
-            if (created && Math.Abs(angle) > 1e-9)
-                ElementTransformUtils.RotateElement(doc, placed.Id, Line.CreateUnbound(point, view.ViewDirection), angle);
-
+            // Compute the current direction from the placed instance. A generic Family parameter
+            // named KStruct_PlanAngle is not required and rotation does not accumulate on Update.
+            doc.Regenerate();
+            XYZ current = placed.GetTransform().BasisX;
+            current = current - view.ViewDirection * current.DotProduct(view.ViewDirection);
+            if (current.GetLength() < 1e-8) throw new InvalidOperationException("Detail Item không có trục X hợp lệ.");
+            current = current.Normalize();
+            double deltaAngle = Math.Atan2(view.ViewDirection.DotProduct(current.CrossProduct(axis)),
+                Math.Max(-1.0, Math.Min(1.0, current.DotProduct(axis))));
+            if (Math.Abs(deltaAngle) > 1e-9)
+                ElementTransformUtils.RotateElement(doc, placed.Id, Line.CreateUnbound(point, view.ViewDirection), deltaAngle);
+            // An older build may have written duplicates. Keep one owned instance per plan.
+            if (owned.Count > 1)
+            {
+                foreach (FamilyInstance extra in owned.Where(x => x.Id != placed.Id))
+                {
+                    var removed = doc.Delete(extra.Id);
+                    if (removed.Any(id => id != extra.Id))
+                        throw new InvalidOperationException("Xóa Detail Item trùng làm ảnh hưởng đối tượng khác; đã hủy.");
+                }
+            }
             // Re-apply the user's confirmed mapping at creation AND on every update.
             // A failed readback throws and the owning footing SubTransaction rolls back.
             FootingPlanDetailComponentSizing.Apply(doc, placed, local, profile);
