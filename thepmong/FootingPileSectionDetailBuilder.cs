@@ -52,10 +52,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             // actual pile center line in the section. A shifted RFA origin is a family defect.
 
 
-            var piles = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFoundation)
-                .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
-                .Where(p => p.Id.Value != cap.Id.Value && IsPile(p, profile.PileFamilyFilter))
-                .OrderBy(p => p.Id.Value).ToList();
+            var piles = FootingPileResolver.Resolve(doc, cap, profile.PileFamilyFilter, warnings);
             var targets = new List<Tuple<FamilyInstance, XYZ, double>>();
             foreach (FamilyInstance pile in piles)
             {
@@ -161,23 +158,5 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
-        private static bool IsPile(FamilyInstance fi, string filter)
-        {
-            string family = fi.Symbol?.FamilyName ?? "";
-            string type = fi.Name ?? "";
-            string combined = (family + " " + type).ToLowerInvariant();
-            // Pile-cap families can include "pile"/"cọc" in their names; never classify
-            // them as individual piles for this Detail Item placement.
-            if (new[] { "pile cap", "pilecap", "đài", "dai coc", "đế cọc" }
-                .Any(x => combined.Contains(x))) return false;
-            string[] tokens = (string.IsNullOrWhiteSpace(filter) ? "cọc,coc,pile" : filter)
-                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(t => t.Trim()).Where(t => t.Length > 0).ToArray();
-            if (tokens.Length == 0)
-                throw new InvalidOperationException("Danh sách nhận diện Family cọc đang trống.");
-            return tokens.Any(token =>
-                family.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0);
-        }
     }
 }
