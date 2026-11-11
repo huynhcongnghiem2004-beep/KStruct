@@ -31,3 +31,12 @@ Add one `BS_FM_Detail Cọc 2D` view-based Detail Item **at each actual pile int
 - Feature is OFF by default even when the Family is loaded; selected origin confirmation is stored only when explicitly opted in.
 - The old missing Source View issue no longer clears a currently valid view when a stored UniqueId cannot be found. If no valid View exists, the normal warning still appears.
 - Current automated tests cover tolerances, diameter matching, type naming, and isolated/pile-cap TOP/BOT policy. They **do not** simulate a running Revit Family Editor, actual pile solids/section intersections, or 2D rendering. A project smoke test remains a release gate.
+
+## Risk-hardening: unified flow and scoped deletion
+- All pile tags in generated plan views and Detail-X / Detail-Y pile symbols use `FootingPileResolver.Resolve`: same project-wide modeled pile list, same family/type-name filter, same footing-local center and cap-bottom membership. Section symbols then additionally enforce the stricter centered section-cut and real geometry requirements.
+- The former ActiveView-dependent `FootingDrawingBuilder.GetPiles` implementation and its silent `catch { }` were removed.
+- Sheet and View naming honors the same explicit Auto/Isolated/PileCap mode used for TOP/BOT view generation.
+- `UpdateFootingDrawingsCommand` prioritizes explicitly selected hosts. The active View's host is only used when nothing is selected.
+- `DeleteFootingDrawingsCommand` **no longer performs project-wide deletion**. It requires selected footing(s), a selected KStruct View/Viewport, or an active KStruct-owned View/Sheet; it only deletes Views owned by those hosts and verified by metadata (with the legacy version allowance). Sheets are deliberately preserved even if empty so user-authored title block annotations, schedules and details are not destroyed. The confirmation clearly warns that deleting a generated View removes manually added annotations *inside that View*.
+- The independent regression test suite now verifies identity matching (exclude pile caps), pile spatial membership, section-center tolerance, diameter tolerance, type naming, layer policy and expression parsing.
+- **Unresolved release gates:** real Revit runtime testing for View creation, nested Family origin, physical pile geometry, parameter formulas, Tag/Viewport visual collisions and Update/Delete workflows. An API compile is not a graphical acceptance test.
