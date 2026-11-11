@@ -65,7 +65,23 @@ internal static class Program
         Require(documentation.Contains("KStruct_NumberSelectedElements"), "Missing element numbering command");
         Require(documentation.Contains("KStruct_TagElementAtPickedPoint"), "Missing element tagging command");
 
-        Console.WriteLine("PASS: Ribbon registration has 92 unique commands and 7 panels.");
+        // Every Ribbon path must use the shared flat, negative-space image renderer.
+        string iconRenderer = File.ReadAllText(Path.Combine(directory.FullName, "Core", "FlatRibbonIcons.cs"));
+        Require(iconRenderer.Contains("#183248") && iconRenderer.Contains("#B57B56") &&
+                iconRenderer.Contains("#F8F2E7"), "Navy/Earth/ivory inverse palette is missing");
+        Require(iconRenderer.Contains("RenderTargetBitmap") &&
+                iconRenderer.Contains("DrawingVisual"), "Icons must render as sharp vector glyphs");
+        Require(source.Contains("footingDropdown.Image = FlatRibbonIcons.Create") &&
+                source.Contains("footingDropdown.LargeImage = FlatRibbonIcons.Create"),
+                "Footing group icon must be regenerated at both native sizes");
+        Require(Regex.Matches(source, @"data\\.Image = FlatRibbonIcons\\.Create\\(id, icon, 16\\);").Count == 3,
+                "All three command registration paths must set 16px flat icons");
+        Require(Regex.Matches(source, @"data\\.LargeImage = FlatRibbonIcons\\.Create\\(id, icon, 32\\);").Count == 3,
+                "All three command registration paths must set 32px flat icons");
+        Require(!source.Contains("data.Image = Icon(") &&
+                !source.Contains("data.LargeImage = Icon("),
+                "Old Ribbon PNG icon pipeline must be fully replaced");
+        Console.WriteLine("PASS: All 92 commands and both group images use the flat Navy/Earth icon system.");
     }
 
     private static void Require(bool condition, string message)
