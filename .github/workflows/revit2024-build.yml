@@ -29,6 +29,8 @@ jobs:
         run: dotnet run --project tests/ExistingProjectRebar/ExistingProjectRebar.csproj --configuration Release
       - name: Check footing view range and beam intersections
         run: dotnet run --project tests/FootingDrawingMath/FootingDrawingMath.csproj --configuration Release
+      - name: Check footing Detail Item formula and rotation math
+        run: dotnet run --project tests/FootingPlanDetail/FootingPlanDetail.csproj --configuration Release
       - name: Get pinned Revit 2024 compile references
         shell: pwsh
         run: |
