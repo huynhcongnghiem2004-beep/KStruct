@@ -170,11 +170,17 @@ namespace ColumnRebarPro.V3
                     "Không được thay Sheet chưa xác thực sở hữu V4: " + wanted);
 
             List<ElementId> generatedViews = existing.GetAllPlacedViews().ToList();
-            // These views are exactly the ones stamped by V4 when the sheet was created.
+            List<ElementId> generatedSchedules = new FilteredElementCollector(doc)
+                .OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>()
+                .Where(instance => instance.OwnerViewId == existing.Id)
+                .Select(instance => instance.ScheduleId).Distinct().ToList();
+            // These views and schedules are stamped/verified by V4 ownership before deletion.
             // They must not have been removed, moved to another sheet or mixed with user views.
             doc.Delete(existing.Id);
             foreach (ElementId viewId in generatedViews)
                 if (doc.GetElement(viewId) != null) doc.Delete(viewId);
+            foreach (ElementId scheduleId in generatedSchedules)
+                if (doc.GetElement(scheduleId) != null) doc.Delete(scheduleId);
             doc.Regenerate();
         }
 
