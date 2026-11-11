@@ -47,3 +47,9 @@ Add one `BS_FM_Detail Cọc 2D` view-based Detail Item **at each actual pile int
 - When the default cut through the cap center does not cross any real pile center, and the user has not explicitly configured a section offset, KStruct snaps the cutting plane to the nearest real pile row within the cap bounds (never creates synthetic piles). If no piles are resolved the cut stays in its configured position and a warning is emitted later.
 - User-entered nonzero section offsets are preserved. A centered-cut tolerance of 1 mm still applies; partial eccentric cuts do not receive a false full-diameter symbol.
 - Existing legacy Detail-X/Y views made with swapped axes are detected on Update. KStruct refuses a silent orientation rewrite that could damage attached annotations; regenerate these views after installing the corrected build.
+
+
+## Risk fix: explicit automatic section rows and Update
+- The UI now has an independent checkbox per section: **Tự căn A–A qua hàng tim cọc** and **Tự căn B–B qua hàng tim cọc**. Numeric section offset, including exactly **0 mm**, is fully respected whenever the checkbox is OFF. Existing saved profiles without these flags default to manual (off); new settings show the choices clearly.
+- With the checkbox ON and the Cọc 2D feature enabled, KStruct chooses the nearest real pile row on creation. Update will also move the existing Detail View along the appropriate footing-local across axis if that real pile row moves. This happens only in automatic mode, with a post-move geometric readback; failure aborts the footing SubTransaction instead of leaving a wrongly aligned drawing.
+- A real-model test must verify that Revit moves the section cut while preserving annotations, detail markers and sheet placement. Older Detail-X/Y views with swapped axes still require regeneration; this fix does not silently rotate those views.
