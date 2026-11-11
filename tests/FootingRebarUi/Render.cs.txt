@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Globalization;
+using System.Text.RegularExpressions;
+using SDK_HD.KStruct;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,6 +25,7 @@ internal static class Render
             Capture(output, false, 1380,900,"footing-create");
             Capture(output, true, 1380,900,"footing-update");
             Capture(output, false, 1080,720,"footing-compact");
+            CaptureRibbonIcons(output);
             File.WriteAllText(Path.Combine(output,"README.txt"),
                 "Rendered from the actual compiled FootingRebarWindow XAML/code with sample data, outside Revit.\r\n" +
                 "This validates WPF layout and control rendering, not Revit API/model operations.\r\n");
@@ -28,6 +33,62 @@ internal static class Render
         }
         catch (Exception ex) { File.WriteAllText(Path.Combine(output,"render-error.txt"),ex.ToString()); return 1; }
     }
+    private static void CaptureRibbonIcons(string output)
+    {
+        string source = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "App.cs"));
+        var buttons = Regex.Matches(source,
+                @"Add\(\w+,\s*dll,\s*""(?<id>KStruct_[^""]+)"".*?,\s*""(?<icon>\w+)""\);")
+            .Cast<Match>().Select(match => new
+            {
+                Id = match.Groups["id"].Value,
+                Family = match.Groups["icon"].Value
+            }).ToList();
+        if (buttons.Count != 92)
+            throw new InvalidOperationException("Expected 92 configured KStruct commands, got " + buttons.Count);
+        const int cols = 10, cellW = 140, cellH = 66;
+        int rows = (buttons.Count + cols - 1) / cols;
+        var visual = new DrawingVisual();
+        var navy = (Brush)new BrushConverter().ConvertFromString("#183248");
+        var ivory = (Brush)new BrushConverter().ConvertFromString("#F8F2E7");
+        var earth = (Brush)new BrushConverter().ConvertFromString("#B57B56");
+        using (DrawingContext dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle((Brush)new BrushConverter().ConvertFromString("#EFEDE9"), null,
+                new Rect(0, 0, cols * cellW, rows * cellH));
+            for (int i = 0; i < buttons.Count; i++)
+            {
+                int x = i % cols * cellW, y = i / cols * cellH;
+                dc.DrawRoundedRectangle(navy, null,
+                    new Rect(x + 3, y + 3, cellW - 6, cellH - 6), 7, 7);
+                dc.DrawRoundedRectangle(earth, null,
+                    new Rect(x + 10, y + 12, 3, 42), 1.5, 1.5);
+                var large = (BitmapSource)FlatRibbonIcons.Create(buttons[i].Id, buttons[i].Family, 32);
+                var small = (BitmapSource)FlatRibbonIcons.Create(buttons[i].Id, buttons[i].Family, 16);
+                if (large.PixelWidth != 32 || large.PixelHeight != 32 ||
+                    small.PixelWidth != 16 || small.PixelHeight != 16)
+                    throw new InvalidOperationException("Unexpected native size: " + buttons[i].Id);
+                dc.DrawImage(large, new Rect(x + 19, y + 13, 32, 32));
+                dc.DrawImage(small, new Rect(x + 52, y + 27, 16, 16));
+                string name = buttons[i].Id.Replace("KStruct_", "");
+                if (name.Length > 17) name = name.Substring(0, 16) + "…";
+                var text = new FormattedText(name, CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight, new Typeface("Segoe UI"), 9.2, ivory, 1.0);
+                dc.DrawText(text, new Point(x + 19, y + 49));
+            }
+        }
+        var render = new RenderTargetBitmap(cols * cellW, rows * cellH,
+            96, 96, PixelFormats.Pbgra32);
+        render.Render(visual);
+        var image = new PngBitmapEncoder();
+        image.Frames.Add(BitmapFrame.Create(render));
+        using (var stream = File.Create(Path.Combine(output, "kstruct-flat-icons-atlas.png")))
+            image.Save(stream);
+        File.WriteAllText(Path.Combine(output, "kstruct-flat-icons-design.txt"),
+            "92 live-rendered Ribbon commands, 16px and 32px native raster from WPF vectors.\\r\\n" +
+            "Inverse palette: Navy #183248, earth #B57B56, ivory #F8F2E7.\\r\\n" +
+            "Each command retains its existing ID, tool handler and Ribbon panel.\\r\\n");
+    }
+
     private static void Capture(string output, bool update, int width, int height, string name)
     {
         var model = new FootingModel(2400,1800,900,FootingType.PileCap,"Đài DC-01 · 2400 × 1800 × 900 mm");

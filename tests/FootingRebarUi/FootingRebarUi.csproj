@@ -14,6 +14,7 @@
     <Compile Include="../../thepmong/RebarPlan.cs" Link="RebarPlan.cs" />
     <Compile Include="../../thepmong/BottomLayerBuilder.cs" Link="BottomLayerBuilder.cs" />
     <Compile Include="../../thepmong/SpacingCalculator.cs" Link="SpacingCalculator.cs" />
+    <Compile Include="../../Core/FlatRibbonIcons.cs" Link="FlatRibbonIcons.cs" />
     <Compile Include="Render.cs.txt" />
   </ItemGroup>
 </Project>
