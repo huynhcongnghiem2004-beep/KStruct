@@ -67,6 +67,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string SourceViewUniqueId { get; set; }
         // Auto uses host detection; explicit override prevents incorrect name-based classification.
         public string FootingKindMode { get; set; } = "Auto";
+        // Opt-in for old projects: only use a loaded point-placeable Detail Item family.
+        public bool CreatePileSectionSymbols { get; set; }
+        public string PileSectionDetailTypeUniqueId { get; set; }
+        // Optional insertion-point calibration in section axes (mm); never edit shared Type params.
+        public double PileSymbolOffsetXmm { get; set; }
+        public double PileSymbolOffsetYmm { get; set; }
         public bool AnnotateBot { get; set; } = true;
         public bool AnnotateTop { get; set; } = true;
         public string OutputLayers { get; set; } = "Both";
