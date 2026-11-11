@@ -98,7 +98,8 @@ namespace ColumnRebarPro.V3
                 if (!partitions.Contains(bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString()))
                     continue;
                 bar.SetUnobscuredInView(rebar3D, true);
-                bar.SetSolidInView(rebar3D, true);
+                // Revit 2024's Rebar API does not expose SetSolidInView.
+                // Unobscured visibility is supported; solid appearance depends on View detail/style.
             }
             sections.Add(rebar3D);
             string stackMark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
