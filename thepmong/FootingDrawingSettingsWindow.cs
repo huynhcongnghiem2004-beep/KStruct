@@ -91,20 +91,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
         internal FootingDrawingConfiguration Configuration { get; private set; }
 
-        private static bool IsPileCap(FamilyInstance fi)
-        {
-            if (fi == null) return false;
-            string fam = fi.Symbol?.FamilyName ?? "";
-            string typ = fi.Name ?? "";
-            return fam.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   fam.IndexOf("coc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   fam.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   fam.IndexOf("cap", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   fam.IndexOf("đài", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   fam.IndexOf("dai", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   typ.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   typ.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
+        private static bool IsPileCap(FamilyInstance fi) =>
+            FootingDrawingBuilder.IsPileCapForPolicy(fi);
 
         internal FootingDrawingSettingsWindow(Document doc, IntPtr owner, ViewPlan parent, IList<FamilyInstance> footings = null)
         {
