@@ -146,8 +146,9 @@
                                     </Grid>
                                     <CheckBox x:Name="QuickStarterCheck" Content="Có thép chờ lên tầng trên" Margin="2,16,0,8"
                                               Checked="QuickInput_Changed" Unchecked="QuickInput_Changed"/>
-                                    <CheckBox Content="Không bố trí đai trong nút giao (tự động)" IsChecked="True" IsEnabled="False"
-                                              Margin="2,2,0,20" ToolTip="Thuật toán V4 hiện bỏ đai tại vùng giao dầm/sàn; tùy chọn này không chỉnh sửa được ở giao diện tinh gọn."/>
+                                    <CheckBox x:Name="QuickJointTiesCheck" Content="Đai nút khung" IsChecked="True"
+                                              Margin="2,2,0,20" Checked="QuickInput_Changed" Unchecked="QuickInput_Changed"
+                                              ToolTip="Bật: giữ đai tại vùng giao dầm/sàn. Tắt: loại vị trí đai ở vùng giao được phát hiện. Chỉ sử dụng khi cấu tạo đã được kỹ sư duyệt."/>
                                     <Border BorderBrush="#FFD5DBE6" BorderThickness="1" CornerRadius="7" Background="#FFF5F7FA">
                                         <StackPanel>
                                             <TextBlock Text="⌄   Thiết lập nâng cao" FontWeight="Bold" FontSize="15" Padding="12,9"
