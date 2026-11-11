@@ -34,7 +34,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (profile.PlanDetailAlignToCover)
             {
                 var cover = FootingPlanCoverResolver.Read(doc, footing, profile, top, warnings);
-                c = cover.Item1 + cover.Item2 / 2.0;
+                c = FootingPlanDetailMath.ClearCoverToBarCenter(cover.Item1, cover.Item2);
+                FootingPlanDetailMath.AlignedSpan(b, cover.Item1, cover.Item2);
+                FootingPlanDetailMath.AlignedSpan(h, cover.Item1, cover.Item2);
             }
             if (!Finite(b) || !Finite(h) || b <= 0 || h <= 0 || !Finite(c) || c < 0 ||
                 c * 2 >= Math.Min(b, h))
