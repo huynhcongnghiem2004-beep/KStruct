@@ -72,3 +72,9 @@ The Windows workflow runs `tests/FootingPlanDetail/FootingPlanDetail.csproj` (ex
 The code now determines bar direction from actual Rebar centerline geometry projected onto the footing local X/Y axes. It extracts one diameter per direction and per layer (TOP or BOT), and computes:
 `L = B - 2 * (cover + diameterX/2)`, `W = H - 2 * (cover + diameterY/2)`.
 It rejects missing, diagonally-oriented, or conflicting-diameter sets because a single pair of L/W Family parameters cannot describe multiple independent bar envelopes reliably. The concrete clear cover `C` used in other user-defined Family expressions remains the **clear cover**, not the centerline inset.
+
+
+## Risk fix: strict principal-layer classification
+- Cover-aligned L/W sizing now calls `FootingDrawingVisibility.IsPrincipalBarInLayer`, not the permissive `InLayer` used for visual display. The strict method excludes KStruct-managed `SideTies`, unknown managed groups, predominantly vertical bars, no-bar-position elements, and horizontal reinforcement near the midpoint that cannot unambiguously be assigned to TOP or BOT.
+- Unmanaged bars are considered only if their actual Revit centerline has enough horizontal reinforcement length and a clear TOP/BOT elevation. If either X or Y lacks a valid principal bar, the operation reports a detailed error rather than inventing cover or diameter.
+- This strict filter is deliberately limited to the 2D Family *sizing* path. Native Rebar visibility and existing tagging behavior are not changed by this correction.
