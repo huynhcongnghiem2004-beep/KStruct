@@ -112,8 +112,63 @@ namespace ColumnRebarPro.V3
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
+            CreateStackSchedules(doc, sheet, ordered);
             V4SheetOwnership.Stamp(doc, sheet, works);
             result.Add(sheet.Id);return result;
+        }
+
+        // Each native Rebar Schedule is filtered to exactly one KStruct column
+        // partition. Never reuse an unfiltered project-wide schedule.
+        private static void CreateStackSchedules(Document doc, ViewSheet sheet,
+            IList<V3SegmentWork> works)
+        {
+            var fields = new[] {
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_SCHEDULE_MARK, "Mã thép"),
+                Tuple.Create(BuiltInParameter.REBAR_BAR_DIAMETER, "Đường kính"),
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_LENGTH, "Chiều dài"),
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_QUANTITY_OF_BARS, "Số thanh"),
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_TOTAL_LENGTH, "Tổng chiều dài")
+            };
+            double mm = V3Units.Ft(1);
+            double x = sheet.Outline.Max.U - mm * 90;
+            double y = sheet.Outline.Max.V - mm * 35;
+            foreach (var work in works)
+            {
+                var schedule = ViewSchedule.CreateSchedule(doc,
+                    new ElementId(BuiltInCategory.OST_Rebar));
+                schedule.Name = "KSTR V4 BBS " + work.Column.Id.Value + " - DRAFT";
+                var definition = schedule.Definition;
+                definition.IsItemized = false;
+                var available = definition.GetSchedulableFields();
+                var partitionField = available.FirstOrDefault(f =>
+                    f.ParameterId == new ElementId(BuiltInParameter.NUMBER_PARTITION_PARAM));
+                if (partitionField == null)
+                    throw new InvalidOperationException(
+                        "Project không hỗ trợ lọc Rebar Schedule theo Partition.");
+                var partition = definition.AddField(partitionField);
+                partition.IsHidden = true;
+                definition.AddFilter(new ScheduleFilter(partition.FieldId,
+                    ScheduleFilterType.Equal, V3RebarBuilder.Partition(work.Column.Id)));
+                int count = 0;
+                foreach (var item in fields)
+                {
+                    var candidate = available.FirstOrDefault(f =>
+                        f.ParameterId == new ElementId(item.Item1));
+                    if (candidate == null) continue;
+                    var field = definition.AddField(candidate);
+                    field.ColumnHeading = item.Item2;
+                    count++;
+                }
+                if (count == 0)
+                    throw new InvalidOperationException(
+                        "Không có trường BBS phù hợp trong Rebar Schedule.");
+                doc.Regenerate();
+                var instance = ScheduleSheetInstance.Create(doc, sheet.Id, schedule.Id,
+                    new XYZ(x, y, 0));
+                doc.Regenerate();
+                var bounds = instance.get_BoundingBox(sheet);
+                y = bounds != null ? bounds.Min.Y - mm * 12 : y - mm * 90;
+            }
         }
 
         // Hai chuỗi Dim bên trái cột: chuỗi trong = từng vùng đai (kể cả đoạn lớp bảo vệ hai đầu),
