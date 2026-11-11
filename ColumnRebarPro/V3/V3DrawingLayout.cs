@@ -50,7 +50,8 @@ namespace ColumnRebarPro.V3
             DrawBarShapes(doc,works,longitudinal,aggregate);
             // Đánh số mặt cắt từ chân lên đỉnh: tầng dưới = 2-2, tầng trên = 3-3 (như bản vẽ mẫu)
             var ordered=works.OrderBy(w=>w.Geometry.Bottom).ToList();
-            for(int i=0;i<ordered.Count;i++)SectionMarks(doc,longitudinal,ordered[i],i+2);
+            // MID cross section is the second view of each BASE/MID/NODE triplet.
+            for(int i=0;i<ordered.Count;i++)SectionMarks(doc,longitudinal,ordered[i],i*3+3);
             FitCrop(doc,longitudinal);
             var sections=new List<View>();int index=2;
             foreach(var w in ordered)
