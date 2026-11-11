@@ -57,7 +57,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (newSheet)
             {
                 sheet = ViewSheet.Create(doc, config.TitleBlock.Id);
-                bool isPile = IsPileCap(footing);
+                bool isPile = pileCap;
                 string defaultPrefix = isPile ? "KSMC-" : "KSMD-";
                 string prefix = string.IsNullOrWhiteSpace(p.SheetPrefix) ? defaultPrefix : p.SheetPrefix.Trim();
                 sheet.SheetNumber = UniqueNumber(prefix, footing.Id.Value.ToString(), sheetNumbers);
@@ -246,9 +246,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (config.FoundationTagType != null)
             {
                 TryTag(doc, config.FoundationTagType, view, footing, SafeCenter(hostBox), warnings);
-                if (IsPileCap(footing) && (view is ViewPlan))
+                if (FootingDrawingLayerPolicy.IsPileCap(config.Profile.FootingKindMode, IsPileCap(footing)) && (view is ViewPlan))
                 {
-                    List<FamilyInstance> piles = GetPiles(doc, footing, hostBox);
+                    IList<FamilyInstance> piles = FootingPileResolver.Resolve(doc, footing, config.Profile.PileFamilyFilter, warnings);
                     foreach (var pile in piles)
                     {
                         BoundingBoxXYZ pbox = pile.get_BoundingBox(view) ?? pile.get_BoundingBox(null);
@@ -499,41 +499,6 @@ namespace SDK_HD.KStruct.NativeDocumentation
                    fam.IndexOf("dai", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    typ.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    typ.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private static List<FamilyInstance> GetPiles(Document doc, FamilyInstance footing, BoundingBoxXYZ box)
-        {
-            var piles = new List<FamilyInstance>();
-            if (box == null) return piles;
-            try
-            {
-                var collector = new FilteredElementCollector(doc, doc.ActiveView?.Id ?? footing.LevelId)
-                    .OfCategory(BuiltInCategory.OST_StructuralFoundation)
-                    .OfClass(typeof(FamilyInstance))
-                    .Cast<FamilyInstance>()
-                    .Where(fi => fi.Id != footing.Id);
-
-                foreach (var fi in collector)
-                {
-                    BoundingBoxXYZ bb = fi.get_BoundingBox(null);
-                    if (bb == null) continue;
-                    string fam = fi.Symbol?.FamilyName ?? "";
-                    string typ = fi.Name ?? "";
-                    bool isPile = fam.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                 fam.IndexOf("coc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                 fam.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
-                    if (isPile || bb.Max.Z <= box.Min.Z + 0.5)
-                    {
-                        if (bb.Min.X >= box.Min.X - 1.5 && bb.Max.X <= box.Max.X + 1.5 &&
-                            bb.Min.Y >= box.Min.Y - 1.5 && bb.Max.Y <= box.Max.Y + 1.5)
-                        {
-                            piles.Add(fi);
-                        }
-                    }
-                }
-            }
-            catch { }
-            return piles;
         }
 
         private static string FormatName(string pattern, FamilyInstance footing)
