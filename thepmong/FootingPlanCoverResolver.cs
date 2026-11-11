@@ -39,7 +39,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             };
             var bars = new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
                 .Where(bar => bar.GetHostId().Value == footing.Id.Value &&
-                    FootingDrawingVisibility.InLayer(bar, hostBox, top))
+                    FootingDrawingVisibility.IsPrincipalBarInLayer(bar, hostBox, top))
                 .OrderBy(bar => bar.Id.Value).ToList();
             foreach (Rebar bar in bars)
             {
