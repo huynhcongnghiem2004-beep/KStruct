@@ -120,6 +120,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var dims = new StackPanel(); dims.Children.Add(_dimensions); dims.Children.Add(_fourSides);
             Field(dims, "Dimension Type", _dimension); Field(dims, "Lớp dim 1 (mm giấy)", _dimOffset); Field(dims, "Cách hai lớp (mm giấy)", _dimGap);
             dims.Children.Add(Note("Lớp trong: mép–tim cột/cọc–mép. Lớp ngoài: kích thước tổng thể. Thiếu reference chi tiết sẽ báo cạnh thiếu; không dùng kích thước giả."));
+            dims.Children.Add(_usePlanDetail);
+            Field(dims, "Detail Item thép TOP", _planTopDetail);
+            Field(dims, "Detail Item thép BOT", _planBotDetail);
+            dims.Children.Add(new TextBlock { Text = "Chế độ 2D không tạo Multi-Rebar Tag ở mặt bằng; giữ Rebar thật trong mô hình.", TextWrapping = TextWrapping.Wrap });
             dims.Children.Add(_tags); Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
             Populate(_breakLine, new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_DetailComponents)
                 .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
@@ -148,7 +152,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             AddTab(tabs, "Cấu hình", preset);
             // Relax legacy minimum widths so controls fit the middle panel at laptop resolutions.
             foreach (ComboBox box in new[] { _profiles, _planType, _detailType, _titleBlock, _planTemplate, _sectionTemplate,
-                _rebarTag, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
+                _rebarTag, _planTopDetail, _planBotDetail, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
             foreach (TextBox box in new[] { _sheetPrefix, _sheetName, _viewName, _profileName }) box.MinWidth = 0;
             AddColumn(columns, CreateCard("THIẾT LẬP HỒ SƠ", "View • Dim / Tag • Sheet • Cấu hình", tabs), 1);
 
