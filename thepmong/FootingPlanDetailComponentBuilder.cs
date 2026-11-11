@@ -63,9 +63,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             XYZ axis = frame.BasisX - view.ViewDirection * frame.BasisX.DotProduct(view.ViewDirection);
             if (axis.GetLength() < 1e-8) throw new InvalidOperationException("Không xác định được hướng móng trên mặt bằng.");
             axis = axis.Normalize();
-            double angle = Math.Atan2(axis.DotProduct(view.UpDirection), axis.DotProduct(view.RightDirection));
             var owned = FootingDrawingDetailState.Annotations(view, footing, Kind).OfType<FamilyInstance>().ToList();
-            FamilyInstance placed = owned.FirstOrDefault(x => x.Symbol.Id == symbol.Id);
+            FamilyInstance placed = owned.FirstOrDefault(x => x.Symbol.Id.Value == symbol.Id.Value);
             if (placed == null)
             {
                 if (owned.Count > 0) FootingDrawingDetailState.Clear(view, footing, Kind);
@@ -95,10 +94,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             // An older build may have written duplicates. Keep one owned instance per plan.
             if (owned.Count > 1)
             {
-                foreach (FamilyInstance extra in owned.Where(x => x.Id != placed.Id))
+                foreach (FamilyInstance extra in owned.Where(x => x.Id.Value != placed.Id.Value))
                 {
                     var removed = doc.Delete(extra.Id);
-                    if (removed.Any(id => id != extra.Id))
+                    if (removed.Any(id => id.Value != extra.Id.Value))
                         throw new InvalidOperationException("Xóa Detail Item trùng làm ảnh hưởng đối tượng khác; đã hủy.");
                 }
             }
