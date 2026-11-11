@@ -108,7 +108,8 @@ namespace ColumnRebarPro.V3
                     return false;
                 return sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>()
                     .All(view => view.Name.StartsWith("KSTR V3 MCD ", StringComparison.OrdinalIgnoreCase) ||
-                                 view.Name.StartsWith("KSTR V3 MCN ", StringComparison.OrdinalIgnoreCase));
+                                 view.Name.StartsWith("KSTR V3 MCN ", StringComparison.OrdinalIgnoreCase) ||
+                                 view.Name.StartsWith("KSTR V3 3D ", StringComparison.OrdinalIgnoreCase));
             }
             catch (Exception) { return false; }
         }
