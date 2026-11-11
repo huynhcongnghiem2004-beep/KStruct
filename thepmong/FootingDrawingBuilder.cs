@@ -61,7 +61,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 string defaultPrefix = isPile ? "KSMC-" : "KSMD-";
                 string prefix = string.IsNullOrWhiteSpace(p.SheetPrefix) ? defaultPrefix : p.SheetPrefix.Trim();
                 sheet.SheetNumber = UniqueNumber(prefix, footing.Id.Value.ToString(), sheetNumbers);
-                sheet.Name = FormatName(p.SheetNamePattern, footing);
+                sheet.Name = FormatName(p.SheetNamePattern, footing, p);
                 FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm, 3);
                 sheetNumbers.Add(sheet.SheetNumber);
             }
@@ -123,7 +123,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 SetPlanCrop(view, box, p.CropMarginMm);
             }
             string layer = topLayer ? "Top" : "Bot";
-            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer), names);
+            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer, p), names);
             FootingDrawingVisibility.ApplyTemplate(view, config.PlanTemplate, p.ApplyViewTemplatesOnce);
             if (view.Scale != p.PlanScale) view.Scale = p.PlanScale;
             if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
@@ -169,7 +169,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         corners.Max(p => (p - center).DotProduct(depth)) + margin)
                 };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
-                view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Detail-X" : "Detail-Y"), names);
+                view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Detail-X" : "Detail-Y", config.Profile), names);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, config.Profile.ApplyViewTemplatesOnce);
                 view.Scale = config.Profile.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
                 result.Add(view);
@@ -208,7 +208,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-bottomMargin, 0),
                     Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
-                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y"), names);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y", p), names);
                 names.Add(view.Name);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
                 if (view.Scale != p.SectionScale) view.Scale = p.SectionScale;
@@ -501,18 +501,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
                    typ.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private static string FormatName(string pattern, FamilyInstance footing)
+        private static string FormatName(string pattern, FamilyInstance footing, FootingDrawingProfile profile)
         {
             string mark = footing.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string type = footing.Symbol == null ? "Móng" : footing.Symbol.Name;
             string level = footing.LevelId == ElementId.InvalidElementId ? "" : footing.Document.GetElement(footing.LevelId)?.Name ?? "";
-            bool isPile = IsPileCap(footing);
+            bool isPile = FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode, IsPileCap(footing));
             string defaultPattern = isPile ? "Đài cọc - {Mark}" : "Móng đơn - {Mark}";
             string actualPattern = string.IsNullOrWhiteSpace(pattern) ? defaultPattern : pattern;
             return actualPattern.Replace("{Mark}", string.IsNullOrWhiteSpace(mark) ? footing.Id.Value.ToString() : mark.Trim())
                 .Replace("{Id}", footing.Id.Value.ToString()).Replace("{Type}", type).Replace("{Level}", level);
         }
-        private static string FormatViewName(string pattern, FamilyInstance footing, string role)
+        private static string FormatViewName(string pattern, FamilyInstance footing, string role, FootingDrawingProfile profile)
         {
             bool isPile = IsPileCap(footing);
             string defaultPattern = isPile ? "KStruct - ĐC {Id} - {Role}" : "KStruct - MĐ {Id} - {Role}";
