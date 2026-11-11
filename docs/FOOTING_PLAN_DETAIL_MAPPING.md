@@ -67,3 +67,8 @@ The Windows workflow runs `tests/FootingPlanDetail/FootingPlanDetail.csproj` (ex
 - To avoid old profiles displaying full-footing dimensions, cover-alignment mode overrides legacy L=B/W=H expressions for L and W on creation and Update. The other family inputs `L1`, `L2`, `X1/X2/Y1/Y2` retain the user's explicitly confirmed mapping.
 - **Family geometry limitation:** This calculation assumes the RFA's L and W instance dimensions truly control the visible bar-envelope centerline. It does not prove the authored Family graphic has no extra offsets or locked formulas. Revit Family Editor verification and a rendered-view geometric check remain necessary before production release.
 - If an existing 2D Family was designed around full-footing L/W plus internal margins, disable the automatic cover-alignment option until the Family parameter relationship is audited; otherwise the cover offset may be subtracted twice.
+
+### Direction-specific cover correction
+The code now determines bar direction from actual Rebar centerline geometry projected onto the footing local X/Y axes. It extracts one diameter per direction and per layer (TOP or BOT), and computes:
+`L = B - 2 * (cover + diameterX/2)`, `W = H - 2 * (cover + diameterY/2)`.
+It rejects missing, diagonally-oriented, or conflicting-diameter sets because a single pair of L/W Family parameters cannot describe multiple independent bar envelopes reliably. The concrete clear cover `C` used in other user-defined Family expressions remains the **clear cover**, not the centerline inset.
