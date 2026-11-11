@@ -9,7 +9,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
     // Resolve cover from the real host and the line-center diameter from hosted Rebar.
     internal static class FootingPlanCoverResolver
     {
-        internal static Tuple<double, double> Read(Document doc, FamilyInstance footing,
+        internal static Tuple<double, double, double> Read(Document doc, FamilyInstance footing,
             FootingDrawingProfile profile, bool top, IList<string> warnings)
         {
             double coverMm = profile.PlanDetailCoverMm;
@@ -32,25 +32,74 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 throw new InvalidOperationException("Chưa có lớp bảo vệ mặt bên của móng. " +
                     "Hãy thiết lập Rebar Cover - Other Faces hoặc nhập C > 0 mm trong KStruct.");
             BoundingBoxXYZ hostBox = footing.get_BoundingBox(null);
-            List<double> diameters = new FilteredElementCollector(doc).OfClass(typeof(Rebar))
-                .Cast<Rebar>().Where(bar => bar.GetHostId().Value == footing.Id.Value &&
+            Transform axes = FootingDrawingGeometry.Axes(footing);
+            var byAxis = new Dictionary<string, List<double>>
+            {
+                { "X", new List<double>() }, { "Y", new List<double>() }
+            };
+            var bars = new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
+                .Where(bar => bar.GetHostId().Value == footing.Id.Value &&
                     FootingDrawingVisibility.InLayer(bar, hostBox, top))
-                .Select(bar => doc.GetElement(bar.GetTypeId())?.get_Parameter(BuiltInParameter.REBAR_BAR_DIAMETER))
-                .Where(parameter => parameter != null && parameter.HasValue &&
-                    parameter.StorageType == StorageType.Double && parameter.AsDouble() > 0)
-                .Select(parameter => UnitUtils.ConvertFromInternalUnits(parameter.AsDouble(), UnitTypeId.Millimeters))
-                .Distinct().ToList();
-            if (diameters.Count == 0)
-                throw new InvalidOperationException("Không tìm thấy đường kính Rebar lớp " +
-                    (top ? "TOP" : "BOT") + " trên móng " + footing.Id.Value +
-                    "; không thể căn theo tim thép và lớp bảo vệ.");
-            double first = diameters[0];
-            if (diameters.Any(d => Math.Abs(d - first) > 0.1))
-                throw new InvalidOperationException("Móng " + footing.Id.Value +
-                    " có nhiều đường kính khác nhau trong lớp " + (top ? "TOP" : "BOT") +
-                    ". Ký hiệu Family chung L/W chưa thể căn chính xác mọi nhóm thép; " +
-                    "hãy dùng chế độ chú thích/thép thực hoặc một Family nhiều nhóm.");
-            return Tuple.Create(coverMm, first);
+                .OrderBy(bar => bar.Id.Value).ToList();
+            foreach (Rebar bar in bars)
+            {
+                Parameter size = doc.GetElement(bar.GetTypeId())?.get_Parameter(
+                    BuiltInParameter.REBAR_BAR_DIAMETER);
+                if (size == null || size.StorageType != StorageType.Double || !size.HasValue ||
+                    size.AsDouble() <= 0)
+                    throw new InvalidOperationException("Rebar " + bar.Id.Value +
+                        " không có đường kính thực hợp lệ.");
+                string direction = DirectionOfBar(bar, axes);
+                byAxis[direction].Add(UnitUtils.ConvertFromInternalUnits(
+                    size.AsDouble(), UnitTypeId.Millimeters));
+            }
+            double dx = UniqueDiameter(byAxis["X"], "X", top, footing.Id.Value);
+            double dy = UniqueDiameter(byAxis["Y"], "Y", top, footing.Id.Value);
+            return Tuple.Create(coverMm, dx, dy);
+        }
+
+        private static double UniqueDiameter(List<double> sizes, string direction, bool top, long footingId)
+        {
+            if (sizes.Count == 0)
+                throw new InvalidOperationException("Móng " + footingId + " không có Rebar " +
+                    direction + " lớp " + (top ? "TOP" : "BOT") +
+                    " để căn lớp bảo vệ cho Family thép 2D.");
+            double first = sizes[0];
+            if (sizes.Any(value => Math.Abs(value - first) > 0.1))
+                throw new InvalidOperationException("Móng " + footingId + " có nhiều đường kính " +
+                    "trong cùng phương " + direction + " lớp " + (top ? "TOP" : "BOT") +
+                    ". Family một đường bao không thể căn chính xác đồng thời; cần Family nhiều nhóm thép.");
+            return first;
+        }
+
+        private static string DirectionOfBar(Rebar bar, Transform axes)
+        {
+            int index = Enumerable.Range(0, bar.NumberOfBarPositions)
+                .FirstOrDefault(i => bar.DoesBarExistAtPosition(i), -1);
+            if (index < 0)
+                throw new InvalidOperationException("Rebar " + bar.Id.Value +
+                    " không có thanh hợp lệ để xác định phương.");
+            XYZ longest = XYZ.Zero;
+            foreach (Curve curve in bar.GetTransformedCenterlineCurves(false, false, true,
+                MultiplanarOption.IncludeAllMultiplanarCurves, index))
+            {
+                var points = curve.Tessellate();
+                for (int i = 1; i < points.Count; i++)
+                {
+                    XYZ segment = points[i] - points[i - 1];
+                    segment = new XYZ(segment.X, segment.Y, 0);
+                    if (segment.GetLength() > longest.GetLength()) longest = segment;
+                }
+            }
+            if (longest.GetLength() < 1e-8)
+                throw new InvalidOperationException("Rebar " + bar.Id.Value +
+                    " không có đoạn thẳng nằm ngang để xác định X/Y.");
+            double x = Math.Abs(longest.Normalize().DotProduct(axes.BasisX.Normalize()));
+            double y = Math.Abs(longest.Normalize().DotProduct(axes.BasisY.Normalize()));
+            if (Math.Abs(x - y) < 0.05)
+                throw new InvalidOperationException("Rebar " + bar.Id.Value +
+                    " nằm chéo; không thể ánh xạ vào Family 2D X/Y.");
+            return x > y ? "X" : "Y";
         }
     }
 }
