@@ -123,7 +123,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
             FootingDrawingVisibility.ApplyTemplate(view, config.PlanTemplate, p.ApplyViewTemplatesOnce);
             if (view.Scale != p.PlanScale) view.Scale = p.PlanScale;
             if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
-            FootingDrawingVisibility.Configure(view, footing, topLayer, p.ApplyViewTemplatesOnce, warnings);
+            if (p.UsePlanDetailComponents)
+            {
+                FootingPlanDetailComponentBuilder.Refresh(doc, view, footing, p, topLayer, warnings);
+            }
+            else FootingDrawingVisibility.Configure(view, footing, topLayer, p.ApplyViewTemplatesOnce, warnings);
             if (p.UseDetailedLayout) ConfigureAnnotationCrop(view, p);
             return view;
         }
@@ -251,7 +255,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                 }
             }
-            FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
+            if (!(config.Profile.UsePlanDetailComponents && view is ViewPlan))
+                FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
         }
 
         private static void CreateHostDimensions(Document doc, FamilyInstance footing, View view, DimensionType type, BoundingBoxXYZ box, IList<string> warnings)
