@@ -203,7 +203,9 @@ namespace ColumnRebarPro.V3
             // intersection with the column, splitting sets across joint gaps.
             // A geometric intersection is required; no height-only assumptions.
             var exclusions = V4TieJointExclusion.Find(doc, item);
-            var safeBands = V4TieBandExclusion.KeepOutside(TiePlan(item), exclusions);
+            var plannedBands = TiePlan(item);
+            var safeBands = V4TieBandExclusion.KeepOutside(plannedBands, exclusions);
+            V4TieBandExclusion.RequireAtLeastOneTie(plannedBands, safeBands);
             if (safeBands.Any(b => b.Count < 2))
                 throw new InvalidOperationException("Cột " + item.Column.Id.Value +
                     ": vùng giao làm còn một đai đơn lẻ; không thể tạo Rebar Set Maximum Spacing. " +
