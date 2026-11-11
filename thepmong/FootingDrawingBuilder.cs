@@ -163,11 +163,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
                 if (reverse) right = -right;
                 XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
-                double requestedMm = i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm;
+                bool autoAlign = i == 0 ? p.AutoAlignSectionXToPiles : p.AutoAlignSectionYToPiles;
+                double requestedMm = autoAlign ? 0 : (i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm);
                 double half = i == 0 ? (local.Max.Y - local.Min.Y) / 2 :
                     (local.Max.X - local.Min.X) / 2;
                 double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
-                if (piles.Count > 0)
+                if (autoAlign && piles.Count > 0)
                 {
                     double[] rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
                         .Where(point => point != null)
@@ -175,7 +176,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                             (point - center).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
                     bool snapped;
                     double selected = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
-                        Math.Abs(requestedMm) > 0.001, rows,
+                        !autoAlign, rows,
                         UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
                     if (snapped)
                     {
@@ -243,7 +244,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 double requestedMm = i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm;
                 double half = i == 0 ? (bounds.Max.Y - bounds.Min.Y) / 2 : (bounds.Max.X - bounds.Min.X) / 2;
                 double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
-                if (detailPiles.Count > 0)
+                if (autoAlign && detailPiles.Count > 0)
                 {
                     XYZ cutOrigin = center;
                     double[] rows = detailPiles.Select(pile => (pile.Location as LocationPoint)?.Point)
@@ -252,7 +253,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                             (point - cutOrigin).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
                     bool snapped;
                     double selectedMm = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
-                        Math.Abs(requestedMm) > 0.001, rows,
+                        !autoAlign, rows,
                         UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
                     if (snapped)
                     {
