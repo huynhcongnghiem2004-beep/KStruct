@@ -138,42 +138,79 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return view;
         }
 
-        private static List<ViewSection> CreateDetails(Document doc, FamilyInstance footing, FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
+        private static List<ViewSection> CreateDetails(Document doc, FamilyInstance footing,
+            FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
         {
-            if (config.Profile.UseDetailedLayout) return CreateDetailedViews(doc, footing, config, names, warnings);
-            BoundingBoxXYZ source = footing.get_BoundingBox(null);
-            LocationPoint location = footing.Location as LocationPoint;
-            if (source == null || location == null) throw new InvalidOperationException("Không đọc được hình học móng để tạo mặt cắt.");
-            double angle = location.Rotation;
-            XYZ xAxis = new XYZ(Math.Cos(angle), Math.Sin(angle), 0).Normalize();
-            XYZ yAxis = new XYZ(-Math.Sin(angle), Math.Cos(angle), 0).Normalize();
-            List<XYZ> corners = WorldCorners(source);
-            XYZ center = location.Point;
-            double margin = UnitUtils.ConvertToInternalUnits(config.Profile.CropMarginMm, UnitTypeId.Millimeters);
+            if (config.Profile.UseDetailedLayout)
+                return CreateDetailedViews(doc, footing, config, names, warnings);
+            FootingDrawingProfile p = config.Profile;
+            BoundingBoxXYZ local = FootingDrawingGeometry.LocalBounds(footing);
+            Transform axes = local.Transform;
+            XYZ center = axes.OfPoint((local.Min + local.Max) * 0.5);
+            List<XYZ> corners = WorldCorners(footing.get_BoundingBox(null));
+            double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
             var result = new List<ViewSection>();
+            IList<FamilyInstance> piles = p.CreatePileSectionSymbols &&
+                FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(footing))
+                ? FootingPileResolver.Resolve(doc, footing, p.PileFamilyFilter, warnings)
+                : new List<FamilyInstance>();
             for (int i = 0; i < 2; i++)
             {
-                if (i == 0 ? !config.Profile.WantsDetailA : !config.Profile.WantsDetailB) continue;
-                XYZ direction = i == 0 ? xAxis : yAxis;
-                XYZ right = XYZ.BasisZ.CrossProduct(direction).Normalize();
+                if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
+                // BasisX is the HORIZONTAL direction in the rendered section.
+                // Previous code used Z cross direction, swapping Detail-X/Detail-Y.
+                XYZ right = (i == 0 ? axes.BasisX : axes.BasisY).Normalize();
+                bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
+                if (reverse) right = -right;
+                XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
+                double requestedMm = i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm;
+                double half = i == 0 ? (local.Max.Y - local.Min.Y) / 2 :
+                    (local.Max.X - local.Min.X) / 2;
+                double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
+                if (piles.Count > 0)
+                {
+                    double[] rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                        .Where(point => point != null)
+                        .Select(point => UnitUtils.ConvertFromInternalUnits(
+                            (point - center).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
+                    bool snapped;
+                    double selected = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
+                        Math.Abs(requestedMm) > 0.001, rows,
+                        UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+                    if (snapped)
+                    {
+                        warnings.Add((i == 0 ? "Detail-X" : "Detail-Y") +
+                            ": tự căn tuyến cắt qua hàng tim cọc tại offset " +
+                            selected.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                        offset = UnitUtils.ConvertToInternalUnits(selected, UnitTypeId.Millimeters);
+                    }
+                }
+                if (Math.Abs(offset) >= half)
+                    throw new InvalidOperationException("Offset tuyến cắt nằm ngoài móng.");
+                XYZ origin = center + across * offset;
                 Transform transform = Transform.Identity;
-                transform.Origin = center; transform.BasisX = right; transform.BasisY = XYZ.BasisZ;
+                transform.Origin = origin;
+                transform.BasisX = right;
+                transform.BasisY = XYZ.BasisZ;
                 transform.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
                 XYZ depth = transform.BasisZ;
                 var crop = new BoundingBoxXYZ
                 {
                     Transform = transform,
-                    Min = new XYZ(corners.Min(p => (p - center).DotProduct(right)) - margin,
-                        corners.Min(p => p.Z - center.Z) - margin,
-                        corners.Min(p => (p - center).DotProduct(depth)) - margin),
-                    Max = new XYZ(corners.Max(p => (p - center).DotProduct(right)) + margin,
-                        corners.Max(p => p.Z - center.Z) + margin,
-                        corners.Max(p => (p - center).DotProduct(depth)) + margin)
+                    Min = new XYZ(corners.Min(point => (point - origin).DotProduct(right)) - margin,
+                        corners.Min(point => point.Z - origin.Z) - margin,
+                        corners.Min(point => (point - origin).DotProduct(depth)) - margin),
+                    Max = new XYZ(corners.Max(point => (point - origin).DotProduct(right)) + margin,
+                        corners.Max(point => point.Z - origin.Z) + margin,
+                        corners.Max(point => (point - origin).DotProduct(depth)) + margin)
                 };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
-                view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Detail-X" : "Detail-Y", config.Profile), names);
-                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, config.Profile.ApplyViewTemplatesOnce);
-                view.Scale = config.Profile.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing,
+                    i == 0 ? "Detail-X" : "Detail-Y", p), names);
+                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
+                view.Scale = p.SectionScale;
+                view.CropBoxActive = true;
+                view.CropBoxVisible = false;
                 result.Add(view);
             }
             return result;
