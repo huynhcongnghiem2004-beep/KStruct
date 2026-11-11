@@ -92,6 +92,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _dimensions.Content = "Tạo kích thước liên kết mô hình";
             var tabs = new TabControl();
             var view = new StackPanel();
+            Field(view, "Loại móng", _footingKind);
+            view.Children.Add(Note("Auto: nhận diện theo Family/Type; có thể chọn Móng đơn hoặc Móng cọc để ghi đè khi tên Family không rõ. Móng đơn chỉ có BOT; móng cọc có hai View BOT và TOP tách biệt."));
             var layers = new WrapPanel(); layers.Children.Add(_bottomLayer); layers.Children.Add(_topLayer); view.Children.Add(layers);
             _detailA.Margin = new Thickness(0, 0, 14, 0);
             var detailChoices = new WrapPanel(); detailChoices.Children.Add(_detailA); detailChoices.Children.Add(_detailB);
@@ -132,7 +134,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Field(dims, "Parameter " + FootingPlanDetailComponentSizing.Names[i], _planExpressions[i]);
             dims.Children.Add(_planSizeConfirmed);
             dims.Children.Add(new TextBlock { Text = "Chế độ 2D không tạo Multi-Rebar Tag ở mặt bằng; giữ Rebar thật trong mô hình.", TextWrapping = TextWrapping.Wrap });
-            dims.Children.Add(_tags); Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
+            dims.Children.Add(_tags);
+            dims.Children.Add(_noteBot); dims.Children.Add(_noteTop);
+            dims.Children.Add(Note("Hai lựa chọn ghi chú độc lập theo lớp thép. Móng đơn chỉ xuất ghi chú BOT; móng cọc có thể bật/tắt riêng TOP hoặc BOT. Không gom hai Rebar Set trùng thông số."));
+            Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
             Populate(_breakLine, new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_DetailComponents)
                 .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
                 .Where(s => s.Family.FamilyPlacementType == FamilyPlacementType.CurveBasedDetail || s.Family.FamilyPlacementType == FamilyPlacementType.ViewBased)
