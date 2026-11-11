@@ -433,6 +433,50 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Math.Abs((view.Origin-expectedOrigin).DotProduct(expectedDirection))>1e-6)
                 throw new InvalidOperationException("Revit không dịch/xoay đúng tuyến Detail theo móng; đã hủy cập nhật để giữ hồ sơ.");
         }
+        // Auto-row sections must follow the physical pile layout on Update as well as creation.
+        // Explicit offsets, including an explicit zero, are never overridden.
+        internal static void AlignDetailRowOnUpdate(ViewSection view, FamilyInstance footing,
+            FootingDrawingProfile profile, string role, IList<string> warnings)
+        {
+            bool x = role == "Detail-X", y = role == "Detail-Y";
+            if ((!x && !y) || !profile.CreatePileSectionSymbols ||
+                !FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode, IsPileCap(footing)))
+                return;
+            bool automatic = x ? profile.AutoAlignSectionXToPiles : profile.AutoAlignSectionYToPiles;
+            if (!automatic) return;
+            BoundingBoxXYZ bounds = FootingDrawingGeometry.LocalBounds(footing);
+            Transform axes = bounds.Transform;
+            XYZ center = axes.OfPoint((bounds.Min + bounds.Max) * 0.5);
+            XYZ across = (x ? axes.BasisY : axes.BasisX).Normalize();
+            double half = x ? (bounds.Max.Y-bounds.Min.Y)/2 : (bounds.Max.X-bounds.Min.X)/2;
+            var piles = FootingPileResolver.Resolve(view.Document, footing, profile.PileFamilyFilter, warnings);
+            if (piles.Count == 0)
+            {
+                warnings.Add(view.Name + ": không tìm thấy cọc để căn lại tuyến cắt tự động.");
+                return;
+            }
+            var rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                .Where(point => point != null).Select(point =>
+                    UnitUtils.ConvertFromInternalUnits((point-center).DotProduct(across),
+                        UnitTypeId.Millimeters)).ToArray();
+            bool snapped;
+            double targetMm = FootingPileSectionAlignment.ChooseOffsetMm(0, false, rows,
+                UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+            double currentFt = (view.Origin-center).DotProduct(across);
+            double wantedFt = UnitUtils.ConvertToInternalUnits(targetMm, UnitTypeId.Millimeters);
+            double shiftFt = wantedFt-currentFt;
+            double toleranceFt = UnitUtils.ConvertToInternalUnits(0.5, UnitTypeId.Millimeters);
+            if (Math.Abs(shiftFt) <= toleranceFt) return;
+            ElementTransformUtils.MoveElement(view.Document, view.Id, across*shiftFt);
+            view.Document.Regenerate();
+            double actualFt = (view.Origin-center).DotProduct(across);
+            if (Math.Abs(actualFt-wantedFt) > toleranceFt)
+                throw new InvalidOperationException("Không thể đưa tuyến " + role +
+                    " qua hàng tim cọc sau Update; đã hủy cập nhật để bảo vệ hồ sơ.");
+            warnings.Add(view.Name + ": đã căn lại mặt cắt theo hàng cọc thực tại " +
+                targetMm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+        }
+
         internal static void UpdateCrop(View view, FamilyInstance footing, double marginMm, string role, IList<string> warnings = null)
         {
             BoundingBoxXYZ source = footing.get_BoundingBox(null), prior = view.CropBox;
