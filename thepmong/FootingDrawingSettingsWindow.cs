@@ -47,6 +47,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _usePlanDetail = new CheckBox { Content = "Mặt bằng sử dụng Detail Component 2D (ẩn Rebar thật)", IsChecked = false };
         private readonly ComboBox _planTopDetail = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _planBotDetail = new ComboBox { MinWidth = 260 };
+        private readonly CheckBox _pileSection2D = new CheckBox
+            { Content = "Đặt Detail Component Cọc 2D tại vị trí cọc thật trên Detail-X / Detail-Y" };
+        private readonly ComboBox _pileSectionFamily = new ComboBox { MinWidth = 260 };
+        private readonly TextBox _pileSectionOffsetX = new TextBox { Text = "0" };
+        private readonly TextBox _pileSectionOffsetY = new TextBox { Text = "0" };
         private readonly CheckBox _planSizeConfirmed = new CheckBox { Content = "Tôi đã kiểm tra ánh xạ với Family Types (bắt buộc)", IsChecked = false };
         private readonly TextBox _planCoverMm = new TextBox { Text = "0" };
         private readonly TextBox[] _planExpressions = new [] {
@@ -133,12 +138,22 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().OrderBy(x => x.FamilyName).ThenBy(x => x.Name).ToList();
             Populate(_planTopDetail, detailItems.Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
             Populate(_planBotDetail, detailItems.Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
+            Populate(_pileSectionFamily, detailItems
+                .Where(x => x.Family.FamilyPlacementType == FamilyPlacementType.ViewBased)
+                .Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
+            _pileSectionFamily.SelectedItem = _pileSectionFamily.Items.Cast<Item>()
+                .FirstOrDefault(x => x.Element is FamilySymbol fs &&
+                    fs.FamilyName.Equals("BS_FM_Detail Cọc 2D", StringComparison.OrdinalIgnoreCase));
             var preferred = detailItems.Where(x => x.FamilyName == "BS_FM_Detail Rebar 2D Top & Bot").ToList();
             _planTopDetail.SelectedItem = _planTopDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.Id == preferred.FirstOrDefault(y => y.Name == "2D-Top")?.Id);
             _planBotDetail.SelectedItem = _planBotDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.Id == preferred.FirstOrDefault(y => y.Name == "2D-Bot")?.Id);
             _usePlanDetail.Checked += (s, e) => { _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = true; };
             _usePlanDetail.Unchecked += (s, e) => { _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = false; };
             _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = false;
+            _pileSection2D.IsChecked = _pileSectionFamily.SelectedItem != null;
+            _pileSection2D.Checked += (s, e) => _pileSectionFamily.IsEnabled = true;
+            _pileSection2D.Unchecked += (s, e) => _pileSectionFamily.IsEnabled = false;
+            _pileSectionFamily.IsEnabled = _pileSection2D.IsChecked == true;
             Populate(_rebarTag, FootingDrawingRebarMultiTags.Types(doc)
                 .Select(x => new Item { Text = x.Name, Element = x }), null, true);
             Populate(_foundationTag, new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFoundationTags).WhereElementIsElementType().Cast<ElementType>()
@@ -190,6 +205,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _topLayer.IsChecked = pile;
             _bottomLayer.IsEnabled = _topLayer.IsEnabled = false;
             _noteTop.IsEnabled = pile;
+            _pileSection2D.IsEnabled = pile && AnyDetailSelected;
             if (_planCanvas == null || _sectionCanvas == null) return;
             try { DrawModelPlanPreview(_planCanvas); DrawSheetPreview(_sectionCanvas); }
             catch (Exception ex) { _status.Text = "Không xem trước được móng: " + ex.Message; }
@@ -364,6 +380,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             PlanDetailY1Expression = _planExpressions[6].Text, PlanDetailY2Expression = _planExpressions[7].Text,
             PlanTopDetailTypeUniqueId = Selected(_planTopDetail)?.UniqueId,
             PlanBotDetailTypeUniqueId = Selected(_planBotDetail)?.UniqueId,
+            CreatePileSectionSymbols = _pileSection2D.IsChecked == true,
+            PileSectionDetailTypeUniqueId = Selected(_pileSectionFamily)?.UniqueId,
+            PileSymbolOffsetXmm = ParseDouble(_pileSectionOffsetX.Text, double.NaN),
+            PileSymbolOffsetYmm = ParseDouble(_pileSectionOffsetY.Text, double.NaN),
             RebarMultiTagTypeName = TypeName(Selected(_rebarTag)), RebarMultiTagTypeUniqueId = Selected(_rebarTag)?.UniqueId,
             FoundationTagFamily = FamilyName(Selected(_foundationTag)), FoundationTagType = TypeName(Selected(_foundationTag)),
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
@@ -400,6 +420,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 _planExpressions[i].Text = expressions[i] ?? "KEEP";
             _planTopDetail.SelectedItem = _planTopDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanTopDetailTypeUniqueId);
             _planBotDetail.SelectedItem = _planBotDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanBotDetailTypeUniqueId);
+            _pileSection2D.IsChecked = p.CreatePileSectionSymbols;
+            _pileSectionFamily.SelectedItem = _pileSectionFamily.Items.Cast<Item>()
+                .FirstOrDefault(x => x.Element?.UniqueId == p.PileSectionDetailTypeUniqueId);
+            _pileSectionOffsetX.Text = p.PileSymbolOffsetXmm.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            _pileSectionOffsetY.Text = p.PileSymbolOffsetYmm.ToString(System.Globalization.CultureInfo.CurrentCulture);
             _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
             _breakPadding.Text = p.BreakLinePaddingPaperMm.ToString("0.##"); SelectByPair(_breakLine, p.BreakLineFamily, p.BreakLineType);
             _fourSides.IsChecked = p.DimensionFourSides;
@@ -520,6 +545,19 @@ namespace SDK_HD.KStruct.NativeDocumentation
                             FootingPlanDetailComponentSizing.Evaluate(expression, 2000, 1800, cover);
                 }
                 catch (Exception ex) { MessageBox.Show(this, ex.Message, "Công thức không hợp lệ"); return; }
+            }
+            if (_pileSection2D.IsChecked == true &&
+                CheckedFootings.Any(f => FootingDrawingLayerPolicy.IsPileCap(
+                    _footingKind.SelectedItem as string, IsPileCap(f))))
+            {
+                var pileSymbol = Selected(_pileSectionFamily) as FamilySymbol;
+                if (pileSymbol == null || pileSymbol.Family.FamilyPlacementType != FamilyPlacementType.ViewBased)
+                { MessageBox.Show(this, "Hãy chọn Family BS_FM_Detail Cọc 2D dạng ViewBased (đặt bằng điểm).", "Thiếu Family Cọc 2D"); return; }
+                if (!AnyDetailSelected)
+                { MessageBox.Show(this, "Phải bật Detail A–A hoặc B–B để đặt ký hiệu Cọc 2D.", "Thiếu View Detail"); return; }
+                if (!(!double.IsNaN(ParseDouble(_pileSectionOffsetX.Text, double.NaN)) && !double.IsInfinity(ParseDouble(_pileSectionOffsetX.Text, double.NaN))) ||
+                    !(!double.IsNaN(ParseDouble(_pileSectionOffsetY.Text, double.NaN)) && !double.IsInfinity(ParseDouble(_pileSectionOffsetY.Text, double.NaN))))
+                { MessageBox.Show(this, "Offset ký hiệu Cọc 2D phải là số mm hợp lệ.", "Sai Offset"); return; }
             }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
