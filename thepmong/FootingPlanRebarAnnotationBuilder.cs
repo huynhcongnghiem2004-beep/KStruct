@@ -58,8 +58,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             foreach (Rebar bar in bars)
             {
                 var type = doc.GetElement(bar.GetTypeId()) as RebarBarType;
-                if (type == null || type.BarDiameter <= 0) { warnings.Add("Rebar " + bar.Id.Value + ": không đọc được đường kính."); continue; }
-                double d = UnitUtils.ConvertFromInternalUnits(type.BarDiameter, UnitTypeId.Millimeters);
+                Parameter diameter = type?.get_Parameter(BuiltInParameter.REBAR_BAR_DIAMETER);
+                if (diameter == null || !diameter.HasValue || diameter.AsDouble() <= 0)
+                { warnings.Add("Rebar " + bar.Id.Value + ": không đọc được đường kính."); continue; }
+                double d = UnitUtils.ConvertFromInternalUnits(diameter.AsDouble(), UnitTypeId.Millimeters);
                 string name = "Ø" + Math.Round(d, 1).ToString("0.#", CultureInfo.InvariantCulture);
                 int count = Math.Max(0, Enumerable.Range(0, bar.NumberOfBarPositions).Count(i => bar.DoesBarExistAtPosition(i)));
                 Parameter spacing = bar.get_Parameter(BuiltInParameter.REBAR_ELEM_BAR_SPACING);
