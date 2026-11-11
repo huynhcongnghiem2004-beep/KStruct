@@ -129,6 +129,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Field(dims, "Detail Item Cọc 2D (mặt cắt)", _pileSectionFamily);
             Field(dims, "Tên tham số đường kính cọc mô hình (để trống: tự tìm duy nhất)", _pileDiameterParameter);
             Field(dims, "Từ khóa nhận diện Family cọc (phân cách bằng dấu phẩy)", _pileFamilyFilter);
+            var pileAudit = new WrapPanel();
+            AddButton(pileAudit, "Kiểm tra tham số Family Cọc 2D", AuditPileFamily);
+            dims.Children.Add(pileAudit);
             dims.Children.Add(_pileOriginConfirmed);
             dims.Children.Add(Note("Tâm Family 2D trùng tuyệt đối với tim cọc trên mặt cắt (không có offset thủ công). D Coc nhận đường kính thật từ mô hình; KStruct tạo Type riêng theo đường kính, không đổi Type gốc. Các Type Parameter khác giữ nguyên."));
             var auditActions = new WrapPanel();
