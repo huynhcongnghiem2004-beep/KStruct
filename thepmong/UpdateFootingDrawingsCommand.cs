@@ -82,6 +82,17 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                     FootingDrawingStorage.TryRead(view, out string ignoredHost, out string role, out margin);
                                     FootingDrawingProfile pose=FootingDrawingDetailState.Read(view,footing,out IList<string> linked);
                                     if(pose!=null)FootingDrawingBuilder.FollowHostPose(view,footing,pose);
+                                    if (view is ViewSection detailAxis && detailAxis.ViewType == ViewType.Detail &&
+                                        (role == "Detail-X" || role == "Detail-Y"))
+                                    {
+                                        Transform axes = FootingDrawingGeometry.Axes(footing);
+                                        XYZ expectedRight = (role == "Detail-X" ? axes.BasisX : axes.BasisY).Normalize();
+                                        double alignment = Math.Abs(detailAxis.RightDirection.Normalize().DotProduct(expectedRight));
+                                        if (alignment < 0.999)
+                                            throw new InvalidOperationException("View " + detailAxis.Name +
+                                                " dùng trục mặt cắt cũ không khớp " + role +
+                                                ". Hãy tạo lại hồ sơ móng để hiệu chỉnh trục X/Y an toàn; không tự xoay View cũ có annotation.");
+                                    }
                                     FootingDrawingBuilder.UpdateCrop(view, footing, margin, role, warnings);
                                 }
                                 doc.Regenerate();
