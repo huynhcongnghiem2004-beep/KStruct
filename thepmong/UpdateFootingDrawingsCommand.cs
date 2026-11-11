@@ -94,7 +94,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                         FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets, warnings);
                                     }
                                     FootingDrawingStorage.TryRead(view, out string tagHost, out string tagRole, out double tagMargin);
-                                    FootingDrawingRebarMultiTags.Refresh(doc, footing, view, tagRole, options, warnings);
+                                    if (options.UsePlanDetailComponents && view is ViewPlan plan && (tagRole == "Plan-Top" || tagRole == "Plan-Bot"))
+                                        FootingPlanDetailComponentBuilder.Refresh(doc, plan, footing, options, tagRole == "Plan-Top", warnings);
+                                    else FootingDrawingRebarMultiTags.Refresh(doc, footing, view, tagRole, options, warnings);
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
                                     FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
                                 }
