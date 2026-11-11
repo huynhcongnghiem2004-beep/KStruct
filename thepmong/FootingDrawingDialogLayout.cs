@@ -123,6 +123,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
             dims.Children.Add(_usePlanDetail);
             Field(dims, "Detail Item thép TOP", _planTopDetail);
             Field(dims, "Detail Item thép BOT", _planBotDetail);
+            dims.Children.Add(Note("Ánh xạ Family theo mm: B = kích thước trục X móng, H = trục Y, C = lớp bảo vệ. KEEP giữ nguyên. Chỉ xác nhận sau khi kiểm tra Family Types."));
+            Field(dims, "Lớp bảo vệ C (mm)", _planCoverMm);
+            for (int i = 0; i < FootingPlanDetailComponentSizing.Names.Length; i++)
+                Field(dims, "Parameter " + FootingPlanDetailComponentSizing.Names[i], _planExpressions[i]);
+            dims.Children.Add(_planSizeConfirmed);
             dims.Children.Add(new TextBlock { Text = "Chế độ 2D không tạo Multi-Rebar Tag ở mặt bằng; giữ Rebar thật trong mô hình.", TextWrapping = TextWrapping.Wrap });
             dims.Children.Add(_tags); Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
             Populate(_breakLine, new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_DetailComponents)
