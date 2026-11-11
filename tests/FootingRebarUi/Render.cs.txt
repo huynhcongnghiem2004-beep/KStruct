@@ -72,7 +72,7 @@ internal static class Render
                 string name = buttons[i].Id.Replace("KStruct_", "");
                 if (name.Length > 17) name = name.Substring(0, 16) + "…";
                 var text = new FormattedText(name, CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight, new Typeface("Segoe UI"), 9.2, ivory);
+                    FlowDirection.LeftToRight, new Typeface("Segoe UI"), 9.2, ivory, 1.0);
                 dc.DrawText(text, new Point(x + 19, y + 49));
             }
         }
