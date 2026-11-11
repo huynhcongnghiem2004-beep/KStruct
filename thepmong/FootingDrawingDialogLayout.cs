@@ -127,9 +127,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Field(dims, "Detail Item thép BOT", _planBotDetail);
             dims.Children.Add(_pileSection2D);
             Field(dims, "Detail Item Cọc 2D (mặt cắt)", _pileSectionFamily);
-            Field(dims, "Hiệu chỉnh điểm chèn Cọc 2D theo ngang (mm)", _pileSectionOffsetX);
-            Field(dims, "Hiệu chỉnh điểm chèn Cọc 2D theo đứng (mm)", _pileSectionOffsetY);
-            dims.Children.Add(Note("KStruct chỉ đặt Cọc 2D tại cọc có thật nằm trên mặt phẳng cắt. Điểm gốc là tim đầu cọc; offset chỉ dùng cân chỉnh gốc Family, không thay tọa độ cọc. Các Type Parameter Cut Coc/D Coc/Dai Coc/Dai Thep/Goc/x giữ nguyên."));
+            dims.Children.Add(Note("Tâm Family 2D trùng tuyệt đối với tim cọc trên mặt cắt (không có offset thủ công). D Coc nhận đường kính thật từ mô hình; KStruct tạo Type riêng theo đường kính, không đổi Type gốc. Các Type Parameter khác giữ nguyên."));
             var auditActions = new WrapPanel();
             AddButton(auditActions, "Kiểm tra công thức Family trong Revit", AuditPlanDetailFamily);
             dims.Children.Add(auditActions);
