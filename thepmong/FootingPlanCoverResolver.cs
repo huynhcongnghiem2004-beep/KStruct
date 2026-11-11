@@ -75,7 +75,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private static string DirectionOfBar(Rebar bar, Transform axes)
         {
             int index = Enumerable.Range(0, bar.NumberOfBarPositions)
-                .FirstOrDefault(i => bar.DoesBarExistAtPosition(i), -1);
+                .Where(i => bar.DoesBarExistAtPosition(i)).DefaultIfEmpty(-1).First();
             if (index < 0)
                 throw new InvalidOperationException("Rebar " + bar.Id.Value +
                     " không có thanh hợp lệ để xác định phương.");
