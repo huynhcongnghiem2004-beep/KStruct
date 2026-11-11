@@ -48,10 +48,20 @@ namespace ColumnRebarPro.V3
             foreach(var w in works) { Annotate(doc,w,longitudinal,"Long"); ZoneDetail(doc,w,longitudinal); StarterDim(doc,w,longitudinal); }
             BreakLines(doc,works,longitudinal);
             DrawBarShapes(doc,works,longitudinal,aggregate);
-            // Đánh số mặt cắt từ chân lên đỉnh: tầng dưới = 2-2, tầng trên = 3-3 (như bản vẽ mẫu)
+            // Reference all BASE/MID/NODE views on the longitudinal section.
             var ordered=works.OrderBy(w=>w.Geometry.Bottom).ToList();
-            // MID cross section is the second view of each BASE/MID/NODE triplet.
-            for(int i=0;i<ordered.Count;i++)SectionMarks(doc,longitudinal,ordered[i],i*3+3);
+            for(int i=0;i<ordered.Count;i++)
+            {
+                var w=ordered[i];
+                double inset=Math.Min(V3Units.Ft(100),w.Geometry.Height*0.12);
+                double[] elevations={
+                    w.Geometry.Bottom+inset,
+                    w.Geometry.Bottom+w.Geometry.Height/2,
+                    w.Geometry.Top-inset
+                };
+                for(int j=0;j<elevations.Length;j++)
+                    SectionMarks(doc,longitudinal,w,i*3+j+2,elevations[j]);
+            }
             FitCrop(doc,longitudinal);
             var sections=new List<View>();int index=2;
             foreach(var w in ordered)
@@ -226,10 +236,10 @@ namespace ColumnRebarPro.V3
         }
 
         // Vạch cắt đỏ nét đứt ngang cột, hai đầu có tam giác đặc (mũi xuống) và số hiệu đỏ: "2 ▼----▼ 2".
-        private void SectionMarks(Document doc,View view,V3SegmentWork w,int index)
+        private void SectionMarks(Document doc,View view,V3SegmentWork w,int index,double cutElevation)
         {
             var g=w.Geometry;
-            XYZ center=Project(view,g.At(0,0,0))+XYZ.BasisZ*(g.Bottom+g.Height/2);
+            XYZ center=Project(view,g.At(0,0,0))+XYZ.BasisZ*cutElevation;
             XYZ left=center-view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkLeft));
             XYZ right=center+view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkRight));
             var dash=V3DrawStyle.Line(doc,"KSTR Vạch cắt",new Color(255,0,0),2,"Dash");
