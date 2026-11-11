@@ -85,8 +85,9 @@ namespace ColumnRebarPro.V3
                     if (work.Config == null)
                         throw new InvalidOperationException("Thiếu cấu hình thép cột để triển khai bản vẽ.");
                     if (work.Config.Splice != V3SpliceStyle.None || work.Config.StaggerSplices ||
-                        work.HasNext || work.HasPrevious || work.TransitionUp != null || work.TransitionDown != null)
-                        throw new InvalidOperationException("Không thể triển khai bản vẽ nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
+                        work.TransitionUp != null || work.TransitionDown != null ||
+                        (work.BottleneckToUpper && work.ConnectionPlan == null))
+                        throw new InvalidOperationException("Không đủ dữ liệu nối/chuyển tiếp đã kiểm tra để triển khai bản vẽ.");
                 }
             }
 
@@ -335,8 +336,8 @@ namespace ColumnRebarPro.V3
                     catch (Autodesk.Revit.Exceptions.ArgumentException) { failed++; }
                     catch (Autodesk.Revit.Exceptions.InvalidOperationException) { failed++; }
                 }
-                if (failed > 0 && tagged == 0)
-                    throw new InvalidOperationException("Không tạo được Tag thép đai trong mặt cắt dọc. Kiểm tra loại Tag đã chọn có phải Rebar Tag không.");
+                if (failed > 0)
+                    throw new InvalidOperationException("Thiếu " + failed + " Tag thép đai ở mặt cắt dọc; hủy bản vẽ chưa đầy đủ.");
                 return;
             }
 
@@ -361,7 +362,8 @@ namespace ColumnRebarPro.V3
                     outward = new XYZ(outward.DotProduct(right), outward.DotProduct(up), 0);
                     outward = outward.GetLength() < 1e-6 ? XYZ.BasisX : outward.Normalize();
                     XYZ direction = right * outward.X + up * outward.Y;
-                    TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s));
+                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s)))
+                        throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name);
                 }
             }
 
@@ -377,7 +379,8 @@ namespace ColumnRebarPro.V3
                 }
                 if (chosen == null) chosen = stirrups.OrderBy(b => b.Id.Value).First();
                 XYZ head = center + right * (g.Width / 2 + V3Units.Ft(12 * s)) + up * (g.Depth / 2);
-                TryTag(doc, view, stirrupTag, chosen, head);
+                if (!TryTag(doc, view, stirrupTag, chosen, head))
+                    throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name);
             }
         }
 
@@ -448,7 +451,8 @@ namespace ColumnRebarPro.V3
         private void CrossDimensions(Document doc, V3SegmentWork work, ViewSection view)
         {
             var type = doc.GetElement(Id("CrossDimension")) as DimensionType;
-            if (type == null) return;
+            if (type == null)
+                throw new InvalidOperationException("Chưa chọn loại Dimension cho mặt cắt ngang.");
 
             var g = work.Geometry;
             XYZ right = view.RightDirection, up = view.UpDirection;
@@ -469,12 +473,14 @@ namespace ColumnRebarPro.V3
                 doc.Create.NewDimension(view,
                     Line.CreateBound(left - up * (g.Depth / 2), left + up * (g.Depth / 2)), depthRefs, type);
             }
-            catch (Autodesk.Revit.Exceptions.ApplicationException)
+            catch (Autodesk.Revit.Exceptions.ApplicationException ex)
             {
-                // Family cột không có Reference dùng được để đo: bỏ qua kích thước, không dừng cả bản vẽ.
+                throw new InvalidOperationException("Không tạo được kích thước tiết diện cột " + work.Column.Id.Value +
+                    ". Cần family có Reference hợp lệ.", ex);
             }
             catch (InvalidOperationException)
             {
+                throw;
             }
         }
     }
