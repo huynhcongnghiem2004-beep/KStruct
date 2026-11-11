@@ -208,7 +208,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _topLayer.IsChecked = pile;
             _bottomLayer.IsEnabled = _topLayer.IsEnabled = false;
             _noteTop.IsEnabled = pile;
-            _pileSection2D.IsEnabled = pile && AnyDetailSelected;
+            // Mixed selection may contain pile caps even when the preview host is isolated.
+            _pileSection2D.IsEnabled = AnyDetailSelected && CheckedFootings.Any(host =>
+                FootingDrawingLayerPolicy.IsPileCap(_footingKind.SelectedItem as string, IsPileCap(host)));
             if (_planCanvas == null || _sectionCanvas == null) return;
             try { DrawModelPlanPreview(_planCanvas); DrawSheetPreview(_sectionCanvas); }
             catch (Exception ex) { _status.Text = "Không xem trước được móng: " + ex.Message; }
