@@ -45,7 +45,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             FootingDrawingProfile profile, IList<string> warnings)
         {
             var previous = FootingDrawingDetailState.Annotations(view, host, Kind).OfType<TextNote>().ToList();
-            if (!profile.CreateTags)
+            bool pileCap = FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode,
+                FootingDrawingBuilder.IsPileCapForPolicy(host));
+            if (!FootingDrawingLayerPolicy.CreateNote(profile.CreateTags, profile.AnnotateTop,
+                profile.AnnotateBot, top, pileCap))
             {
                 FootingDrawingDetailState.Clear(view, host, Kind);
                 return;
@@ -79,15 +82,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 notes.Add(new BarNote { Text = name, Source = bar.UniqueId, Direction = Direction(bar, host) });
             }
             // Group equal notes to avoid multiplying identical callouts on one plan.
-            notes = notes.GroupBy(x => x.Direction + ":" + x.Text, StringComparer.Ordinal)
-                .Select(g => g.First()).Take(12).ToList();
+            // One note per Rebar Set. Same label may still represent distinct bar geometry/regions.
+            // Do not truncate notes: missing reinforcement information is worse than a crowded view.
+            notes = notes.OrderBy(x => x.Direction).ThenBy(x => x.Text, StringComparer.Ordinal)
+                .ThenBy(x => x.Source, StringComparer.Ordinal).ToList();
             if (notes.Count == 0)
             {
                 FootingDrawingDetailState.Clear(view, host, Kind);
                 warnings.Add(view.Name + ": không có dữ liệu Rebar hợp lệ để tạo chú thích thép 2D.");
                 return;
             }
-            if (bars.Count > notes.Count && notes.Count == 12) warnings.Add(view.Name + ": nhóm ghi chú thép được giới hạn 12 nhãn; kiểm tra trên Sheet.");
+            if (notes.Count > 12)
+                warnings.Add(view.Name + ": có " + notes.Count + " nhóm thép; kiểm tra hoặc chia bố cục ghi chú trên Sheet.");
             TextNoteType textType = new FilteredElementCollector(doc).OfClass(typeof(TextNoteType))
                 .Cast<TextNoteType>().OrderBy(t => t.Id.Value).FirstOrDefault();
             if (textType == null) throw new InvalidOperationException("Không có TextNoteType để ghi chú thép trên mặt bằng.");
