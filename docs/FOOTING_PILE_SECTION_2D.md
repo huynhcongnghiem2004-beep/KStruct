@@ -20,3 +20,14 @@ Add one `BS_FM_Detail Cọc 2D` view-based Detail Item **at each actual pile int
 - The source model pile is not hidden or changed; the Detail Items are 2D overlays in the two detail views.
 - To validate: place two pile centers on cut X and three on cut Y, rotate the cap, offset cut planes, and move/delete one real pile. Confirm counts, head elevation, center alignment and Update behavior in Revit 2024. Also verify note/Detail Item overlap and Type parameters shown in screenshot. Check two real piles of different diameters on the same detail: each 2D instance must retain the correct D Coc without modifying the shared original Type.
 - CI compiles the code against Revit 2024 references. It cannot open Revit or inspect the actual RFA's insertion origin, nested family geometry or formulas, so production drawing approval requires a Revit smoke test.
+
+
+## Hardening follow-up (strict runtime safeguards)
+- Centerline-only mode: the physical pile's axis must lie within 1.0 mm of the Detail-X/Detail-Y cutting plane. Piles merely intersected eccentrically are **not** represented by a full-diameter 2D symbol; KStruct reports them by pile ID. Only actual centered cuts may be detailed.
+- Distinguish geometry and Family placement: the modeled pile must have a LocationPoint whose XY coordinates agree with the solid's computed plan center within 1.0 mm. Inclined piles are rejected as unsupported. The 2D insertion point is checked after creation/update to within 0.1 mm.
+- The **graphical line** origin inside `BS_FM_Detail Cọc 2D` cannot be certified from the project instance alone. Users must open Family Editor, verify center/reference planes, and explicitly tick the confirmation in footing settings. The add-in provides a read-only Family formula audit.
+- Diameter is resolved from the unique confirmed length-type parameter on the actual modeled pile; either enter its exact parameter name or leave blank to scan unambiguous names (such as `Pile Diameter`, `D Coc`, `Diameter`). Generic `D` is intentionally excluded. Conflicting values raise an error.
+- `D Coc` remains a Type Parameter. KStruct duplicates/reuses a size-specific type with millimetre precision in its name and readback to 0.1 mm; original user family Types are not rewritten.
+- Feature is OFF by default even when the Family is loaded; selected origin confirmation is stored only when explicitly opted in.
+- The old missing Source View issue no longer clears a currently valid view when a stored UniqueId cannot be found. If no valid View exists, the normal warning still appears.
+- Current automated tests cover tolerances, diameter matching, type naming, and isolated/pile-cap TOP/BOT policy. They **do not** simulate a running Revit Family Editor, actual pile solids/section intersections, or 2D rendering. A project smoke test remains a release gate.
