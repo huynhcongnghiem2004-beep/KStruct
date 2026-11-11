@@ -19,6 +19,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string TitleBlockType { get; set; }
         public string PlanTemplateName { get; set; }
         public string SectionTemplateName { get; set; }
+        public bool UsePlanDetailComponents { get; set; }
+        public string PlanTopDetailTypeUniqueId { get; set; }
+        public string PlanBotDetailTypeUniqueId { get; set; }
         public string RebarMultiTagTypeName { get; set; }
         public string RebarMultiTagTypeUniqueId { get; set; }
         public string RebarTagFamily { get; set; } // Legacy independent-tag fields.
