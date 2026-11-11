@@ -70,6 +70,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 }
                 else if (count > 0) name += " (" + count.ToString(CultureInfo.InvariantCulture) + " thanh)";
                 else { warnings.Add("Rebar " + bar.Id.Value + ": không có vị trí thanh hợp lệ."); continue; }
+                Parameter number = bar.get_Parameter(BuiltInParameter.REBAR_NUMBER);
+                string rebarNumber = number?.AsValueString() ?? number?.AsString();
+                if (!string.IsNullOrWhiteSpace(rebarNumber))
+                    name = "[" + rebarNumber.Trim() + "] " + name;
                 notes.Add(new BarNote { Text = name, Source = bar.UniqueId, Direction = Direction(bar, host) });
             }
             // Group equal notes to avoid multiplying identical callouts on one plan.
