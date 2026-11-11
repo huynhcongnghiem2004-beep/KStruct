@@ -24,6 +24,21 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return symbol;
         }
 
+        private static void SetLayerSwitch(FamilyInstance placed, string name, bool enabled)
+        {
+            var parameters = placed.GetParameters(name);
+            if (parameters.Count == 0) return; // Other Detail Item families may have different controls.
+            if (parameters.Count != 1 || parameters[0].StorageType != StorageType.Integer)
+                throw new InvalidOperationException("Tham số hiển thị '" + name + "' không hợp lệ.");
+            Parameter parameter = parameters[0];
+            int expected = enabled ? 1 : 0;
+            if (!parameter.IsReadOnly && parameter.AsInteger() != expected)
+                parameter.Set(expected);
+            if (parameter.AsInteger() != expected)
+                throw new InvalidOperationException("Family khóa sai trạng thái '" + name +
+                    "'; hãy kiểm tra Type và công thức Family Editor.");
+        }
+
         internal static void Refresh(Document doc, ViewPlan view, FamilyInstance footing, FootingDrawingProfile profile,
             bool top, IList<string> warnings)
         {
@@ -87,6 +102,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         throw new InvalidOperationException("Xóa Detail Item trùng làm ảnh hưởng đối tượng khác; đã hủy.");
                 }
             }
+            // The supplied 2D Top/Bot family exposes instance Yes/No visibility switches.
+            // Never modify the shared symbol/type. Fail if a formula forces the wrong layer.
+            SetLayerSwitch(placed, "2D-Top", top);
+            SetLayerSwitch(placed, "2D-Bot", !top);
             // Re-apply the user's confirmed mapping at creation AND on every update.
             // A failed readback throws and the owning footing SubTransaction rolls back.
             FootingPlanDetailComponentSizing.Apply(doc, placed, local, profile);
