@@ -74,6 +74,21 @@ internal static class Program
         Check(!FootingPileIdentityPolicy.InCap(0, 0, 1, 4, -1, 1, -1, 1, 0, 0.01), "Pile above cap");
         Check(!FootingPileIdentityPolicy.InCap(0, 0, -4, -1, -1, 1, -1, 1, 0, 0.01), "Pile below cap");
         Check(!FootingPileIdentityPolicy.InCap(double.NaN, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Nonfinite pile location");
-        Console.WriteLine("PASS: " + checks + " footing Detail Item TOP/BOT, pile identity and section checks.");
+        Near(FootingPlanDetailMath.ClearCoverToBarCenter(50, 14), 57, "Bar center cover");
+        Near(FootingPlanDetailMath.AlignedSpan(1200, 50, 14), 1086, "Cover aligned W 1200");
+        Near(FootingPlanDetailMath.AlignedSpan(2200, 50, 14), 2086, "Cover aligned L 2200");
+        Throws(() => FootingPlanDetailMath.AlignedSpan(100, 50, 14), "Insufficient footing width");
+        Throws(() => FootingPlanDetailMath.ClearCoverToBarCenter(0, 14), "Missing clear cover rejected");
+        bool snapped;
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false, new[] { -400.0, 400.0 }, 600, out snapped), -400, "Snap to symmetric real pile row");
+        Check(snapped, "Section snapping reported");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false, new[] { -0.5, 400.0 }, 600, out snapped), 0, "Centered pile row retained");
+        Check(!snapped, "Centered section not shifted");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false, new double[0], 600, out snapped), 0, "No fake piles generated");
+        Check(!snapped, "No-pile section not moved");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(100, true, new[] { -400.0, 400.0 }, 600, out snapped), 100, "Explicit section offset is respected");
+        Check(!snapped, "Explicit offset not overridden");
+        Throws(() => FootingPileSectionAlignment.ChooseOffsetMm(600, false, new[] { 400.0 }, 600, out snapped), "Reject section outside footing");
+        Console.WriteLine("PASS: " + checks + " footing Detail Item, cover alignment and real pile row checks.");
     }
 }
