@@ -47,6 +47,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             XYZ up = view.UpDirection.Normalize();
             XYZ origin = view.Origin;
             double tol = UnitUtils.ConvertToInternalUnits(1.0, UnitTypeId.Millimeters);
+            double insertionTol = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
             // No manual XY offsets. The family insertion axis MUST coincide with the
             // actual pile center line in the section. A shifted RFA origin is a family defect.
 
@@ -58,6 +59,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var targets = new List<Tuple<FamilyInstance, XYZ, double>>();
             foreach (FamilyInstance pile in piles)
             {
+                if (Math.Abs(pile.GetTransform().BasisZ.Normalize().DotProduct(XYZ.BasisZ)) < 0.999999)
+                    throw new InvalidOperationException("Cọc " + pile.Id.Value +
+                        " bị nghiêng; KStruct chưa thể dùng ký hiệu Cọc 2D thẳng đứng.");
                 List<XYZ> vertices;
                 try { vertices = FootingDrawingGeometry.WorldVertices(pile); }
                 catch (InvalidOperationException ex)
@@ -135,14 +139,14 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         placed.Symbol = diameterSymbol;
                     XYZ prior = (placed.Location as LocationPoint)?.Point ??
                         throw new InvalidOperationException("Family Cọc 2D không có điểm đặt: " + placed.Id.Value);
-                    if ((point - prior).GetLength() > tol)
+                    if ((point - prior).GetLength() > insertionTol)
                         ElementTransformUtils.MoveElement(doc, placed.Id, point - prior);
                 }
                 // Validate the insertion point itself, not just the user's selected type.
                 doc.Regenerate();
                 XYZ actualPoint = (placed.Location as LocationPoint)?.Point ??
                     throw new InvalidOperationException("Ký hiệu Cọc 2D không còn điểm đặt.");
-                if ((actualPoint - point).GetLength() > tol)
+                if ((actualPoint - point).GetLength() > insertionTol)
                     throw new InvalidOperationException("Tim Family Cọc 2D không trùng tim cọc " + pile.Id.Value +
                         " sau khi cập nhật.");
                 FootingPileSectionDiameter.Verify(placed, diameter);
