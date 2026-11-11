@@ -29,7 +29,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
         internal static void Refresh(Document doc,FamilyInstance host,View view,string role,FootingDrawingProfile profile,
             IList<string> warnings,MultiReferenceAnnotationType chosen=null)
         {
-            if(!profile.CreateTags){FootingDrawingDetailState.Clear(view,host,Kind);return;}
+            bool topPlan = role == "Plan-Top", botPlan = role == "Plan-Bot";
+            bool pileCap = FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode,
+                FootingDrawingBuilder.IsPileCapForPolicy(host));
+            if (!profile.CreateTags ||
+                ((topPlan || botPlan) && !FootingDrawingLayerPolicy.CreateNote(true,
+                    profile.AnnotateTop, profile.AnnotateBot, topPlan, pileCap)))
+            {
+                FootingDrawingDetailState.Clear(view, host, Kind);
+                return;
+            }
             MultiReferenceAnnotationType type=chosen??Resolve(doc,profile);
             if(type==null)
             {warnings.Add(view.Name+": chưa chọn Multi-Rebar Annotation Type có Rebar Tag và Dimension Type. Không dùng tag thép đơn thay thế.");return;}
