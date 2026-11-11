@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using System.Windows.Media.Imaging;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -50,8 +49,8 @@ namespace SDK_HD.KStruct
                     new PulldownButtonData("KStruct_FootingDropdown", "Thép móng")) as PulldownButton;
                 if (footingDropdown == null)
                     throw new InvalidOperationException("Không tạo được nút xổ xuống Thép móng KStruct.");
-                footingDropdown.Image = Icon("Footing_16.png");
-                footingDropdown.LargeImage = Icon("Footing_32.png");
+                footingDropdown.Image = FlatRibbonIcons.Create("KStruct_FootingDropdown", "Footing", 16);
+                footingDropdown.LargeImage = FlatRibbonIcons.Create("KStruct_FootingDropdown", "Footing", 32);
                 footingDropdown.ToolTip = "KStruct - Vẽ thép móng và quản lý hồ sơ móng";
                 Add(footingDropdown, dll, "KStruct_FootingRebar", "Thép móng cọc & đơn", typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand), "Footing");
                 Add(footingDropdown, dll, "KStruct_UpdateFootingRebar", "Cập nhật thép móng", typeof(global::SDK_HD.KStruct.FootingRebar.UpdateFootingRebarCommand), "Footing");
@@ -150,8 +149,8 @@ namespace SDK_HD.KStruct
         {
             var data = new PushButtonData(id, title, dll, type.FullName);
             data.ToolTip = "KStruct - " + title.Replace('\n', ' ');
-            data.Image = Icon(icon + "_16.png");
-            data.LargeImage = Icon(icon + "_32.png");
+            data.Image = FlatRibbonIcons.Create(id, icon, 16);
+            data.LargeImage = FlatRibbonIcons.Create(id, icon, 32);
             panel.AddItem(data);
         }
         private static void Add(SplitButton split, string dll, string id, string title, Type type, string icon)
@@ -159,8 +158,8 @@ namespace SDK_HD.KStruct
             if (split == null) throw new InvalidOperationException("Không tạo được nút nhóm thép dầm KStruct.");
             var data = new PushButtonData(id, title, dll, type.FullName);
             data.ToolTip = "KStruct - " + title.Replace('\n', ' ');
-            data.Image = Icon(icon + "_16.png");
-            data.LargeImage = Icon(icon + "_32.png");
+            data.Image = FlatRibbonIcons.Create(id, icon, 16);
+            data.LargeImage = FlatRibbonIcons.Create(id, icon, 32);
             split.AddPushButton(data);
         }
         private static void Add(PulldownButton dropdown, string dll, string id, string title, Type type, string icon)
@@ -168,25 +167,11 @@ namespace SDK_HD.KStruct
             if (dropdown == null) throw new InvalidOperationException("Không tạo được nhóm nút xổ xuống KStruct.");
             var data = new PushButtonData(id, title, dll, type.FullName);
             data.ToolTip = "KStruct - " + title.Replace('\n', ' ');
-            data.Image = Icon(icon + "_16.png");
-            data.LargeImage = Icon(icon + "_32.png");
+            data.Image = FlatRibbonIcons.Create(id, icon, 16);
+            data.LargeImage = FlatRibbonIcons.Create(id, icon, 32);
             dropdown.AddPushButton(data);
         }
-        private static BitmapImage Icon(string file)
-        {
-            try
-            {
-                var asm = Assembly.GetExecutingAssembly();
-                var name = asm.GetManifestResourceNames().FirstOrDefault(x => x.EndsWith(file, StringComparison.OrdinalIgnoreCase));
-                if (name == null) return null;
-                using (var stream = asm.GetManifestResourceStream(name))
-                {
-                    var img = new BitmapImage(); img.BeginInit(); img.StreamSource = stream;
-                    img.CacheOption = BitmapCacheOption.OnLoad; img.EndInit(); img.Freeze(); return img;
-                }
-            }
-            catch { return null; }
-        }
+
     }
 
     internal static class Helpers
