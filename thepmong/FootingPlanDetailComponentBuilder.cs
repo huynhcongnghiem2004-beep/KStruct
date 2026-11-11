@@ -107,7 +107,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             SetLayerSwitch(placed, "2D-Bot", !top);
             // Re-apply the user's confirmed mapping at creation AND on every update.
             // A failed readback throws and the owning footing SubTransaction rolls back.
-            FootingPlanDetailComponentSizing.Apply(doc, placed, local, profile);
+            FootingPlanDetailComponentSizing.Apply(doc, placed, footing, local, profile, top, warnings);
         }
     }
 
