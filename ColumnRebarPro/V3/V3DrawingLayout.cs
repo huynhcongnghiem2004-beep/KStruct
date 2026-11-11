@@ -75,6 +75,30 @@ namespace ColumnRebarPro.V3
                     sections.Add(cross);index++;
                 }
             }
+            // A real 3D rebar view belongs to the generated sheet, not a disposable preview.
+            var threeDType = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType))
+                .Cast<ViewFamilyType>().FirstOrDefault(type => type.ViewFamily == ViewFamily.ThreeDimensional);
+            if (threeDType == null)
+                throw new InvalidOperationException("Không có ViewFamilyType 3D để tạo View thép cột.");
+            var rebar3D = View3D.CreateIsometric(doc, threeDType.Id);
+            rebar3D.Name = UniqueViewName(doc, "KSTR V3 3D " + first.Column.Id.Value + " - DRAFT");
+            double boxMargin = V3Units.Ft(200);
+            rebar3D.SetSectionBox(new BoundingBoxXYZ {
+                Min = new XYZ(aggregate.Center.X-aggregate.Width/2-boxMargin,
+                    aggregate.Center.Y-aggregate.Depth/2-boxMargin, aggregate.Bottom-boxMargin),
+                Max = new XYZ(aggregate.Center.X+aggregate.Width/2+boxMargin,
+                    aggregate.Center.Y+aggregate.Depth/2+boxMargin, aggregate.Top+boxMargin)
+            });
+            rebar3D.IsSectionBoxActive = true;
+            rebar3D.DetailLevel = ViewDetailLevel.Fine;
+            foreach (var bar in new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>())
+            {
+                if (!partitions.Contains(bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString()))
+                    continue;
+                bar.SetUnobscuredInView(rebar3D, true);
+                bar.SetSolidInView(rebar3D, true);
+            }
+            sections.Add(rebar3D);
             string stackMark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string markName=string.IsNullOrWhiteSpace(stackMark)?("C"+first.Column.Id.Value):stackMark.Trim();
             string stackName=B("UseMarkForStackName")?markName:("TUYEN COT "+first.Column.Id.Value);
