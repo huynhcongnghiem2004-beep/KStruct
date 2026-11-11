@@ -190,6 +190,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
             double bottomMargin = UnitUtils.ConvertToInternalUnits(p.CropBottomMarginMm > 0 ? p.CropBottomMarginMm : p.CropMarginMm, UnitTypeId.Millimeters);
             var result = new List<ViewSection>();
+            // Take the real pile centers once, so the detail cut can follow a physical row
+            // when the default centerline falls between symmetric piles.
+            IList<FamilyInstance> detailPiles = p.CreatePileSectionSymbols &&
+                FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(host))
+                ? FootingPileResolver.Resolve(doc, host, p.PileFamilyFilter, warnings)
+                : new List<FamilyInstance>();
             for (int i = 0; i < 2; i++)
             {
                 if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
@@ -197,8 +203,28 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
                 if (reverse) right = -right;
                 XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
-                double offset = UnitUtils.ConvertToInternalUnits(i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm, UnitTypeId.Millimeters);
+                double requestedMm = i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm;
                 double half = i == 0 ? (bounds.Max.Y - bounds.Min.Y) / 2 : (bounds.Max.X - bounds.Min.X) / 2;
+                double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
+                if (detailPiles.Count > 0)
+                {
+                    XYZ cutOrigin = center;
+                    double[] rows = detailPiles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                        .Where(point => point != null)
+                        .Select(point => UnitUtils.ConvertFromInternalUnits(
+                            (point - cutOrigin).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
+                    bool snapped;
+                    double selectedMm = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
+                        Math.Abs(requestedMm) > 0.001, rows,
+                        UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+                    if (snapped)
+                    {
+                        warnings.Add((i == 0 ? "Detail-X" : "Detail-Y") +
+                            ": tuyến cắt giữa đài không qua tim cọc; đã dịch tuyến cắt đến hàng cọc thực " +
+                            selectedMm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                        offset = UnitUtils.ConvertToInternalUnits(selectedMm, UnitTypeId.Millimeters);
+                    }
+                }
                 if (Math.Abs(offset) >= half) throw new InvalidOperationException("Tuyến cắt nằm ngoài móng; hãy chỉnh offset.");
                 XYZ origin = center + across * offset;
                 Transform t = Transform.Identity;
