@@ -65,6 +65,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public bool ReverseSectionX { get; set; }
         public bool ReverseSectionY { get; set; }
         public string SourceViewUniqueId { get; set; }
+        // Auto uses host detection; explicit override prevents incorrect name-based classification.
+        public string FootingKindMode { get; set; } = "Auto";
+        public bool AnnotateBot { get; set; } = true;
+        public bool AnnotateTop { get; set; } = true;
         public string OutputLayers { get; set; } = "Both";
         public string SheetPrefix { get; set; } = "KSMD-";
         public string SheetNamePattern { get; set; } = "Móng đơn - {Mark}";
