@@ -23,6 +23,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         // Explicit mapping required: B/H are local footing dimensions in mm, C is user-confirmed cover.
         public bool PlanDetailSizingConfirmed { get; set; }
         public double PlanDetailCoverMm { get; set; }
+        // Align L/W to the real rebar-cover envelope, not concrete outer dimensions.
+        public bool PlanDetailAlignToCover { get; set; } = true;
+        public bool PlanDetailReadHostCover { get; set; } = true;
         public string PlanDetailLExpression { get; set; } = "B";
         public string PlanDetailWExpression { get; set; } = "H";
         public string PlanDetailL1Expression { get; set; } = "KEEP";
