@@ -47,6 +47,14 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _usePlanDetail = new CheckBox { Content = "Mặt bằng sử dụng Detail Component 2D (ẩn Rebar thật)", IsChecked = false };
         private readonly ComboBox _planTopDetail = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _planBotDetail = new ComboBox { MinWidth = 260 };
+        private readonly CheckBox _planSizeConfirmed = new CheckBox { Content = "Tôi đã kiểm tra ánh xạ với Family Types (bắt buộc)", IsChecked = false };
+        private readonly TextBox _planCoverMm = new TextBox { Text = "0" };
+        private readonly TextBox[] _planExpressions = new [] {
+            new TextBox { Text = "B" }, new TextBox { Text = "H" },
+            new TextBox { Text = "KEEP" }, new TextBox { Text = "KEEP" },
+            new TextBox { Text = "KEEP" }, new TextBox { Text = "KEEP" },
+            new TextBox { Text = "KEEP" }, new TextBox { Text = "KEEP" }
+        };
         private readonly ComboBox _rebarTag = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _foundationTag = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _dimension = new ComboBox { MinWidth = 150 };
@@ -302,6 +310,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             TitleBlockFamily = FamilyName(Selected(_titleBlock)), TitleBlockType = TypeName(Selected(_titleBlock)),
             PlanTemplateName = TypeName(Selected(_planTemplate)), SectionTemplateName = TypeName(Selected(_sectionTemplate)),
             UsePlanDetailComponents = _usePlanDetail.IsChecked == true,
+            PlanDetailSizingConfirmed = _planSizeConfirmed.IsChecked == true,
+            PlanDetailCoverMm = ParseDouble(_planCoverMm.Text, -1),
+            PlanDetailLExpression = _planExpressions[0].Text, PlanDetailWExpression = _planExpressions[1].Text,
+            PlanDetailL1Expression = _planExpressions[2].Text, PlanDetailL2Expression = _planExpressions[3].Text,
+            PlanDetailX1Expression = _planExpressions[4].Text, PlanDetailX2Expression = _planExpressions[5].Text,
+            PlanDetailY1Expression = _planExpressions[6].Text, PlanDetailY2Expression = _planExpressions[7].Text,
             PlanTopDetailTypeUniqueId = Selected(_planTopDetail)?.UniqueId,
             PlanBotDetailTypeUniqueId = Selected(_planBotDetail)?.UniqueId,
             RebarMultiTagTypeName = TypeName(Selected(_rebarTag)), RebarMultiTagTypeUniqueId = Selected(_rebarTag)?.UniqueId,
@@ -328,6 +342,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
         {
             _templateOnce.IsChecked = p.ApplyViewTemplatesOnce;
             _usePlanDetail.IsChecked = p.UsePlanDetailComponents;
+            _planSizeConfirmed.IsChecked = p.PlanDetailSizingConfirmed;
+            _planCoverMm.Text = p.PlanDetailCoverMm.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            string[] expressions = FootingPlanDetailComponentSizing.Expressions(p);
+            for (int i = 0; i < _planExpressions.Length; i++)
+                _planExpressions[i].Text = expressions[i] ?? "KEEP";
             _planTopDetail.SelectedItem = _planTopDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanTopDetailTypeUniqueId);
             _planBotDetail.SelectedItem = _planBotDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanBotDetailTypeUniqueId);
             _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
@@ -431,10 +450,24 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Mặt cắt cần callout móng. Hãy bật Callout và chọn thép trên hoặc dưới.", "Thiếu callout"); return; }
             if (_tags.IsChecked == true && _usePlanDetail.IsChecked != true && !(Selected(_rebarTag) is MultiReferenceAnnotationType))
             { MessageBox.Show(this, "Hãy chọn Multi-Rebar Annotation Type có Rebar Tag và Dimension Type, hoặc tắt tạo tag. Tag thép đơn không dùng cho MultiTag.", "Thiếu MultiTag"); return; }
+            if (_usePlanDetail.IsChecked == true && _planSizeConfirmed.IsChecked != true)
+            { MessageBox.Show(this, "Hãy đối chiếu L/W/L1/L2/X/Y với Family Types rồi xác nhận ánh xạ kích thước.", "Chưa xác nhận kích thước"); return; }
             if (_usePlanDetail.IsChecked == true &&
                 ((_topLayer.IsChecked == true && !(Selected(_planTopDetail) is FamilySymbol)) ||
                  (_bottomLayer.IsChecked == true && !(Selected(_planBotDetail) is FamilySymbol))))
             { MessageBox.Show(this, "Hãy chọn Detail Item Type cho các mặt bằng TOP/BOT.", "Thiếu Detail Item"); return; }
+            if (_usePlanDetail.IsChecked == true)
+            {
+                double cover = ParseDouble(_planCoverMm.Text, -1);
+                if (cover < 0 || double.IsNaN(cover) || double.IsInfinity(cover))
+                { MessageBox.Show(this, "Lớp bảo vệ phải là số mm không âm.", "Sai lớp bảo vệ"); return; }
+                try {
+                    foreach (string expression in _planExpressions.Select(t => t.Text))
+                        if (!string.IsNullOrWhiteSpace(expression) && !expression.Trim().Equals("KEEP", StringComparison.OrdinalIgnoreCase))
+                            FootingPlanDetailComponentSizing.Evaluate(expression, 2000, 1800, cover);
+                }
+                catch (Exception ex) { MessageBox.Show(this, ex.Message, "Công thức không hợp lệ"); return; }
+            }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
             { MessageBox.Show(this, "Hãy chọn mặt bằng nguồn hoặc tắt callout để tạo plan độc lập.", "Thiếu view nguồn"); return; }
