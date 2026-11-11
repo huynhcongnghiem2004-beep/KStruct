@@ -44,6 +44,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly ComboBox _titleBlock = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _planTemplate = new ComboBox { MinWidth = 150 };
         private readonly ComboBox _sectionTemplate = new ComboBox { MinWidth = 260 };
+        private readonly CheckBox _usePlanDetail = new CheckBox { Content = "Mặt bằng sử dụng Detail Component 2D (ẩn Rebar thật)", IsChecked = false };
+        private readonly ComboBox _planTopDetail = new ComboBox { MinWidth = 260 };
+        private readonly ComboBox _planBotDetail = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _rebarTag = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _foundationTag = new ComboBox { MinWidth = 260 };
         private readonly ComboBox _dimension = new ComboBox { MinWidth = 150 };
@@ -115,6 +118,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 .Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null);
             Populate(_planTemplate, Templates(doc).Select(x => new Item { Text = x.Name + " | " + x.ViewType, Element = x }), null, true);
             Populate(_sectionTemplate, Templates(doc).Select(x => new Item { Text = x.Name + " | " + x.ViewType, Element = x }), null, true);
+            var detailItems = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_DetailComponents)
+                .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().OrderBy(x => x.FamilyName).ThenBy(x => x.Name).ToList();
+            Populate(_planTopDetail, detailItems.Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
+            Populate(_planBotDetail, detailItems.Select(x => new Item { Text = x.FamilyName + " : " + x.Name, Element = x }), null, true);
+            var preferred = detailItems.Where(x => x.FamilyName == "BS_FM_Detail Rebar 2D Top & Bot").ToList();
+            _planTopDetail.SelectedItem = _planTopDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.Id == preferred.FirstOrDefault(y => y.Name == "2D-Top")?.Id);
+            _planBotDetail.SelectedItem = _planBotDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.Id == preferred.FirstOrDefault(y => y.Name == "2D-Bot")?.Id);
+            _usePlanDetail.Checked += (s, e) => { _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = true; };
+            _usePlanDetail.Unchecked += (s, e) => { _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = false; };
+            _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = false;
             Populate(_rebarTag, FootingDrawingRebarMultiTags.Types(doc)
                 .Select(x => new Item { Text = x.Name, Element = x }), null, true);
             Populate(_foundationTag, new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFoundationTags).WhereElementIsElementType().Cast<ElementType>()
@@ -288,6 +301,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             PlanTypeName = TypeName(Selected(_planType)), DetailTypeName = TypeName(Selected(_detailType)),
             TitleBlockFamily = FamilyName(Selected(_titleBlock)), TitleBlockType = TypeName(Selected(_titleBlock)),
             PlanTemplateName = TypeName(Selected(_planTemplate)), SectionTemplateName = TypeName(Selected(_sectionTemplate)),
+            UsePlanDetailComponents = _usePlanDetail.IsChecked == true,
+            PlanTopDetailTypeUniqueId = Selected(_planTopDetail)?.UniqueId,
+            PlanBotDetailTypeUniqueId = Selected(_planBotDetail)?.UniqueId,
             RebarMultiTagTypeName = TypeName(Selected(_rebarTag)), RebarMultiTagTypeUniqueId = Selected(_rebarTag)?.UniqueId,
             FoundationTagFamily = FamilyName(Selected(_foundationTag)), FoundationTagType = TypeName(Selected(_foundationTag)),
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
@@ -311,6 +327,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private void ApplyProfile(FootingDrawingProfile p)
         {
             _templateOnce.IsChecked = p.ApplyViewTemplatesOnce;
+            _usePlanDetail.IsChecked = p.UsePlanDetailComponents;
+            _planTopDetail.SelectedItem = _planTopDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanTopDetailTypeUniqueId);
+            _planBotDetail.SelectedItem = _planBotDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanBotDetailTypeUniqueId);
             _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
             _breakPadding.Text = p.BreakLinePaddingPaperMm.ToString("0.##"); SelectByPair(_breakLine, p.BreakLineFamily, p.BreakLineType);
             _fourSides.IsChecked = p.DimensionFourSides;
@@ -410,8 +429,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Hãy chọn ít nhất một mặt bằng hoặc mặt cắt.", "Thiếu view"); return; }
             if (AnyDetailSelected && (_callouts.IsChecked != true || (_topLayer.IsChecked != true && _bottomLayer.IsChecked != true)))
             { MessageBox.Show(this, "Mặt cắt cần callout móng. Hãy bật Callout và chọn thép trên hoặc dưới.", "Thiếu callout"); return; }
-            if (_tags.IsChecked == true && !(Selected(_rebarTag) is MultiReferenceAnnotationType))
+            if (_tags.IsChecked == true && _usePlanDetail.IsChecked != true && !(Selected(_rebarTag) is MultiReferenceAnnotationType))
             { MessageBox.Show(this, "Hãy chọn Multi-Rebar Annotation Type có Rebar Tag và Dimension Type, hoặc tắt tạo tag. Tag thép đơn không dùng cho MultiTag.", "Thiếu MultiTag"); return; }
+            if (_usePlanDetail.IsChecked == true &&
+                ((_topLayer.IsChecked == true && !(Selected(_planTopDetail) is FamilySymbol)) ||
+                 (_bottomLayer.IsChecked == true && !(Selected(_planBotDetail) is FamilySymbol))))
+            { MessageBox.Show(this, "Hãy chọn Detail Item Type cho các mặt bằng TOP/BOT.", "Thiếu Detail Item"); return; }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
             { MessageBox.Show(this, "Hãy chọn mặt bằng nguồn hoặc tắt callout để tạo plan độc lập.", "Thiếu view nguồn"); return; }
