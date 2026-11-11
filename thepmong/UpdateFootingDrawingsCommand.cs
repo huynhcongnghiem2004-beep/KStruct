@@ -100,6 +100,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                         FootingPlanRebarAnnotationBuilder.Refresh(doc, plan, footing, tagRole == "Plan-Top", options, warnings);
                                     }
                                     else FootingDrawingRebarMultiTags.Refresh(doc, footing, view, tagRole, options, warnings);
+                                    if (view is ViewSection pileSection &&
+                                        (tagRole == "Detail-X" || tagRole == "Detail-Y"))
+                                        FootingPileSectionDetailBuilder.Refresh(doc, pileSection, footing, options, warnings);
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
                                     FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
                                 }
