@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
   <ItemGroup>
     <Compile Include="../../thepmong/FootingPlanDetailMath.cs" Link="FootingPlanDetailMath.cs" />
+    <Compile Include="../../thepmong/FootingDrawingLayerPolicy.cs" Link="FootingDrawingLayerPolicy.cs" />
     <Compile Include="Program.cs.txt" />
   </ItemGroup>
 </Project>
