@@ -83,11 +83,13 @@ namespace ColumnRebarPro.V3
             var rebar3D = View3D.CreateIsometric(doc, threeDType.Id);
             rebar3D.Name = UniqueViewName(doc, "KSTR V3 3D " + first.Column.Id.Value + " - DRAFT");
             double boxMargin = V3Units.Ft(200);
+            // The section box is world-axis aligned. The radius encloses columns
+            // rotated relative to project X/Y; a local Width/Depth box would crop them.
+            double radius = Math.Sqrt(aggregate.Width*aggregate.Width +
+                aggregate.Depth*aggregate.Depth)/2 + boxMargin;
             rebar3D.SetSectionBox(new BoundingBoxXYZ {
-                Min = new XYZ(aggregate.Center.X-aggregate.Width/2-boxMargin,
-                    aggregate.Center.Y-aggregate.Depth/2-boxMargin, aggregate.Bottom-boxMargin),
-                Max = new XYZ(aggregate.Center.X+aggregate.Width/2+boxMargin,
-                    aggregate.Center.Y+aggregate.Depth/2+boxMargin, aggregate.Top+boxMargin)
+                Min = new XYZ(aggregate.Center.X-radius, aggregate.Center.Y-radius, aggregate.Bottom-boxMargin),
+                Max = new XYZ(aggregate.Center.X+radius, aggregate.Center.Y+radius, aggregate.Top+boxMargin)
             });
             rebar3D.IsSectionBoxActive = true;
             rebar3D.DetailLevel = ViewDetailLevel.Fine;
