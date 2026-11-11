@@ -18,21 +18,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             p.PlanDetailY1Expression, p.PlanDetailY2Expression
         };
 
-        internal static double Evaluate(string expression, double b, double h, double cover)
-        {
-            string e = (expression ?? "").Trim().ToUpperInvariant().Replace(" ", "");
-            if (e == "B") return b;
-            if (e == "H") return h;
-            if (e == "C") return cover;
-            if (e == "B-2*C") return b - 2 * cover;
-            if (e == "H-2*C") return h - 2 * cover;
-            if (e == "B-C") return b - cover;
-            if (e == "H-C") return h - cover;
-            if (double.TryParse(e, NumberStyles.Float, CultureInfo.InvariantCulture, out double constant))
-                return constant;
-            throw new InvalidOperationException("Công thức kích thước không hỗ trợ: '" + expression +
-                "'. Chọn B, H, C, B-2*C, H-2*C, B-C, H-C hoặc số mm.");
-        }
+        internal static double Evaluate(string expression, double b, double h, double cover) =>
+            FootingPlanDetailMath.Evaluate(expression, b, h, cover);
 
         internal static void Apply(Document doc, FamilyInstance placed, BoundingBoxXYZ local,
             FootingDrawingProfile profile)
