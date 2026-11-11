@@ -24,8 +24,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (hostBox == null || location == null) throw new InvalidOperationException("Móng cần có LocationPoint và bounding box.");
             FootingDrawingProfile p = config.Profile;
             var outputs = new List<ViewOutput>();
-            bool top = p.OutputLayers == "Top" || p.OutputLayers == "Both";
-            bool bot = p.OutputLayers == "Bot" || p.OutputLayers == "Both";
+            bool pileCap = FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(footing));
+            // Isolated footing: BOT only. Pile cap: two physically separate plan views.
+            bool top = FootingDrawingLayerPolicy.CreatePlan(pileCap, true);
+            bool bot = FootingDrawingLayerPolicy.CreatePlan(pileCap, false);
             if (!p.CreateCallouts && (top || bot))
             {
                 if (config.PlanType.ViewFamily != ViewFamily.StructuralPlan && config.PlanType.ViewFamily != ViewFamily.FloorPlan)
@@ -55,11 +57,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (newSheet)
             {
                 sheet = ViewSheet.Create(doc, config.TitleBlock.Id);
-                bool isPile = IsPileCap(footing);
+                bool isPile = pileCap;
                 string defaultPrefix = isPile ? "KSMC-" : "KSMD-";
                 string prefix = string.IsNullOrWhiteSpace(p.SheetPrefix) ? defaultPrefix : p.SheetPrefix.Trim();
                 sheet.SheetNumber = UniqueNumber(prefix, footing.Id.Value.ToString(), sheetNumbers);
-                sheet.Name = FormatName(p.SheetNamePattern, footing);
+                sheet.Name = FormatName(p.SheetNamePattern, footing, p);
                 FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm, 3);
                 sheetNumbers.Add(sheet.SheetNumber);
             }
@@ -70,6 +72,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
+                if (view is ViewSection pileSection && (output.Role == "Detail-X" || output.Role == "Detail-Y"))
+                    FootingPileSectionDetailBuilder.Refresh(doc, pileSection, footing, p, warnings);
                 FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
                 FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedDetails : null);
                 FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
@@ -82,6 +86,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails, warnings);
             if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p, warnings);
             else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
+            // Both the simple and detailed sheet flows must prevent invalid viewport overlap.
+            FootingDrawingSheetLayout.ValidateNoOverlap(doc, sheet, outputs.Select(x => x.View).ToList());
             return sheet;
         }
 
@@ -119,51 +125,93 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 SetPlanCrop(view, box, p.CropMarginMm);
             }
             string layer = topLayer ? "Top" : "Bot";
-            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer), names);
+            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer, p), names);
             FootingDrawingVisibility.ApplyTemplate(view, config.PlanTemplate, p.ApplyViewTemplatesOnce);
             if (view.Scale != p.PlanScale) view.Scale = p.PlanScale;
             if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
-            FootingDrawingVisibility.Configure(view, footing, topLayer, p.ApplyViewTemplatesOnce, warnings);
+            if (p.UsePlanDetailComponents)
+            {
+                FootingPlanDetailComponentBuilder.Refresh(doc, view, footing, p, topLayer, warnings);
+            }
+            else FootingDrawingVisibility.Configure(view, footing, topLayer, p.ApplyViewTemplatesOnce, warnings);
             if (p.UseDetailedLayout) ConfigureAnnotationCrop(view, p);
             return view;
         }
 
-        private static List<ViewSection> CreateDetails(Document doc, FamilyInstance footing, FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
+        private static List<ViewSection> CreateDetails(Document doc, FamilyInstance footing,
+            FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
         {
-            if (config.Profile.UseDetailedLayout) return CreateDetailedViews(doc, footing, config, names, warnings);
-            BoundingBoxXYZ source = footing.get_BoundingBox(null);
-            LocationPoint location = footing.Location as LocationPoint;
-            if (source == null || location == null) throw new InvalidOperationException("Không đọc được hình học móng để tạo mặt cắt.");
-            double angle = location.Rotation;
-            XYZ xAxis = new XYZ(Math.Cos(angle), Math.Sin(angle), 0).Normalize();
-            XYZ yAxis = new XYZ(-Math.Sin(angle), Math.Cos(angle), 0).Normalize();
-            List<XYZ> corners = WorldCorners(source);
-            XYZ center = location.Point;
-            double margin = UnitUtils.ConvertToInternalUnits(config.Profile.CropMarginMm, UnitTypeId.Millimeters);
+            if (config.Profile.UseDetailedLayout)
+                return CreateDetailedViews(doc, footing, config, names, warnings);
+            FootingDrawingProfile p = config.Profile;
+            BoundingBoxXYZ local = FootingDrawingGeometry.LocalBounds(footing);
+            Transform axes = local.Transform;
+            XYZ center = axes.OfPoint((local.Min + local.Max) * 0.5);
+            List<XYZ> corners = WorldCorners(footing.get_BoundingBox(null));
+            double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
             var result = new List<ViewSection>();
+            IList<FamilyInstance> piles = p.CreatePileSectionSymbols &&
+                FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(footing))
+                ? FootingPileResolver.Resolve(doc, footing, p.PileFamilyFilter, warnings)
+                : new List<FamilyInstance>();
             for (int i = 0; i < 2; i++)
             {
-                if (i == 0 ? !config.Profile.WantsDetailA : !config.Profile.WantsDetailB) continue;
-                XYZ direction = i == 0 ? xAxis : yAxis;
-                XYZ right = XYZ.BasisZ.CrossProduct(direction).Normalize();
+                if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
+                // BasisX is the HORIZONTAL direction in the rendered section.
+                // Previous code used Z cross direction, swapping Detail-X/Detail-Y.
+                XYZ right = (i == 0 ? axes.BasisX : axes.BasisY).Normalize();
+                bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
+                if (reverse) right = -right;
+                XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
+                bool autoAlign = i == 0 ? p.AutoAlignSectionXToPiles : p.AutoAlignSectionYToPiles;
+                double requestedMm = autoAlign ? 0 : (i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm);
+                double half = i == 0 ? (local.Max.Y - local.Min.Y) / 2 :
+                    (local.Max.X - local.Min.X) / 2;
+                double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
+                if (autoAlign && piles.Count > 0)
+                {
+                    double[] rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                        .Where(point => point != null)
+                        .Select(point => UnitUtils.ConvertFromInternalUnits(
+                            (point - center).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
+                    bool snapped;
+                    double selected = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
+                        !autoAlign, rows,
+                        UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+                    if (snapped)
+                    {
+                        warnings.Add((i == 0 ? "Detail-X" : "Detail-Y") +
+                            ": tự căn tuyến cắt qua hàng tim cọc tại offset " +
+                            selected.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                        offset = UnitUtils.ConvertToInternalUnits(selected, UnitTypeId.Millimeters);
+                    }
+                }
+                if (Math.Abs(offset) >= half)
+                    throw new InvalidOperationException("Offset tuyến cắt nằm ngoài móng.");
+                XYZ origin = center + across * offset;
                 Transform transform = Transform.Identity;
-                transform.Origin = center; transform.BasisX = right; transform.BasisY = XYZ.BasisZ;
+                transform.Origin = origin;
+                transform.BasisX = right;
+                transform.BasisY = XYZ.BasisZ;
                 transform.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
                 XYZ depth = transform.BasisZ;
                 var crop = new BoundingBoxXYZ
                 {
                     Transform = transform,
-                    Min = new XYZ(corners.Min(p => (p - center).DotProduct(right)) - margin,
-                        corners.Min(p => p.Z - center.Z) - margin,
-                        corners.Min(p => (p - center).DotProduct(depth)) - margin),
-                    Max = new XYZ(corners.Max(p => (p - center).DotProduct(right)) + margin,
-                        corners.Max(p => p.Z - center.Z) + margin,
-                        corners.Max(p => (p - center).DotProduct(depth)) + margin)
+                    Min = new XYZ(corners.Min(point => (point - origin).DotProduct(right)) - margin,
+                        corners.Min(point => point.Z - origin.Z) - margin,
+                        corners.Min(point => (point - origin).DotProduct(depth)) - margin),
+                    Max = new XYZ(corners.Max(point => (point - origin).DotProduct(right)) + margin,
+                        corners.Max(point => point.Z - origin.Z) + margin,
+                        corners.Max(point => (point - origin).DotProduct(depth)) + margin)
                 };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
-                view.Name = UniqueName(FormatViewName(config.Profile.ViewNamePattern, footing, i == 0 ? "Detail-X" : "Detail-Y"), names);
-                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, config.Profile.ApplyViewTemplatesOnce);
-                view.Scale = config.Profile.SectionScale; view.CropBoxActive = true; view.CropBoxVisible = false;
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing,
+                    i == 0 ? "Detail-X" : "Detail-Y", p), names);
+                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
+                view.Scale = p.SectionScale;
+                view.CropBoxActive = true;
+                view.CropBoxVisible = false;
                 result.Add(view);
             }
             return result;
@@ -180,6 +228,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
             double bottomMargin = UnitUtils.ConvertToInternalUnits(p.CropBottomMarginMm > 0 ? p.CropBottomMarginMm : p.CropMarginMm, UnitTypeId.Millimeters);
             var result = new List<ViewSection>();
+            // Take the real pile centers once, so the detail cut can follow a physical row
+            // when the default centerline falls between symmetric piles.
+            IList<FamilyInstance> detailPiles = p.CreatePileSectionSymbols &&
+                FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(host))
+                ? FootingPileResolver.Resolve(doc, host, p.PileFamilyFilter, warnings)
+                : new List<FamilyInstance>();
             for (int i = 0; i < 2; i++)
             {
                 if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
@@ -187,8 +241,29 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
                 if (reverse) right = -right;
                 XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
-                double offset = UnitUtils.ConvertToInternalUnits(i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm, UnitTypeId.Millimeters);
+                bool autoAlign = i == 0 ? p.AutoAlignSectionXToPiles : p.AutoAlignSectionYToPiles;
+                double requestedMm = autoAlign ? 0 : (i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm);
                 double half = i == 0 ? (bounds.Max.Y - bounds.Min.Y) / 2 : (bounds.Max.X - bounds.Min.X) / 2;
+                double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
+                if (autoAlign && detailPiles.Count > 0)
+                {
+                    XYZ cutOrigin = center;
+                    double[] rows = detailPiles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                        .Where(point => point != null)
+                        .Select(point => UnitUtils.ConvertFromInternalUnits(
+                            (point - cutOrigin).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
+                    bool snapped;
+                    double selectedMm = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
+                        !autoAlign, rows,
+                        UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+                    if (snapped)
+                    {
+                        warnings.Add((i == 0 ? "Detail-X" : "Detail-Y") +
+                            ": tuyến cắt giữa đài không qua tim cọc; đã dịch tuyến cắt đến hàng cọc thực " +
+                            selectedMm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                        offset = UnitUtils.ConvertToInternalUnits(selectedMm, UnitTypeId.Millimeters);
+                    }
+                }
                 if (Math.Abs(offset) >= half) throw new InvalidOperationException("Tuyến cắt nằm ngoài móng; hãy chỉnh offset.");
                 XYZ origin = center + across * offset;
                 Transform t = Transform.Identity;
@@ -200,7 +275,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-bottomMargin, 0),
                     Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
-                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y"), names);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y", p), names);
                 names.Add(view.Name);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
                 if (view.Scale != p.SectionScale) view.Scale = p.SectionScale;
@@ -238,9 +313,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (config.FoundationTagType != null)
             {
                 TryTag(doc, config.FoundationTagType, view, footing, SafeCenter(hostBox), warnings);
-                if (IsPileCap(footing) && (view is ViewPlan))
+                if (FootingDrawingLayerPolicy.IsPileCap(config.Profile.FootingKindMode, IsPileCap(footing)) && (view is ViewPlan))
                 {
-                    List<FamilyInstance> piles = GetPiles(doc, footing, hostBox);
+                    IList<FamilyInstance> piles = FootingPileResolver.Resolve(doc, footing, config.Profile.PileFamilyFilter, warnings);
                     foreach (var pile in piles)
                     {
                         BoundingBoxXYZ pbox = pile.get_BoundingBox(view) ?? pile.get_BoundingBox(null);
@@ -251,7 +326,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                 }
             }
-            FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
+            if (config.Profile.UsePlanDetailComponents && view is ViewPlan plan &&
+                (role == "Plan-Top" || role == "Plan-Bot"))
+                FootingPlanRebarAnnotationBuilder.Refresh(doc, plan, footing, role == "Plan-Top", config.Profile, warnings);
+            else
+                FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
         }
 
         private static void CreateHostDimensions(Document doc, FamilyInstance footing, View view, DimensionType type, BoundingBoxXYZ box, IList<string> warnings)
@@ -354,6 +433,50 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Math.Abs((view.Origin-expectedOrigin).DotProduct(expectedDirection))>1e-6)
                 throw new InvalidOperationException("Revit không dịch/xoay đúng tuyến Detail theo móng; đã hủy cập nhật để giữ hồ sơ.");
         }
+        // Auto-row sections must follow the physical pile layout on Update as well as creation.
+        // Explicit offsets, including an explicit zero, are never overridden.
+        internal static void AlignDetailRowOnUpdate(ViewSection view, FamilyInstance footing,
+            FootingDrawingProfile profile, string role, IList<string> warnings)
+        {
+            bool x = role == "Detail-X", y = role == "Detail-Y";
+            if ((!x && !y) || !profile.CreatePileSectionSymbols ||
+                !FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode, IsPileCap(footing)))
+                return;
+            bool automatic = x ? profile.AutoAlignSectionXToPiles : profile.AutoAlignSectionYToPiles;
+            if (!automatic) return;
+            BoundingBoxXYZ bounds = FootingDrawingGeometry.LocalBounds(footing);
+            Transform axes = bounds.Transform;
+            XYZ center = axes.OfPoint((bounds.Min + bounds.Max) * 0.5);
+            XYZ across = (x ? axes.BasisY : axes.BasisX).Normalize();
+            double half = x ? (bounds.Max.Y-bounds.Min.Y)/2 : (bounds.Max.X-bounds.Min.X)/2;
+            var piles = FootingPileResolver.Resolve(view.Document, footing, profile.PileFamilyFilter, warnings);
+            if (piles.Count == 0)
+            {
+                warnings.Add(view.Name + ": không tìm thấy cọc để căn lại tuyến cắt tự động.");
+                return;
+            }
+            var rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                .Where(point => point != null).Select(point =>
+                    UnitUtils.ConvertFromInternalUnits((point-center).DotProduct(across),
+                        UnitTypeId.Millimeters)).ToArray();
+            bool snapped;
+            double targetMm = FootingPileSectionAlignment.ChooseOffsetMm(0, false, rows,
+                UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+            double currentFt = (view.Origin-center).DotProduct(across);
+            double wantedFt = UnitUtils.ConvertToInternalUnits(targetMm, UnitTypeId.Millimeters);
+            double shiftFt = wantedFt-currentFt;
+            double toleranceFt = UnitUtils.ConvertToInternalUnits(0.5, UnitTypeId.Millimeters);
+            if (Math.Abs(shiftFt) <= toleranceFt) return;
+            ElementTransformUtils.MoveElement(view.Document, view.Id, across*shiftFt);
+            view.Document.Regenerate();
+            double actualFt = (view.Origin-center).DotProduct(across);
+            if (Math.Abs(actualFt-wantedFt) > toleranceFt)
+                throw new InvalidOperationException("Không thể đưa tuyến " + role +
+                    " qua hàng tim cọc sau Update; đã hủy cập nhật để bảo vệ hồ sơ.");
+            warnings.Add(view.Name + ": đã căn lại mặt cắt theo hàng cọc thực tại " +
+                targetMm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+        }
+
         internal static void UpdateCrop(View view, FamilyInstance footing, double marginMm, string role, IList<string> warnings = null)
         {
             BoundingBoxXYZ source = footing.get_BoundingBox(null), prior = view.CropBox;
@@ -395,8 +518,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 (role.EndsWith("Top", StringComparison.OrdinalIgnoreCase) || role.EndsWith("Bot", StringComparison.OrdinalIgnoreCase)))
             {
                 FootingDrawingProfile saved = FootingDrawingDetailState.Read(view, footing, out IList<string> ignoredSections);
-                FootingDrawingVisibility.Configure(plan, footing, role.EndsWith("Top", StringComparison.OrdinalIgnoreCase),
-                    saved?.ApplyViewTemplatesOnce ?? true, warnings ?? new List<string>());
+                // The Detail Item mode deliberately hides the native Rebar only in generated plan views.
+                // Do not re-enable Rebar or alter view filters when recomputing the crop.
+                if (saved == null || !saved.UsePlanDetailComponents)
+                    FootingDrawingVisibility.Configure(plan, footing, role.EndsWith("Top", StringComparison.OrdinalIgnoreCase),
+                        saved?.ApplyViewTemplatesOnce ?? true, warnings ?? new List<string>());
             }
         }
         private static void PlaceViewports(Document doc, ViewSheet sheet, IList<View> views, int batchIndex, IList<string> warnings)
@@ -470,6 +596,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             for (int x=0;x<2;x++) for(int y=0;y<2;y++) for(int z=0;z<2;z++) result.Add(t.OfPoint(new XYZ(x==0?box.Min.X:box.Max.X,y==0?box.Min.Y:box.Max.Y,z==0?box.Min.Z:box.Max.Z)));
             return result;
         }
+        internal static bool IsPileCapForPolicy(FamilyInstance footing) => IsPileCap(footing);
         private static bool IsPileCap(FamilyInstance footing)
         {
             if (footing == null) return false;
@@ -485,53 +612,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
                    typ.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private static List<FamilyInstance> GetPiles(Document doc, FamilyInstance footing, BoundingBoxXYZ box)
-        {
-            var piles = new List<FamilyInstance>();
-            if (box == null) return piles;
-            try
-            {
-                var collector = new FilteredElementCollector(doc, doc.ActiveView?.Id ?? footing.LevelId)
-                    .OfCategory(BuiltInCategory.OST_StructuralFoundation)
-                    .OfClass(typeof(FamilyInstance))
-                    .Cast<FamilyInstance>()
-                    .Where(fi => fi.Id != footing.Id);
-
-                foreach (var fi in collector)
-                {
-                    BoundingBoxXYZ bb = fi.get_BoundingBox(null);
-                    if (bb == null) continue;
-                    string fam = fi.Symbol?.FamilyName ?? "";
-                    string typ = fi.Name ?? "";
-                    bool isPile = fam.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                 fam.IndexOf("coc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                 fam.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
-                    if (isPile || bb.Max.Z <= box.Min.Z + 0.5)
-                    {
-                        if (bb.Min.X >= box.Min.X - 1.5 && bb.Max.X <= box.Max.X + 1.5 &&
-                            bb.Min.Y >= box.Min.Y - 1.5 && bb.Max.Y <= box.Max.Y + 1.5)
-                        {
-                            piles.Add(fi);
-                        }
-                    }
-                }
-            }
-            catch { }
-            return piles;
-        }
-
-        private static string FormatName(string pattern, FamilyInstance footing)
+        private static string FormatName(string pattern, FamilyInstance footing, FootingDrawingProfile profile)
         {
             string mark = footing.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string type = footing.Symbol == null ? "Móng" : footing.Symbol.Name;
             string level = footing.LevelId == ElementId.InvalidElementId ? "" : footing.Document.GetElement(footing.LevelId)?.Name ?? "";
-            bool isPile = IsPileCap(footing);
+            bool isPile = FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode, IsPileCap(footing));
             string defaultPattern = isPile ? "Đài cọc - {Mark}" : "Móng đơn - {Mark}";
             string actualPattern = string.IsNullOrWhiteSpace(pattern) ? defaultPattern : pattern;
             return actualPattern.Replace("{Mark}", string.IsNullOrWhiteSpace(mark) ? footing.Id.Value.ToString() : mark.Trim())
                 .Replace("{Id}", footing.Id.Value.ToString()).Replace("{Type}", type).Replace("{Level}", level);
         }
-        private static string FormatViewName(string pattern, FamilyInstance footing, string role)
+        private static string FormatViewName(string pattern, FamilyInstance footing, string role, FootingDrawingProfile profile)
         {
             bool isPile = IsPileCap(footing);
             string defaultPattern = isPile ? "KStruct - ĐC {Id} - {Role}" : "KStruct - MĐ {Id} - {Role}";

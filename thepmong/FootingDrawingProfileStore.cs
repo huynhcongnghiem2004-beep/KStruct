@@ -19,6 +19,23 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string TitleBlockType { get; set; }
         public string PlanTemplateName { get; set; }
         public string SectionTemplateName { get; set; }
+        public bool UsePlanDetailComponents { get; set; }
+        // Explicit mapping required: B/H are local footing dimensions in mm, C is user-confirmed cover.
+        public bool PlanDetailSizingConfirmed { get; set; }
+        public double PlanDetailCoverMm { get; set; }
+        // Align L/W to the real rebar-cover envelope, not concrete outer dimensions.
+        public bool PlanDetailAlignToCover { get; set; } = true;
+        public bool PlanDetailReadHostCover { get; set; } = true;
+        public string PlanDetailLExpression { get; set; } = "B";
+        public string PlanDetailWExpression { get; set; } = "H";
+        public string PlanDetailL1Expression { get; set; } = "KEEP";
+        public string PlanDetailL2Expression { get; set; } = "KEEP";
+        public string PlanDetailX1Expression { get; set; } = "KEEP";
+        public string PlanDetailX2Expression { get; set; } = "KEEP";
+        public string PlanDetailY1Expression { get; set; } = "KEEP";
+        public string PlanDetailY2Expression { get; set; } = "KEEP";
+        public string PlanTopDetailTypeUniqueId { get; set; }
+        public string PlanBotDetailTypeUniqueId { get; set; }
         public string RebarMultiTagTypeName { get; set; }
         public string RebarMultiTagTypeUniqueId { get; set; }
         public string RebarTagFamily { get; set; } // Legacy independent-tag fields.
@@ -46,11 +63,30 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public double SheetBottomReserveMm { get; set; } = 35;
         public double SheetMarginMm { get; set; } = 10;
         public double SectionDepthMm { get; set; } = 1200;
+        // Explicitly separate auto pile-row alignment from numeric offset (including zero).
+        public bool AutoAlignSectionXToPiles { get; set; }
+        public bool AutoAlignSectionYToPiles { get; set; }
         public double SectionXOffsetMm { get; set; }
         public double SectionYOffsetMm { get; set; }
         public bool ReverseSectionX { get; set; }
         public bool ReverseSectionY { get; set; }
         public string SourceViewUniqueId { get; set; }
+        // Auto uses host detection; explicit override prevents incorrect name-based classification.
+        public string FootingKindMode { get; set; } = "Auto";
+        // Opt-in for old projects: only use a loaded point-placeable Detail Item family.
+        public bool CreatePileSectionSymbols { get; set; }
+        // Explicit user verification of view-based Family graphical origin (not only LocationPoint).
+        public bool PileSymbolOriginConfirmed { get; set; }
+        // Empty parameter name: only unique, clearly named diameter parameters are accepted.
+        public string PileDiameterParameterName { get; set; } = "";
+        // Allows families with project-specific pile naming without guessing element geometry.
+        public string PileFamilyFilter { get; set; } = "cọc,coc,pile";
+        public string PileSectionDetailTypeUniqueId { get; set; }
+        // Legacy XML fields only: manual offsets are ignored for new placements.
+        public double PileSymbolOffsetXmm { get; set; }
+        public double PileSymbolOffsetYmm { get; set; }
+        public bool AnnotateBot { get; set; } = true;
+        public bool AnnotateTop { get; set; } = true;
         public string OutputLayers { get; set; } = "Both";
         public string SheetPrefix { get; set; } = "KSMD-";
         public string SheetNamePattern { get; set; } = "Móng đơn - {Mark}";

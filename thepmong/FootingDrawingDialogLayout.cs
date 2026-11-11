@@ -25,6 +25,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _reverseX = new CheckBox { Content = "Đảo chiều A–A" };
         private readonly CheckBox _reverseY = new CheckBox { Content = "Đảo chiều B–B" };
         private readonly TextBox _sectionDepth = new TextBox { Text = "1200" };
+        private readonly CheckBox _autoSectionX = new CheckBox
+            { Content = "Tự căn A–A qua hàng tim cọc thực (bỏ qua Offset)", IsChecked = true };
+        private readonly CheckBox _autoSectionY = new CheckBox
+            { Content = "Tự căn B–B qua hàng tim cọc thực (bỏ qua Offset)", IsChecked = true };
         private readonly TextBox _sectionXOffset = new TextBox { Text = "0" };
         private readonly TextBox _sectionYOffset = new TextBox { Text = "0" };
         private readonly TextBox _dimOffset = new TextBox { Text = "8" };
@@ -92,6 +96,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _dimensions.Content = "Tạo kích thước liên kết mô hình";
             var tabs = new TabControl();
             var view = new StackPanel();
+            Field(view, "Loại móng", _footingKind);
+            view.Children.Add(Note("Auto: nhận diện theo Family/Type; có thể chọn Móng đơn hoặc Móng cọc để ghi đè khi tên Family không rõ. Móng đơn chỉ có BOT; móng cọc có hai View BOT và TOP tách biệt."));
             var layers = new WrapPanel(); layers.Children.Add(_bottomLayer); layers.Children.Add(_topLayer); view.Children.Add(layers);
             _detailA.Margin = new Thickness(0, 0, 14, 0);
             var detailChoices = new WrapPanel(); detailChoices.Children.Add(_detailA); detailChoices.Children.Add(_detailB);
@@ -112,7 +118,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Field(view, "Detail Type (A–A / B–B)", _detailType); Field(view, "Template mặt cắt", _sectionTemplate);
             Field(view, "Tỷ lệ mặt cắt 1:", _sectionScale);
             Field(view, "Chiều sâu nhìn (mm)", _sectionDepth);
+            view.Children.Add(_autoSectionX);
             Field(view, "A–A: lệch theo Y (mm)", _sectionXOffset); view.Children.Add(_reverseX);
+            view.Children.Add(_autoSectionY);
             Field(view, "B–B: lệch theo X (mm)", _sectionYOffset); view.Children.Add(_reverseY);
             view.Children.Add(Note("A–A chứa trục X/Z; B–B chứa Y/Z của móng. Mốc offset là tâm hình học móng. Preview là sơ đồ, cần kiểm tra đồ họa trong Revit."));
             AddTab(tabs, "View", view);
@@ -120,7 +128,34 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var dims = new StackPanel(); dims.Children.Add(_dimensions); dims.Children.Add(_fourSides);
             Field(dims, "Dimension Type", _dimension); Field(dims, "Lớp dim 1 (mm giấy)", _dimOffset); Field(dims, "Cách hai lớp (mm giấy)", _dimGap);
             dims.Children.Add(Note("Lớp trong: mép–tim cột/cọc–mép. Lớp ngoài: kích thước tổng thể. Thiếu reference chi tiết sẽ báo cạnh thiếu; không dùng kích thước giả."));
-            dims.Children.Add(_tags); Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
+            dims.Children.Add(_usePlanDetail);
+            Field(dims, "Detail Item thép TOP", _planTopDetail);
+            Field(dims, "Detail Item thép BOT", _planBotDetail);
+            dims.Children.Add(_pileSection2D);
+            Field(dims, "Detail Item Cọc 2D (mặt cắt)", _pileSectionFamily);
+            Field(dims, "Tên tham số đường kính cọc mô hình (để trống: tự tìm duy nhất)", _pileDiameterParameter);
+            Field(dims, "Từ khóa nhận diện Family cọc (phân cách bằng dấu phẩy)", _pileFamilyFilter);
+            var pileAudit = new WrapPanel();
+            AddButton(pileAudit, "Kiểm tra tham số Family Cọc 2D", AuditPileFamily);
+            dims.Children.Add(pileAudit);
+            dims.Children.Add(_pileOriginConfirmed);
+            dims.Children.Add(Note("Tâm Family 2D trùng tuyệt đối với tim cọc trên mặt cắt (không có offset thủ công). D Coc nhận đường kính thật từ mô hình; KStruct tạo Type riêng theo đường kính, không đổi Type gốc. Các Type Parameter khác giữ nguyên."));
+            var auditActions = new WrapPanel();
+            AddButton(auditActions, "Kiểm tra công thức Family trong Revit", AuditPlanDetailFamily);
+            dims.Children.Add(auditActions);
+            dims.Children.Add(Note("Ánh xạ Family theo mm: B = kích thước trục X móng, H = trục Y, C = lớp bảo vệ. KEEP giữ nguyên. Chỉ xác nhận sau khi kiểm tra Family Types."));
+            dims.Children.Add(_alignRebarCover);
+            dims.Children.Add(_readHostCover);
+            Field(dims, "Lớp bảo vệ dự phòng C (mm)", _planCoverMm);
+            dims.Children.Add(Note("Khi bật căn theo lớp bảo vệ, L/W tự động tính theo B/H và C + Ø/2 (tim thanh). Công thức L/W lưu cũ được ghi đè để ngăn nét thép nằm trên biên bê tông. Các tham số phụ X1/X2/Y1/Y2 chỉ sửa theo ánh xạ Family đã xác minh."));
+            for (int i = 0; i < FootingPlanDetailComponentSizing.Names.Length; i++)
+                Field(dims, "Parameter " + FootingPlanDetailComponentSizing.Names[i], _planExpressions[i]);
+            dims.Children.Add(_planSizeConfirmed);
+            dims.Children.Add(new TextBlock { Text = "Chế độ 2D không tạo Multi-Rebar Tag ở mặt bằng; giữ Rebar thật trong mô hình.", TextWrapping = TextWrapping.Wrap });
+            dims.Children.Add(_tags);
+            dims.Children.Add(_noteBot); dims.Children.Add(_noteTop);
+            dims.Children.Add(Note("Hai lựa chọn ghi chú độc lập theo lớp thép. Móng đơn chỉ xuất ghi chú BOT; móng cọc có thể bật/tắt riêng TOP hoặc BOT. Không gom hai Rebar Set trùng thông số."));
+            Field(dims, "Multi-Rebar Annotation Type (thép móng)", _rebarTag); Field(dims, "Tag móng / cọc", _foundationTag);
             Populate(_breakLine, new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_DetailComponents)
                 .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
                 .Where(s => s.Family.FamilyPlacementType == FamilyPlacementType.CurveBasedDetail || s.Family.FamilyPlacementType == FamilyPlacementType.ViewBased)
@@ -148,7 +183,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             AddTab(tabs, "Cấu hình", preset);
             // Relax legacy minimum widths so controls fit the middle panel at laptop resolutions.
             foreach (ComboBox box in new[] { _profiles, _planType, _detailType, _titleBlock, _planTemplate, _sectionTemplate,
-                _rebarTag, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
+                _rebarTag, _planTopDetail, _planBotDetail, _pileSectionFamily, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
             foreach (TextBox box in new[] { _sheetPrefix, _sheetName, _viewName, _profileName }) box.MinWidth = 0;
             AddColumn(columns, CreateCard("THIẾT LẬP HỒ SƠ", "View • Dim / Tag • Sheet • Cấu hình", tabs), 1);
 
@@ -173,7 +208,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             footer.Children.Add(Note("Cấu hình được lưu khi tạo • Cancel không đổi mô hình")); Grid.SetRow(footer, 3); root.Children.Add(footer);
             foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
                 box.TextChanged += (s, e) => RefreshPreviews();
-            foreach (CheckBox box in new[] { _fourSides, _reverseX, _reverseY, _newSheet })
+            foreach (CheckBox box in new[] { _fourSides, _reverseX, _reverseY, _newSheet, _autoSectionX, _autoSectionY })
             { box.Checked += (s, e) => RefreshPreviews(); box.Unchecked += (s, e) => RefreshPreviews(); }
             _previewHost = footings.FirstOrDefault();
             return root;
@@ -228,8 +263,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
             {
                 if ((!AnyDetailSelected && box == _sectionDepth) ||
-                    (box == _sectionXOffset && _detailA.IsChecked != true) ||
-                    (box == _sectionYOffset && _detailB.IsChecked != true)) continue;
+                    (box == _sectionXOffset && (_detailA.IsChecked != true || _autoSectionX.IsChecked == true)) ||
+                    (box == _sectionYOffset && (_detailB.IsChecked != true || _autoSectionY.IsChecked == true))) continue;
                 double value = ParseDouble(box.Text, double.NaN);
                 if (double.IsNaN(value) || double.IsInfinity(value) ||
                     (box != _sectionXOffset && box != _sectionYOffset && value < 0))

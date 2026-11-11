@@ -47,6 +47,31 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     warnings.Add("View " + views[i].Name + " có thể chồng nội dung trên sheet " + sheet.SheetNumber + "; hồ sơ vẫn được tạo, hãy chỉnh lại vị trí viewport/tiêu đề.");
                 occupied.Add(extent);
             }
+            ValidateNoOverlap(doc, sheet, views);
+        }
+
+        internal static void ValidateNoOverlap(Document doc, ViewSheet sheet, IList<View> newViews)
+        {
+            doc.Regenerate();
+            var newIds = new HashSet<long>(newViews.Select(v => v.Id.Value));
+            var ports = sheet.GetAllViewports().Select(id => doc.GetElement(id) as Viewport)
+                .Where(v => v != null).ToList();
+            BoundingBoxUV sheetBounds = sheet.Outline;
+            foreach (Viewport viewport in ports.Where(v => newIds.Contains(v.ViewId.Value)))
+            {
+                Outline graphic = Extent(viewport);
+                if (graphic.MinimumPoint.X < sheetBounds.Min.U || graphic.MaximumPoint.X > sheetBounds.Max.U ||
+                    graphic.MinimumPoint.Y < sheetBounds.Min.V || graphic.MaximumPoint.Y > sheetBounds.Max.V)
+                    throw new InvalidOperationException("View " +
+                        (doc.GetElement(viewport.ViewId)?.Name ?? viewport.ViewId.Value.ToString()) +
+                        " vượt ra ngoài khổ Sheet " + sheet.SheetNumber +
+                        ". Không tạo hồ sơ chồng/lấn, cần giảm tỷ lệ hoặc đổi khổ giấy.");
+                foreach (Viewport other in ports.Where(v => v.Id.Value != viewport.Id.Value))
+                    if (Intersects(graphic, Extent(other), Feet(1)))
+                        throw new InvalidOperationException("Viewport " + viewport.Id.Value +
+                            " chồng lên Viewport " + other.Id.Value + " trên Sheet " +
+                            sheet.SheetNumber + ". Hãy thay tỷ lệ/khổ Sheet hoặc dùng Sheet riêng.");
+            }
         }
         private static Outline Extent(Viewport viewport)
         {

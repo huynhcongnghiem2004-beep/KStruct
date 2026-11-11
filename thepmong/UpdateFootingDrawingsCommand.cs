@@ -28,7 +28,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 List<FamilyInstance> footings = ui.Selection.GetElementIds().Select(doc.GetElement).OfType<FamilyInstance>()
                     .Where(IsFoundation).Distinct().ToList();
                 var hostIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (FootingDrawingStorage.TryRead(ui.ActiveView, out string activeHost, out string activeRole, out double activeMargin)) hostIds.Add(activeHost);
+                // Explicit selection always takes precedence. Never also update a different
+                // footing merely because its drawing happens to be the active view.
+                if (footings.Count == 0 && ui.Selection.GetElementIds().Count == 0 &&
+                    FootingDrawingStorage.TryRead(ui.ActiveView, out string activeHost,
+                        out string activeRole, out double activeMargin))
+                    hostIds.Add(activeHost);
                 foreach (ElementId selectedId in ui.Selection.GetElementIds())
                 {
                     Element selected = doc.GetElement(selectedId);
@@ -77,6 +82,20 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                     FootingDrawingStorage.TryRead(view, out string ignoredHost, out string role, out margin);
                                     FootingDrawingProfile pose=FootingDrawingDetailState.Read(view,footing,out IList<string> linked);
                                     if(pose!=null)FootingDrawingBuilder.FollowHostPose(view,footing,pose);
+                                    if (view is ViewSection detailAxis && detailAxis.ViewType == ViewType.Detail &&
+                                        (role == "Detail-X" || role == "Detail-Y"))
+                                    {
+                                        Transform axes = FootingDrawingGeometry.Axes(footing);
+                                        XYZ expectedRight = (role == "Detail-X" ? axes.BasisX : axes.BasisY).Normalize();
+                                        double alignment = Math.Abs(detailAxis.RightDirection.Normalize().DotProduct(expectedRight));
+                                        if (alignment < 0.999)
+                                            throw new InvalidOperationException("View " + detailAxis.Name +
+                                                " dùng trục mặt cắt cũ không khớp " + role +
+                                                ". Hãy tạo lại hồ sơ móng để hiệu chỉnh trục X/Y an toàn; không tự xoay View cũ có annotation.");
+                                        if (pose != null)
+                                            FootingDrawingBuilder.AlignDetailRowOnUpdate(
+                                                detailAxis, footing, pose, role, warnings);
+                                    }
                                     FootingDrawingBuilder.UpdateCrop(view, footing, margin, role, warnings);
                                 }
                                 doc.Regenerate();
@@ -94,7 +113,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                         FootingDrawingDetailLinks.Refresh(doc, footing, callout, targets, warnings);
                                     }
                                     FootingDrawingStorage.TryRead(view, out string tagHost, out string tagRole, out double tagMargin);
-                                    FootingDrawingRebarMultiTags.Refresh(doc, footing, view, tagRole, options, warnings);
+                                    if (options.UsePlanDetailComponents && view is ViewPlan plan && (tagRole == "Plan-Top" || tagRole == "Plan-Bot"))
+                                    {
+                                        FootingPlanDetailComponentBuilder.Refresh(doc, plan, footing, options, tagRole == "Plan-Top", warnings);
+                                        FootingPlanRebarAnnotationBuilder.Refresh(doc, plan, footing, tagRole == "Plan-Top", options, warnings);
+                                    }
+                                    else FootingDrawingRebarMultiTags.Refresh(doc, footing, view, tagRole, options, warnings);
+                                    if (view is ViewSection pileSection &&
+                                        (tagRole == "Detail-X" || tagRole == "Detail-Y"))
+                                        FootingPileSectionDetailBuilder.Refresh(doc, pileSection, footing, options, warnings);
                                     FootingDrawingBeamBreaks.Refresh(doc, footing, view, options, warnings);
                                     FootingDrawingDetailState.Save(view,footing,options,targetIds.Select(id=>doc.GetElement(id)).OfType<ViewSection>());
                                 }

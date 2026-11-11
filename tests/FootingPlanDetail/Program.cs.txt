@@ -1,0 +1,102 @@
+using System;
+using SDK_HD.KStruct.NativeDocumentation;
+
+internal static class Program
+{
+    private static int checks;
+    private static void Check(bool success, string name) { if (!success) throw new Exception(name); checks++; }
+    private static void Near(double actual, double expected, string name) =>
+        Check(Math.Abs(actual - expected) < 1e-8, name);
+    private static void Throws(Action action, string name)
+    {
+        bool failed = false;
+        try { action(); }
+        catch (ArgumentException) { failed = true; }
+        catch (InvalidOperationException) { failed = true; }
+        Check(failed, name);
+    }
+    public static void Main()
+    {
+        const double b = 2200, h = 2600, c = 50;
+        Near(FootingPlanDetailMath.Evaluate("B", b, h, c), 2200, "B");
+        Near(FootingPlanDetailMath.Evaluate("H", b, h, c), 2600, "H");
+        Near(FootingPlanDetailMath.Evaluate("C", b, h, c), 50, "C");
+        Near(FootingPlanDetailMath.Evaluate(" B - 2 * C ", b, h, c), 2100, "B minus twice cover");
+        Near(FootingPlanDetailMath.Evaluate("H-2*C", b, h, c), 2500, "H minus twice cover");
+        Near(FootingPlanDetailMath.Evaluate("B-C", b, h, c), 2150, "B-C");
+        Near(FootingPlanDetailMath.Evaluate("H-C", b, h, c), 2550, "H-C");
+        Near(FootingPlanDetailMath.Evaluate("75.5", b, h, c), 75.5, "mm constant");
+        Throws(() => FootingPlanDetailMath.Evaluate("B/2", b, h, c), "unknown formula rejected");
+        Throws(() => FootingPlanDetailMath.Evaluate("NaN", b, h, c), "nonfinite literal rejected");
+        Throws(() => FootingPlanDetailMath.Evaluate("B", double.NaN, h, c), "nonfinite footing rejected");
+        Near(FootingPlanDetailMath.NormalizeRotation(0), 0, "zero");
+        Near(FootingPlanDetailMath.NormalizeRotation(2 * Math.PI), 0, "full turn");
+        Near(FootingPlanDetailMath.NormalizeRotation(Math.PI / 2 + 4 * Math.PI), Math.PI / 2, "quarter turn");
+        Near(FootingPlanDetailMath.NormalizeRotation(-Math.PI / 2), -Math.PI / 2, "reverse quarter turn");
+        Throws(() => FootingPlanDetailMath.NormalizeRotation(double.PositiveInfinity), "nonfinite rotation rejected");
+        Check(!FootingDrawingLayerPolicy.IsPileCap("Isolated", true), "Manual isolated override");
+        Check(FootingDrawingLayerPolicy.IsPileCap("PileCap", false), "Manual pile cap override");
+        Check(FootingDrawingLayerPolicy.IsPileCap("Auto", true), "Automatic pile cap");
+        Check(!FootingDrawingLayerPolicy.IsPileCap("Auto", false), "Automatic isolated footing");
+        Check(FootingDrawingLayerPolicy.CreatePlan(false, false), "Isolated BOT view");
+        Check(!FootingDrawingLayerPolicy.CreatePlan(false, true), "Isolated cannot have TOP view");
+        Check(FootingDrawingLayerPolicy.CreatePlan(true, false) && FootingDrawingLayerPolicy.CreatePlan(true, true),
+            "Pile cap creates separate TOP and BOT views");
+        Check(FootingDrawingLayerPolicy.CreateNote(true, true, true, false, false), "Isolated BOT annotation");
+        Check(!FootingDrawingLayerPolicy.CreateNote(true, true, true, true, false), "Isolated TOP annotation forbidden");
+        Check(!FootingDrawingLayerPolicy.CreateNote(true, false, true, true, true), "Pile cap TOP annotation disabled");
+        Check(FootingDrawingLayerPolicy.CreateNote(true, false, true, false, true), "Pile cap BOT annotation remains");
+        Check(FootingDrawingLayerPolicy.CreateNote(true, true, false, true, true), "Pile cap TOP annotation remains");
+        Check(!FootingDrawingLayerPolicy.CreateNote(false, true, true, false, true), "Master annotation off");
+        Throws(() => FootingDrawingLayerPolicy.IsPileCap("Unknown", true), "Invalid footing kind rejected");
+        Check(FootingPileSectionPolicy.IsCentered(0), "centerline exact");
+        Check(FootingPileSectionPolicy.IsCentered(0.75), "within centerline tolerance");
+        Check(FootingPileSectionPolicy.IsCentered(-1.0), "centerline tolerance boundary");
+        Check(!FootingPileSectionPolicy.IsCentered(1.01), "eccentric cut forbidden");
+        Check(!FootingPileSectionPolicy.IsCentered(double.NaN), "nonfinite center distance");
+        Check(FootingPileSectionPolicy.DiameterMatches(300, 300.04), "diameter small tolerance");
+        Check(!FootingPileSectionPolicy.DiameterMatches(300, 300.5), "diameter mismatch");
+        Check(!FootingPileSectionPolicy.DiameterMatches(0, 0), "zero diameter rejected");
+        Check(FootingPileSectionPolicy.TypeName(300) == "KStruct_Coc2D_D300_000mm", "stable type name D300");
+        Check(FootingPileSectionPolicy.TypeName(300.004) !=
+            FootingPileSectionPolicy.TypeName(300.015), "distinct diameters do not collide");
+        Throws(() => FootingPileSectionPolicy.TypeName(-300), "negative diameter rejected");
+        Throws(() => FootingPileSectionPolicy.TypeName(double.NaN), "nonfinite diameter rejected");
+
+        Check(FootingPileIdentityPolicy.Matches("Cọc ly tâm", "D300", null), "Vietnamese pile family");
+        Check(FootingPileIdentityPolicy.Matches("Concrete Pile", "300", null), "English pile family");
+        Check(!FootingPileIdentityPolicy.Matches("Pile Cap", "D300", null), "Exclude pile cap");
+        Check(!FootingPileIdentityPolicy.Matches("Đài cọc", "D300", null), "Exclude Vietnamese pile cap");
+        Check(!FootingPileIdentityPolicy.Matches("Móng đơn", "M1", null), "Exclude isolated footing");
+        Check(FootingPileIdentityPolicy.Matches("MyCompany-H", "Pile-A", "Pile"), "Custom family filter");
+        Check(FootingPileIdentityPolicy.InCap(0, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Pile at cap center");
+        Check(!FootingPileIdentityPolicy.InCap(2, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Pile outside cap");
+        Check(!FootingPileIdentityPolicy.InCap(0, 0, 1, 4, -1, 1, -1, 1, 0, 0.01), "Pile above cap");
+        Check(!FootingPileIdentityPolicy.InCap(0, 0, -4, -1, -1, 1, -1, 1, 0, 0.01), "Pile below cap");
+        Check(!FootingPileIdentityPolicy.InCap(double.NaN, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Nonfinite pile location");
+        Near(FootingPlanDetailMath.ClearCoverToBarCenter(50, 14), 57, "Bar center cover");
+        Near(FootingPlanDetailMath.AlignedSpan(1200, 50, 14), 1086, "Cover aligned W 1200");
+        Near(FootingPlanDetailMath.AlignedSpan(2200, 50, 14), 2086, "Cover aligned L 2200");
+        Throws(() => FootingPlanDetailMath.AlignedSpan(100, 50, 14), "Insufficient footing width");
+        Throws(() => FootingPlanDetailMath.ClearCoverToBarCenter(0, 14), "Missing clear cover rejected");
+        bool snapped;
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false, new[] { -400.0, 400.0 }, 600, out snapped), -400, "Snap to symmetric real pile row");
+        Check(snapped, "Section snapping reported");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false, new[] { -0.5, 400.0 }, 600, out snapped), 0, "Centered pile row retained");
+        Check(!snapped, "Centered section not shifted");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false, new double[0], 600, out snapped), 0, "No fake piles generated");
+        Check(!snapped, "No-pile section not moved");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(100, true, new[] { -400.0, 400.0 }, 600, out snapped), 100, "Explicit section offset is respected");
+        Check(!snapped, "Explicit offset not overridden");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, true,
+            new[] { -400.0, 400.0 }, 600, out snapped), 0,
+            "Explicit zero offset must remain zero");
+        Check(!snapped, "Zero offset cannot trigger automatic snapping");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false,
+            new[] { 500.0, -500.0 }, 600, out snapped), -500,
+            "Automatic Update chooses new physical pile row");
+        Check(snapped, "Updated physical pile row triggers automatic alignment");
+        Throws(() => FootingPileSectionAlignment.ChooseOffsetMm(600, false, new[] { 400.0 }, 600, out snapped), "Reject section outside footing");
+        Console.WriteLine("PASS: " + checks + " footing Detail Item, cover alignment and real pile row checks.");
+    }
+}
