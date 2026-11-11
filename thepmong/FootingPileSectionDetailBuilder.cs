@@ -58,30 +58,28 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var targets = new List<Tuple<FamilyInstance, XYZ>>();
             foreach (FamilyInstance pile in piles)
             {
-                BoundingBoxXYZ box = pile.get_BoundingBox(null);
-                if (box == null) continue;
-                XYZ middle = (box.Min + box.Max) * 0.5;
-                XYZ local = axis.Inverse.OfPoint(middle);
-                // Only piles with plan footprint inside this cap can be represented.
-                if (local.X < xmin - tol || local.X > xmax + tol ||
-                    local.Y < ymin - tol || local.Y > ymax + tol)
+                List<XYZ> vertices;
+                try { vertices = FootingDrawingGeometry.WorldVertices(pile); }
+                catch (InvalidOperationException) { continue; }
+                if (vertices.Count == 0) continue;
+                // Use actual solid vertices rather than axis-aligned model bounding boxes,
+                // so rotated pile families are correctly tested against the section plane.
+                List<XYZ> localVertices = vertices.Select(axis.Inverse.OfPoint).ToList();
+                double centerX = (localVertices.Min(v => v.X) + localVertices.Max(v => v.X)) * 0.5;
+                double centerY = (localVertices.Min(v => v.Y) + localVertices.Max(v => v.Y)) * 0.5;
+                if (centerX < xmin - tol || centerX > xmax + tol ||
+                    centerY < ymin - tol || centerY > ymax + tol)
                     continue;
-                if (box.Min.Z > capBottom + tol || box.Max.Z < capBottom - tol)
+                double pileBottom = vertices.Min(p => p.Z), pileTop = vertices.Max(p => p.Z);
+                if (pileBottom > capBottom + tol || pileTop < capBottom - tol)
                     continue;
-                // Test intersection of the exact section cutting plane with the pile
-                // horizontal bounding footprint. A pile merely in view depth is excluded.
-                var corners = new[] {
-                    new XYZ(box.Min.X, box.Min.Y, middle.Z),
-                    new XYZ(box.Min.X, box.Max.Y, middle.Z),
-                    new XYZ(box.Max.X, box.Min.Y, middle.Z),
-                    new XYZ(box.Max.X, box.Max.Y, middle.Z) };
-                double low = corners.Min(p => (p - origin).DotProduct(normal));
-                double high = corners.Max(p => (p - origin).DotProduct(normal));
+                double low = vertices.Min(p => (p - origin).DotProduct(normal));
+                double high = vertices.Max(p => (p - origin).DotProduct(normal));
                 if (low > tol || high < -tol) continue;
-
-                // The graphic's anchor is at the physical pile head, projected onto the
-                // section plane; optional offsets calibrate the RFA's insertion origin.
-                XYZ pileHead = new XYZ(middle.X, middle.Y, box.Max.Z);
+                // The physical pile head center is determined from real pile solid geometry.
+                // Its projection onto the cut plane preserves exact horizontal section location.
+                XYZ pileCenter = axis.OfPoint(new XYZ(centerX, centerY, 0));
+                XYZ pileHead = new XYZ(pileCenter.X, pileCenter.Y, pileTop);
                 XYZ cutPoint = pileHead - normal * (pileHead - origin).DotProduct(normal);
                 XYZ point = cutPoint + right * shiftX + up * shiftY;
                 targets.Add(Tuple.Create(pile, point));
