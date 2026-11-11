@@ -58,3 +58,12 @@ The Windows workflow runs `tests/FootingPlanDetail/FootingPlanDetail.csproj` (ex
 - Each hosted Rebar Set gets its own owned TextNote even when the specification and X/Y axis are identical. Source UniqueId is retained on annotations for update. No truncation to 12 groups; a warning asks for review if more than 12 groups.
 - The separate TOP/BOT view and note rules apply to both native Rebar annotation mode and Detail Item plan mode; legacy **existing drawings** are not automatically deleted or rebuilt by Update.
 - Smoke test in Revit: isolated BOT only; pile cap TOP + BOT; switch BOT notes off; switch TOP notes off; verify independent note numbers, update after adding/removing a Rebar Set, and mixed multi-footing selection.
+
+
+## Fix after screenshot: align 2D rebar to concrete clear cover
+- By default when 2D Detail Items are enabled, KStruct computes `C` from the host's `Rebar Cover - Other Faces` (Revit `CLEAR_COVER_OTHER` -> `RebarCoverType.CoverDistance`). If no valid host cover exists, it requires a positive configured fallback C in millimetres.
+- The Family graphic represents bar **centerlines**, but concrete cover is measured to bar **outer face**. Hence `C_center = C_clear + diameter/2`, `L = footing local X span - 2*C_center`, `W = footing local Y span - 2*C_center`. Model Rebar sets in the corresponding TOP/BOT layer provide the actual diameter.
+- If multiple bar diameters exist in one layer, or a valid hosted Rebar set/cover is missing, the single-envelope 2D Family cannot certify a precise common centerline. KStruct blocks that drawing with an actionable error rather than guessing a diameter.
+- To avoid old profiles displaying full-footing dimensions, cover-alignment mode overrides legacy L=B/W=H expressions for L and W on creation and Update. The other family inputs `L1`, `L2`, `X1/X2/Y1/Y2` retain the user's explicitly confirmed mapping.
+- **Family geometry limitation:** This calculation assumes the RFA's L and W instance dimensions truly control the visible bar-envelope centerline. It does not prove the authored Family graphic has no extra offsets or locked formulas. Revit Family Editor verification and a rendered-view geometric check remain necessary before production release.
+- If an existing 2D Family was designed around full-footing L/W plus internal margins, disable the automatic cover-alignment option until the Family parameter relationship is audited; otherwise the cover offset may be subtracted twice.
