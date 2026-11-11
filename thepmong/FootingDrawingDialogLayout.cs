@@ -125,6 +125,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
             dims.Children.Add(_usePlanDetail);
             Field(dims, "Detail Item thép TOP", _planTopDetail);
             Field(dims, "Detail Item thép BOT", _planBotDetail);
+            dims.Children.Add(_pileSection2D);
+            Field(dims, "Detail Item Cọc 2D (mặt cắt)", _pileSectionFamily);
+            Field(dims, "Hiệu chỉnh điểm chèn Cọc 2D theo ngang (mm)", _pileSectionOffsetX);
+            Field(dims, "Hiệu chỉnh điểm chèn Cọc 2D theo đứng (mm)", _pileSectionOffsetY);
+            dims.Children.Add(Note("KStruct chỉ đặt Cọc 2D tại cọc có thật nằm trên mặt phẳng cắt. Điểm gốc là tim đầu cọc; offset chỉ dùng cân chỉnh gốc Family, không thay tọa độ cọc. Các Type Parameter Cut Coc/D Coc/Dai Coc/Dai Thep/Goc/x giữ nguyên."));
             var auditActions = new WrapPanel();
             AddButton(auditActions, "Kiểm tra công thức Family trong Revit", AuditPlanDetailFamily);
             dims.Children.Add(auditActions);
@@ -165,7 +170,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             AddTab(tabs, "Cấu hình", preset);
             // Relax legacy minimum widths so controls fit the middle panel at laptop resolutions.
             foreach (ComboBox box in new[] { _profiles, _planType, _detailType, _titleBlock, _planTemplate, _sectionTemplate,
-                _rebarTag, _planTopDetail, _planBotDetail, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
+                _rebarTag, _planTopDetail, _planBotDetail, _pileSectionFamily, _foundationTag, _dimension, _existingSheet }) box.MinWidth = 0;
             foreach (TextBox box in new[] { _sheetPrefix, _sheetName, _viewName, _profileName }) box.MinWidth = 0;
             AddColumn(columns, CreateCard("THIẾT LẬP HỒ SƠ", "View • Dim / Tag • Sheet • Cấu hình", tabs), 1);
 
