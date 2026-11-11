@@ -57,6 +57,28 @@ namespace ColumnRebarPro.V3
             return string.Join(";", snapshots);
         }
 
+        private static string SheetSchedules(Document doc, ViewSheet sheet)
+        {
+            var placed = new FilteredElementCollector(doc)
+                .OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>()
+                .Where(s => s.OwnerViewId == sheet.Id)
+                .OrderBy(s => s.Id.Value).ToList();
+            if (placed.Count == 0) return "";
+            return "#BBS:" + string.Join(";", placed.Select(s =>
+            {
+                var schedule = doc.GetElement(s.ScheduleId) as ViewSchedule;
+                return s.Id.Value.ToString(CultureInfo.InvariantCulture) + ":" +
+                    s.ScheduleId.Value.ToString(CultureInfo.InvariantCulture) + ":" +
+                    (schedule == null ? "" : schedule.Name);
+            }));
+        }
+
+        private static string DrawingSnapshot(Document doc, ViewSheet sheet,
+            IEnumerable<ElementId> viewIds)
+        {
+            return ViewContents(doc, viewIds) + SheetSchedules(doc, sheet);
+        }
+
         internal static void Stamp(Document doc, ViewSheet sheet, IList<V3SegmentWork> works)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
@@ -69,7 +91,7 @@ namespace ColumnRebarPro.V3
             entity.Set<string>(schema.GetField("StackKey"), StackKey(works));
             entity.Set<string>(schema.GetField("ViewIds"),
                 string.Join(";", placed.Select(id => id.Value.ToString(CultureInfo.InvariantCulture))));
-            entity.Set<string>(schema.GetField("ViewContents"), ViewContents(doc, placed));
+            entity.Set<string>(schema.GetField("ViewContents"), DrawingSnapshot(doc, sheet, placed));
             sheet.SetEntity(entity);
         }
 
@@ -91,10 +113,12 @@ namespace ColumnRebarPro.V3
                     return false;
                 if (!V4SheetOwnershipRules.SameViewContents(
                     entity.Get<string>(schema.GetField("ViewContents")),
-                    ViewContents(doc, sheet.GetAllPlacedViews())))
+                    DrawingSnapshot(doc, sheet, sheet.GetAllPlacedViews())))
                     return false;
                 if (new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance))
-                    .Cast<ScheduleSheetInstance>().Any(item => item.OwnerViewId == sheet.Id))
+                    .Cast<ScheduleSheetInstance>().Where(item => item.OwnerViewId == sheet.Id)
+                    .Any(item => !(doc.GetElement(item.ScheduleId) is ViewSchedule schedule) ||
+                        !schedule.Name.StartsWith("KSTR V4 BBS ", StringComparison.OrdinalIgnoreCase)))
                     return false;
                 // A user can annotate the sheet itself, outside every generated view.
                 // Such additions are not covered by per-view ViewContents metadata.
