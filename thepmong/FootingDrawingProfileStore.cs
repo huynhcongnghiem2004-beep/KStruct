@@ -63,6 +63,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public double SheetBottomReserveMm { get; set; } = 35;
         public double SheetMarginMm { get; set; } = 10;
         public double SectionDepthMm { get; set; } = 1200;
+        // Explicitly separate auto pile-row alignment from numeric offset (including zero).
+        public bool AutoAlignSectionXToPiles { get; set; }
+        public bool AutoAlignSectionYToPiles { get; set; }
         public double SectionXOffsetMm { get; set; }
         public double SectionYOffsetMm { get; set; }
         public bool ReverseSectionX { get; set; }
