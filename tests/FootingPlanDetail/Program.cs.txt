@@ -62,6 +62,18 @@ internal static class Program
             FootingPileSectionPolicy.TypeName(300.015), "distinct diameters do not collide");
         Throws(() => FootingPileSectionPolicy.TypeName(-300), "negative diameter rejected");
         Throws(() => FootingPileSectionPolicy.TypeName(double.NaN), "nonfinite diameter rejected");
-        Console.WriteLine("PASS: " + checks + " footing Detail Item TOP/BOT and pile-section policy checks.");
+
+        Check(FootingPileIdentityPolicy.Matches("Cọc ly tâm", "D300", null), "Vietnamese pile family");
+        Check(FootingPileIdentityPolicy.Matches("Concrete Pile", "300", null), "English pile family");
+        Check(!FootingPileIdentityPolicy.Matches("Pile Cap", "D300", null), "Exclude pile cap");
+        Check(!FootingPileIdentityPolicy.Matches("Đài cọc", "D300", null), "Exclude Vietnamese pile cap");
+        Check(!FootingPileIdentityPolicy.Matches("Móng đơn", "M1", null), "Exclude isolated footing");
+        Check(FootingPileIdentityPolicy.Matches("MyCompany-H", "Pile-A", "Pile"), "Custom family filter");
+        Check(FootingPileIdentityPolicy.InCap(0, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Pile at cap center");
+        Check(!FootingPileIdentityPolicy.InCap(2, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Pile outside cap");
+        Check(!FootingPileIdentityPolicy.InCap(0, 0, 1, 4, -1, 1, -1, 1, 0, 0.01), "Pile above cap");
+        Check(!FootingPileIdentityPolicy.InCap(0, 0, -4, -1, -1, 1, -1, 1, 0, 0.01), "Pile below cap");
+        Check(!FootingPileIdentityPolicy.InCap(double.NaN, 0, -4, 0.1, -1, 1, -1, 1, 0, 0.01), "Nonfinite pile location");
+        Console.WriteLine("PASS: " + checks + " footing Detail Item TOP/BOT, pile identity and section checks.");
     }
 }
