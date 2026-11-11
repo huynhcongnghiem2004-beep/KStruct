@@ -23,6 +23,21 @@ namespace SDK_HD.KStruct.NativeDocumentation
             throw new InvalidOperationException("Công thức kích thước không hỗ trợ: '" + expression +
                 "'. Chọn B, H, C, B-2*C, H-2*C, B-C, H-C hoặc số mm.");
         }
+        internal static double ClearCoverToBarCenter(double concreteClearMm, double diameterMm)
+        {
+            if (!Finite(concreteClearMm) || !Finite(diameterMm) ||
+                concreteClearMm <= 0 || diameterMm <= 0)
+                throw new ArgumentException("Lớp bảo vệ hoặc đường kính thép không hợp lệ.");
+            return concreteClearMm + diameterMm / 2.0;
+        }
+        internal static double AlignedSpan(double concreteWidthMm, double concreteClearMm, double diameterMm)
+        {
+            double center = ClearCoverToBarCenter(concreteClearMm, diameterMm);
+            if (!Finite(concreteWidthMm) || concreteWidthMm <= 2 * center)
+                throw new ArgumentException("Kích thước móng không đủ cho hai lớp bảo vệ và thép.");
+            return concreteWidthMm - 2 * center;
+        }
+
         internal static double NormalizeRotation(double radians)
         {
             if (!Finite(radians)) throw new ArgumentException("Góc xoay không hợp lệ.");
