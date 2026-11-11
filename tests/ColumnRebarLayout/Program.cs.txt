@@ -80,6 +80,15 @@ static class Program
         Check(V4TieBandExclusion.KeepOutside(jointSource,
             new[] { Tuple.Create(0.0,600.0) }).Count==0,
             "Entirely intersected joint cannot create a tie");
+        Reject(() => V4TieBandExclusion.RequireAtLeastOneTie(jointSource,
+            V4TieBandExclusion.KeepOutside(jointSource, new[] { Tuple.Create(0.0,600.0) })));
+        V4TieBandExclusion.RequireAtLeastOneTie(jointSource, split);
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(double.NaN, 300.0) }));
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(400.0, 300.0) }));
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(0.0, double.PositiveInfinity) }));
         Check(V4TieBandExclusion.KeepOutside(jointSource,
             new Tuple<double,double>[0]).Single().Count==7,
             "No intersection preserves all seven ties");
