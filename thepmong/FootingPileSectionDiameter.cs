@@ -9,14 +9,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
     // Never change the user's original Type: duplicate a type for each actual pile diameter.
     internal static class FootingPileSectionDiameter
     {
-        private const double ToleranceMm = 0.1;
 
-        internal static double ReadPileDiameter(Document doc, FamilyInstance pile)
+        internal static double ReadPileDiameter(Document doc, FamilyInstance pile, string configuredName)
         {
-            // Only an explicit length parameter is acceptable. Bounding-box widths and
-            // footing dimensions cannot certify the diameter of a pile.
-            string[] names = { "D Coc", "D Cọc", "Đường kính", "Duong Kinh",
-                "Pile Diameter", "Diameter", "DIAMETER", "D" };
+            // An explicit mapping is authoritative. Auto mode accepts only unambiguous,
+            // clearly named diameter Length parameters; never accepts a generic "D".
+            string[] names = string.IsNullOrWhiteSpace(configuredName)
+                ? new[] { "D Coc", "D Cọc", "Đường kính cọc", "Duong kinh coc",
+                    "Pile Diameter", "Diameter", "Đường kính", "Duong Kinh" }
+                : new[] { configuredName.Trim() };
+            var matches = new System.Collections.Generic.List<Tuple<string, double>>();
             foreach (Element source in new Element[] { pile, doc.GetElement(pile.GetTypeId()) })
             {
                 if (source == null) continue;
@@ -25,23 +27,31 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     var parameters = source.GetParameters(name);
                     if (parameters.Count > 1)
                         throw new InvalidOperationException("Cọc " + pile.Id.Value +
-                            " có tham số đường kính trùng tên: " + name);
+                            " có nhiều tham số cùng tên '" + name + "'. Hãy dùng tham số duy nhất.");
                     if (parameters.Count == 0) continue;
                     Parameter p = parameters[0];
                     if (p.StorageType != StorageType.Double || !p.HasValue ||
                         !p.Definition.GetDataType().Equals(SpecTypeId.Length))
-                        throw new InvalidOperationException("Tham số " + name + " của cọc " +
-                            pile.Id.Value + " không phải kích thước Length hợp lệ.");
+                        throw new InvalidOperationException("Tham số '" + name + "' của cọc " +
+                            pile.Id.Value + " không phải Length có giá trị.");
                     double diameter = p.AsDouble();
                     if (!Valid(diameter) || diameter <= 0)
                         throw new InvalidOperationException("Đường kính cọc " + pile.Id.Value +
-                            " bằng 0, âm hoặc không hợp lệ.");
-                    return diameter;
+                            " không hợp lệ.");
+                    matches.Add(Tuple.Create(name, diameter));
                 }
             }
-            throw new InvalidOperationException("Cọc " + pile.Id.Value +
-                " không có tham số đường kính Length (D Coc / Diameter / Đường kính / D). " +
-                "Không được suy đoán D Coc từ BoundingBox hoặc mặc định 300 mm.");
+            if (matches.Count == 0)
+                throw new InvalidOperationException("Không tìm thấy tham số đường kính Length của cọc " +
+                    pile.Id.Value + ". Chọn tên tham số đường kính thật trong giao diện KStruct; không dùng BoundingBox.");
+            double first = matches[0].Item2;
+            foreach (var candidate in matches.Skip(1))
+                if (!Near(first, candidate.Item2))
+                    throw new InvalidOperationException("Cọc " + pile.Id.Value +
+                        " có nhiều tham số đường kính mâu thuẫn (" +
+                        string.Join(", ", matches.Select(x => x.Item1)) +
+                        "). Hãy chỉ định một tên tham số chính xác.");
+            return first;
         }
 
         internal static FamilySymbol ResolveSymbol(Document doc, FamilySymbol requested, double diameter)
@@ -57,9 +67,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (Near(current.AsDouble(), diameter)) return requested;
 
             double mm = UnitUtils.ConvertFromInternalUnits(diameter, UnitTypeId.Millimeters);
-            string suffix = Math.Round(mm, 1, MidpointRounding.AwayFromZero)
-                .ToString("0.0", CultureInfo.InvariantCulture).Replace(".", "_");
-            string typeName = "KStruct_Coc2D_D" + suffix + "mm";
+            string typeName = FootingPileSectionPolicy.TypeName(mm);
             FamilySymbol target = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol))
                 .Cast<FamilySymbol>()
                 .FirstOrDefault(s => s.Family.Id.Value == requested.Family.Id.Value &&
@@ -102,7 +110,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
         private static bool Near(double a, double b) =>
             Valid(a) && Valid(b) &&
-            Math.Abs(UnitUtils.ConvertFromInternalUnits(a - b, UnitTypeId.Millimeters)) <= ToleranceMm;
+            FootingPileSectionPolicy.DiameterMatches(
+                UnitUtils.ConvertFromInternalUnits(a, UnitTypeId.Millimeters),
+                UnitUtils.ConvertFromInternalUnits(b, UnitTypeId.Millimeters));
 
         private static bool Valid(double x) => !double.IsNaN(x) && !double.IsInfinity(x);
     }
