@@ -11,6 +11,55 @@
                       Checked="Enable_Changed"
                       Unchecked="Enable_Changed"/>
 
+            <!-- Phase 1: read-only inspection of the current column stack. This
+                 section is deliberately available before enabling Sheet creation. -->
+            <GroupBox Header="GIAI ĐOẠN 1 — NHẬN DIỆN TUYẾN CỘT VÀ VỊ TRÍ MẶT CẮT"
+                      Padding="10" Margin="0,0,0,12" BorderBrush="#FF9DBCB5">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" Content="Quét lại từ mô hình"
+                                MinWidth="140" Padding="10,5" Click="RefreshAnalysis_Click"/>
+                        <StackPanel>
+                            <TextBlock x:Name="AnalysisSummary" FontWeight="SemiBold"
+                                       Foreground="#FF275F59" Text="Chưa phân tích tuyến cột."/>
+                            <TextBlock Text="Chỉ đọc cấu kiện và Rebar hiện có; chưa tạo hoặc thay đổi bản vẽ."
+                                       Foreground="#FF52646A" FontSize="11" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <DataGrid x:Name="ColumnAnalysisGrid" AutoGenerateColumns="False"
+                              CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" MaxHeight="220" MinHeight="112"
+                              SelectionMode="Single" AlternatingRowBackground="#FFF1F7F5"
+                              GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Tầng" Binding="{Binding Floor}" Width="100"/>
+                            <DataGridTextColumn Header="Cao độ" Binding="{Binding Elevation}" Width="150"/>
+                            <DataGridTextColumn Header="Tiết diện" Binding="{Binding Size}" Width="105"/>
+                            <DataGridTextColumn Header="Thép chủ" Binding="{Binding MainBars}" Width="100"/>
+                            <DataGridTextColumn Header="Đai đầu/giữa" Binding="{Binding Ties}" Width="125"/>
+                            <DataGridTextColumn Header="Rebar Set/đối tượng" Binding="{Binding ExistingRebarElements}" Width="125"/>
+                            <DataGridTextColumn Header="Vị trí thanh" Binding="{Binding ExistingBarPositions}" Width="88"/>
+                            <DataGridTextColumn Header="Mặt cắt đề xuất" Binding="{Binding ProposedSections}" Width="180"/>
+                            <DataGridTextColumn Header="Trạng thái" Binding="{Binding State}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Grid Margin="0,9,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <GroupBox Header="Vị trí mặt cắt ngang dự kiến" Padding="7" Margin="0,0,6,0">
+                            <ListBox x:Name="ProposedSectionList" Height="112"
+                                     BorderThickness="0" FontSize="11"/>
+                        </GroupBox>
+                        <GroupBox Grid.Column="1" Header="Lưu ý kiểm tra trước khi tạo Sheet" Padding="7" Margin="6,0,0,0">
+                            <TextBlock x:Name="AnalysisNotes" TextWrapping="Wrap" FontSize="11"
+                                       Text="Vị trí cắt đang là đề xuất. Cần xác nhận số thanh, vị trí nối/neo và Rebar Set ở cao độ thực tế."/>
+                        </GroupBox>
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
+
             <StackPanel x:Name="SettingsPanel" IsEnabled="False">
                 <GroupBox Header="Tên theo Mark" Padding="10" Margin="0,0,0,12">
                     <StackPanel>
