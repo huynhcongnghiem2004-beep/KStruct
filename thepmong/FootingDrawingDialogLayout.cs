@@ -25,6 +25,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _reverseX = new CheckBox { Content = "Đảo chiều A–A" };
         private readonly CheckBox _reverseY = new CheckBox { Content = "Đảo chiều B–B" };
         private readonly TextBox _sectionDepth = new TextBox { Text = "1200" };
+        private readonly CheckBox _autoSectionX = new CheckBox
+            { Content = "Tự căn A–A qua hàng tim cọc thực (bỏ qua Offset)", IsChecked = true };
+        private readonly CheckBox _autoSectionY = new CheckBox
+            { Content = "Tự căn B–B qua hàng tim cọc thực (bỏ qua Offset)", IsChecked = true };
         private readonly TextBox _sectionXOffset = new TextBox { Text = "0" };
         private readonly TextBox _sectionYOffset = new TextBox { Text = "0" };
         private readonly TextBox _dimOffset = new TextBox { Text = "8" };
@@ -114,7 +118,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Field(view, "Detail Type (A–A / B–B)", _detailType); Field(view, "Template mặt cắt", _sectionTemplate);
             Field(view, "Tỷ lệ mặt cắt 1:", _sectionScale);
             Field(view, "Chiều sâu nhìn (mm)", _sectionDepth);
+            view.Children.Add(_autoSectionX);
             Field(view, "A–A: lệch theo Y (mm)", _sectionXOffset); view.Children.Add(_reverseX);
+            view.Children.Add(_autoSectionY);
             Field(view, "B–B: lệch theo X (mm)", _sectionYOffset); view.Children.Add(_reverseY);
             view.Children.Add(Note("A–A chứa trục X/Z; B–B chứa Y/Z của móng. Mốc offset là tâm hình học móng. Preview là sơ đồ, cần kiểm tra đồ họa trong Revit."));
             AddTab(tabs, "View", view);
@@ -202,7 +208,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             footer.Children.Add(Note("Cấu hình được lưu khi tạo • Cancel không đổi mô hình")); Grid.SetRow(footer, 3); root.Children.Add(footer);
             foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
                 box.TextChanged += (s, e) => RefreshPreviews();
-            foreach (CheckBox box in new[] { _fourSides, _reverseX, _reverseY, _newSheet })
+            foreach (CheckBox box in new[] { _fourSides, _reverseX, _reverseY, _newSheet, _autoSectionX, _autoSectionY })
             { box.Checked += (s, e) => RefreshPreviews(); box.Unchecked += (s, e) => RefreshPreviews(); }
             _previewHost = footings.FirstOrDefault();
             return root;
@@ -257,8 +263,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             foreach (TextBox box in new[] { _breakPadding, _sectionDepth, _sectionXOffset, _sectionYOffset, _dimOffset, _dimGap, _reserveRight, _reserveBottom, _sheetMargin })
             {
                 if ((!AnyDetailSelected && box == _sectionDepth) ||
-                    (box == _sectionXOffset && _detailA.IsChecked != true) ||
-                    (box == _sectionYOffset && _detailB.IsChecked != true)) continue;
+                    (box == _sectionXOffset && (_detailA.IsChecked != true || _autoSectionX.IsChecked == true)) ||
+                    (box == _sectionYOffset && (_detailB.IsChecked != true || _autoSectionY.IsChecked == true))) continue;
                 double value = ParseDouble(box.Text, double.NaN);
                 if (double.IsNaN(value) || double.IsInfinity(value) ||
                     (box != _sectionXOffset && box != _sectionYOffset && value < 0))
