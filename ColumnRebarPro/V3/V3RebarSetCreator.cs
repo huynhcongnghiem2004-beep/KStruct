@@ -199,11 +199,14 @@ namespace ColumnRebarPro.V3
             double tx = g.Width / 2 - inset, ty = g.Depth / 2 - inset;
             int level = 0;
             // No hard-coded RebarShape ID: Revit matches the project library using curves.
-            // Exclude every tie center located inside a proven beam/floor
-            // intersection with the column, splitting sets across joint gaps.
-            // A geometric intersection is required; no height-only assumptions.
-            var exclusions = V4TieJointExclusion.Find(doc, item);
-            var safeBands = V4TieBandExclusion.KeepOutside(TiePlan(item), exclusions);
+            // The operator controls whether ties continue through framing joints.
+            // Excluding positions is never inferred as an engineering requirement.
+            var exclusions = c.ShowJointTies
+                ? new List<Tuple<double, double>>()
+                : V4TieJointExclusion.Find(doc, item);
+            var plannedBands = TiePlan(item);
+            var safeBands = V4TieBandExclusion.KeepOutside(plannedBands, exclusions);
+            V4TieBandExclusion.RequireAtLeastOneTie(plannedBands, safeBands);
             if (safeBands.Any(b => b.Count < 2))
                 throw new InvalidOperationException("Cột " + item.Column.Id.Value +
                     ": vùng giao làm còn một đai đơn lẻ; không thể tạo Rebar Set Maximum Spacing. " +

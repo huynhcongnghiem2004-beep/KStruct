@@ -80,9 +80,28 @@ static class Program
         Check(V4TieBandExclusion.KeepOutside(jointSource,
             new[] { Tuple.Create(0.0,600.0) }).Count==0,
             "Entirely intersected joint cannot create a tie");
+        Reject(() => V4TieBandExclusion.RequireAtLeastOneTie(jointSource,
+            V4TieBandExclusion.KeepOutside(jointSource, new[] { Tuple.Create(0.0,600.0) })));
+        V4TieBandExclusion.RequireAtLeastOneTie(jointSource, split);
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(double.NaN, 300.0) }));
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(400.0, 300.0) }));
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(0.0, double.PositiveInfinity) }));
         Check(V4TieBandExclusion.KeepOutside(jointSource,
             new Tuple<double,double>[0]).Single().Count==7,
             "No intersection preserves all seven ties");
+        // The node-tie option is persisted with the same V4 per-floor profile.
+        var nodeConfig = new V3RebarConfig { ShowJointTies = false };
+        Check(!nodeConfig.Copy().ShowJointTies, "Disabled joint ties survive profile copy");
+        using (var nodeWriter = new System.IO.StringWriter())
+        {
+            new System.Xml.Serialization.XmlSerializer(typeof(V3RebarConfig)).Serialize(nodeWriter, nodeConfig);
+            var nodeRead = V3LegacySplice.Read(new System.IO.StringReader(nodeWriter.ToString()));
+            Check(!nodeRead.ShowJointTies, "Disabled joint ties survive XML profile");
+        }
+        Check(new V3RebarConfig().ShowJointTies, "New V4 profiles retain joint ties by default");
         var typeA = new V3RebarConfig { TieStyle=V3TieStyle.Hook135, TieDiameter=8,
             TieBarTypeUniqueId="D8a", TieHook135UniqueId="H135",
             TieLayout=V3TieLayout.MaximumSpacing };

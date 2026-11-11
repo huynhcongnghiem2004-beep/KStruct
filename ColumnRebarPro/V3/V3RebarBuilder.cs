@@ -83,9 +83,9 @@ namespace ColumnRebarPro.V3
             if (works == null || works.Count == 0) return report;
             foreach (var work in works) V3LegacySplice.ValidateForCreation(work.Config);
             if (works.Any(work => work.Config.Splice != V3SpliceStyle.None || work.Config.StaggerSplices ||
-                work.HasNext || work.HasPrevious ||
-                work.TransitionUp != null || work.TransitionDown != null))
-                throw new InvalidOperationException("Không thể tạo nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
+                work.TransitionUp != null || work.TransitionDown != null ||
+                (work.BottleneckToUpper && work.ConnectionPlan == null)))
+                throw new InvalidOperationException("Thiếu cấu tạo chuyển tiếp hoặc nối không được hỗ trợ; cần chi tiết đã duyệt.");
 
             ValidateProjectTypes(doc,works);
             var types = new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();

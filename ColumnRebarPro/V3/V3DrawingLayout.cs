@@ -48,20 +48,70 @@ namespace ColumnRebarPro.V3
             foreach(var w in works) { Annotate(doc,w,longitudinal,"Long"); ZoneDetail(doc,w,longitudinal); StarterDim(doc,w,longitudinal); }
             BreakLines(doc,works,longitudinal);
             DrawBarShapes(doc,works,longitudinal,aggregate);
-            // Đánh số mặt cắt từ chân lên đỉnh: tầng dưới = 2-2, tầng trên = 3-3 (như bản vẽ mẫu)
+            // Reference all BASE/MID/NODE views on the longitudinal section.
             var ordered=works.OrderBy(w=>w.Geometry.Bottom).ToList();
-            for(int i=0;i<ordered.Count;i++)SectionMarks(doc,longitudinal,ordered[i],i+2);
+            for(int i=0;i<ordered.Count;i++)
+            {
+                var w=ordered[i];
+                double inset=Math.Min(V3Units.Ft(100),w.Geometry.Height*0.12);
+                double[] elevations={
+                    w.Geometry.Bottom+inset,
+                    w.Geometry.Bottom+w.Geometry.Height/2,
+                    w.Geometry.Top-inset
+                };
+                for(int j=0;j<elevations.Length;j++)
+                    SectionMarks(doc,longitudinal,w,i*3+j+2,elevations[j]);
+            }
             FitCrop(doc,longitudinal);
             var sections=new List<View>();int index=2;
             foreach(var w in ordered)
             {
-                var cross=Section(doc,w,"Cross",w.Geometry.Bottom+w.Geometry.Height/2,w.Geometry.Top);
-                cross.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set("MC: "+index+"-"+index);
-                doc.Regenerate();Annotate(doc,w,cross,"Cross");
-                if(B("CrossShowValue"))SectionTable(doc,w,cross);
-                FitCrop(doc,cross);
-                sections.Add(cross);index++;
+                // Each story has three true horizontal cuts, not three duplicated mid-height views.
+                double height=w.Geometry.Height;
+                double inset=Math.Min(V3Units.Ft(100),height*0.12);
+                var levels=new[]{
+                    Tuple.Create("BASE",w.Geometry.Bottom+inset),
+                    Tuple.Create("MID",w.Geometry.Bottom+height/2),
+                    Tuple.Create("NODE",w.Geometry.Top-inset)
+                };
+                foreach(var level in levels)
+                {
+                    var cross=Section(doc,w,"Cross",level.Item2,w.Geometry.Top);
+                    cross.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set(
+                        "MC: "+index+"-"+index+" "+level.Item1);
+                    doc.Regenerate();Annotate(doc,w,cross,"Cross");
+                    if(B("CrossShowValue") && level.Item1=="MID")SectionTable(doc,w,cross);
+                    FitCrop(doc,cross);
+                    sections.Add(cross);index++;
+                }
             }
+            // A real 3D rebar view belongs to the generated sheet, not a disposable preview.
+            var threeDType = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType))
+                .Cast<ViewFamilyType>().FirstOrDefault(type => type.ViewFamily == ViewFamily.ThreeDimensional);
+            if (threeDType == null)
+                throw new InvalidOperationException("Không có ViewFamilyType 3D để tạo View thép cột.");
+            var rebar3D = View3D.CreateIsometric(doc, threeDType.Id);
+            rebar3D.Name = UniqueViewName(doc, "KSTR V3 3D " + first.Column.Id.Value + " - DRAFT");
+            double boxMargin = V3Units.Ft(200);
+            // The section box is world-axis aligned. The radius encloses columns
+            // rotated relative to project X/Y; a local Width/Depth box would crop them.
+            double radius = Math.Sqrt(aggregate.Width*aggregate.Width +
+                aggregate.Depth*aggregate.Depth)/2 + boxMargin;
+            rebar3D.SetSectionBox(new BoundingBoxXYZ {
+                Min = new XYZ(aggregate.Center.X-radius, aggregate.Center.Y-radius, aggregate.Bottom-boxMargin),
+                Max = new XYZ(aggregate.Center.X+radius, aggregate.Center.Y+radius, aggregate.Top+boxMargin)
+            });
+            rebar3D.IsSectionBoxActive = true;
+            rebar3D.DetailLevel = ViewDetailLevel.Fine;
+            foreach (var bar in new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>())
+            {
+                if (!partitions.Contains(bar.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString()))
+                    continue;
+                bar.SetUnobscuredInView(rebar3D, true);
+                // Revit 2024's Rebar API does not expose SetSolidInView.
+                // Unobscured visibility is supported; solid appearance depends on View detail/style.
+            }
+            sections.Add(rebar3D);
             string stackMark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string markName=string.IsNullOrWhiteSpace(stackMark)?("C"+first.Column.Id.Value):stackMark.Trim();
             string stackName=B("UseMarkForStackName")?markName:("TUYEN COT "+first.Column.Id.Value);
@@ -73,8 +123,64 @@ namespace ColumnRebarPro.V3
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
+            CreateStackSchedules(doc, sheet, ordered);
             V4SheetOwnership.Stamp(doc, sheet, works);
             result.Add(sheet.Id);return result;
+        }
+
+        // Each native Rebar Schedule is filtered to exactly one KStruct column
+        // partition. Never reuse an unfiltered project-wide schedule.
+        private static void CreateStackSchedules(Document doc, ViewSheet sheet,
+            IList<V3SegmentWork> works)
+        {
+            var fields = new[] {
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_SCHEDULE_MARK, "Mã thép"),
+                Tuple.Create(BuiltInParameter.REBAR_BAR_DIAMETER, "Đường kính"),
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_LENGTH, "Chiều dài"),
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_QUANTITY_OF_BARS, "Số thanh"),
+                Tuple.Create(BuiltInParameter.REBAR_ELEM_TOTAL_LENGTH, "Tổng chiều dài")
+            };
+            double mm = V3Units.Ft(1);
+            double x = sheet.Outline.Max.U - mm * 90;
+            double y = sheet.Outline.Max.V - mm * 35;
+            foreach (var work in works)
+            {
+                var schedule = ViewSchedule.CreateSchedule(doc,
+                    new ElementId(BuiltInCategory.OST_Rebar));
+                schedule.Name = UniqueViewName(doc,
+                    "KSTR V4 BBS " + work.Column.Id.Value + " - DRAFT");
+                var definition = schedule.Definition;
+                definition.IsItemized = false;
+                var available = definition.GetSchedulableFields();
+                var partitionField = available.FirstOrDefault(f =>
+                    f.ParameterId == new ElementId(BuiltInParameter.NUMBER_PARTITION_PARAM));
+                if (partitionField == null)
+                    throw new InvalidOperationException(
+                        "Project không hỗ trợ lọc Rebar Schedule theo Partition.");
+                var partition = definition.AddField(partitionField);
+                partition.IsHidden = true;
+                definition.AddFilter(new ScheduleFilter(partition.FieldId,
+                    ScheduleFilterType.Equal, V3RebarBuilder.Partition(work.Column.Id)));
+                int count = 0;
+                foreach (var item in fields)
+                {
+                    var candidate = available.FirstOrDefault(f =>
+                        f.ParameterId == new ElementId(item.Item1));
+                    if (candidate == null) continue;
+                    var field = definition.AddField(candidate);
+                    field.ColumnHeading = item.Item2;
+                    count++;
+                }
+                if (count == 0)
+                    throw new InvalidOperationException(
+                        "Không có trường BBS phù hợp trong Rebar Schedule.");
+                doc.Regenerate();
+                var instance = ScheduleSheetInstance.Create(doc, sheet.Id, schedule.Id,
+                    new XYZ(x, y, 0));
+                doc.Regenerate();
+                var bounds = instance.get_BoundingBox(sheet);
+                y = bounds != null ? bounds.Min.Y - mm * 12 : y - mm * 90;
+            }
         }
 
         // Hai chuỗi Dim bên trái cột: chuỗi trong = từng vùng đai (kể cả đoạn lớp bảo vệ hai đầu),
@@ -131,10 +237,10 @@ namespace ColumnRebarPro.V3
         }
 
         // Vạch cắt đỏ nét đứt ngang cột, hai đầu có tam giác đặc (mũi xuống) và số hiệu đỏ: "2 ▼----▼ 2".
-        private void SectionMarks(Document doc,View view,V3SegmentWork w,int index)
+        private void SectionMarks(Document doc,View view,V3SegmentWork w,int index,double cutElevation)
         {
             var g=w.Geometry;
-            XYZ center=Project(view,g.At(0,0,0))+XYZ.BasisZ*(g.Bottom+g.Height/2);
+            XYZ center=Project(view,g.At(0,0,0))+XYZ.BasisZ*cutElevation;
             XYZ left=center-view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkLeft));
             XYZ right=center+view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkRight));
             var dash=V3DrawStyle.Line(doc,"KSTR Vạch cắt",new Color(255,0,0),2,"Dash");

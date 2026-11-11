@@ -59,8 +59,9 @@ namespace ColumnRebarPro.V3
                 var lower = works[i - 1]; var upper = works[i];
                 if (upper.Geometry.Bottom < lower.Geometry.Top - V3Units.Ft(2))
                     throw new InvalidOperationException("Tuyến có cột chồng lấn chiều cao. Kiểm tra cột trùng hoặc chọn lại tuyến.");
-                if (lower.HasNext || upper.HasPrevious || lower.TransitionUp != null || upper.TransitionDown != null)
-                    throw new InvalidOperationException("Không thể tạo nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
+                if (lower.TransitionUp != null || upper.TransitionDown != null ||
+                    (lower.BottleneckToUpper && lower.ConnectionPlan == null))
+                    throw new InvalidOperationException("Thiếu phương án chuyển tiếp đã kiểm tra giữa hai tầng.");
             }
         }
         public static string Notice =
