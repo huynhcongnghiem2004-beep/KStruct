@@ -50,6 +50,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _pileSection2D = new CheckBox
             { Content = "Đặt Detail Component Cọc 2D tại vị trí cọc thật trên Detail-X / Detail-Y" };
         private readonly ComboBox _pileSectionFamily = new ComboBox { MinWidth = 260 };
+        private readonly TextBox _pileDiameterParameter = new TextBox { Text = "" };
+        private readonly TextBox _pileFamilyFilter = new TextBox { Text = "cọc,coc,pile" };
+        private readonly CheckBox _pileOriginConfirmed = new CheckBox
+            { Content = "Đã kiểm tra tim nét vẽ tại gốc Family 2D trong Family Editor", IsChecked = false };
         private readonly CheckBox _planSizeConfirmed = new CheckBox { Content = "Tôi đã kiểm tra ánh xạ với Family Types (bắt buộc)", IsChecked = false };
         private readonly TextBox _planCoverMm = new TextBox { Text = "0" };
         private readonly TextBox[] _planExpressions = new [] {
@@ -148,7 +152,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _usePlanDetail.Checked += (s, e) => { _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = true; };
             _usePlanDetail.Unchecked += (s, e) => { _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = false; };
             _planTopDetail.IsEnabled = _planBotDetail.IsEnabled = false;
-            _pileSection2D.IsChecked = _pileSectionFamily.SelectedItem != null;
+            // Only explicit user action or a saved opt-in profile may enable this feature.
+            _pileSection2D.IsChecked = false;
             _pileSection2D.Checked += (s, e) => _pileSectionFamily.IsEnabled = true;
             _pileSection2D.Unchecked += (s, e) => _pileSectionFamily.IsEnabled = false;
             _pileSectionFamily.IsEnabled = _pileSection2D.IsChecked == true;
@@ -379,6 +384,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             PlanTopDetailTypeUniqueId = Selected(_planTopDetail)?.UniqueId,
             PlanBotDetailTypeUniqueId = Selected(_planBotDetail)?.UniqueId,
             CreatePileSectionSymbols = _pileSection2D.IsChecked == true,
+            PileSymbolOriginConfirmed = _pileOriginConfirmed.IsChecked == true,
+            PileDiameterParameterName = _pileDiameterParameter.Text?.Trim() ?? "",
+            PileFamilyFilter = _pileFamilyFilter.Text?.Trim() ?? "",
             PileSectionDetailTypeUniqueId = Selected(_pileSectionFamily)?.UniqueId,
             PileSymbolOffsetXmm = 0, PileSymbolOffsetYmm = 0,
             RebarMultiTagTypeName = TypeName(Selected(_rebarTag)), RebarMultiTagTypeUniqueId = Selected(_rebarTag)?.UniqueId,
@@ -418,6 +426,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _planTopDetail.SelectedItem = _planTopDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanTopDetailTypeUniqueId);
             _planBotDetail.SelectedItem = _planBotDetail.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.PlanBotDetailTypeUniqueId);
             _pileSection2D.IsChecked = p.CreatePileSectionSymbols;
+            _pileOriginConfirmed.IsChecked = p.PileSymbolOriginConfirmed;
+            _pileDiameterParameter.Text = p.PileDiameterParameterName ?? "";
+            _pileFamilyFilter.Text = p.PileFamilyFilter ?? "cọc,coc,pile";
             _pileSectionFamily.SelectedItem = _pileSectionFamily.Items.Cast<Item>()
                 .FirstOrDefault(x => x.Element?.UniqueId == p.PileSectionDetailTypeUniqueId);
             _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
@@ -430,7 +441,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _reserveRight.Text = p.SheetRightReserveMm.ToString("0.##"); _reserveBottom.Text = p.SheetBottomReserveMm.ToString("0.##");
             _sheetMargin.Text = p.SheetMarginMm.ToString("0.##");
             if (!string.IsNullOrWhiteSpace(p.SourceViewUniqueId))
-                _sourcePlan.SelectedItem = _sourcePlan.Items.Cast<Item>().FirstOrDefault(x => x.Element?.UniqueId == p.SourceViewUniqueId);
+            {
+                var recovered = _sourcePlan.Items.Cast<Item>()
+                    .FirstOrDefault(x => x.Element?.UniqueId == p.SourceViewUniqueId);
+                // Preserve the current valid source plan when an old saved UniqueId was removed.
+                if (recovered != null) _sourcePlan.SelectedItem = recovered;
+            }
+            if (Selected(_sourcePlan) == null)
+            {
+                var current = _sourcePlan.Items.Cast<Item>()
+                    .FirstOrDefault(x => x.Element?.Id.Value == _parent?.Id.Value);
+                if (current != null) _sourcePlan.SelectedItem = current;
+            }
             SelectBy(_planType, p.PlanTypeName); SelectBy(_detailType, p.DetailTypeName);
             if (string.IsNullOrWhiteSpace(p.DetailTypeName) && !string.IsNullOrWhiteSpace(p.SectionTypeName)) _detailType.SelectedIndex = -1;
             SelectByPair(_titleBlock, p.TitleBlockFamily, p.TitleBlockType);
@@ -550,6 +572,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 { MessageBox.Show(this, "Hãy chọn Family BS_FM_Detail Cọc 2D dạng ViewBased (đặt bằng điểm).", "Thiếu Family Cọc 2D"); return; }
                 if (!AnyDetailSelected)
                 { MessageBox.Show(this, "Phải bật Detail A–A hoặc B–B để đặt ký hiệu Cọc 2D.", "Thiếu View Detail"); return; }
+                if (_pileOriginConfirmed.IsChecked != true)
+                { MessageBox.Show(this, "Phải mở Family Editor và xác nhận nét tim BS_FM_Detail Cọc 2D nằm tại gốc đặt Family. Không thể suy ra từ tên tham số.", "Chưa xác nhận tim Family"); return; }
+                if (string.IsNullOrWhiteSpace(_pileFamilyFilter.Text) ||
+                    _pileFamilyFilter.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries).Length == 0)
+                { MessageBox.Show(this, "Nhập từ khóa Family cọc để KStruct nhận diện cọc thật.", "Thiếu bộ lọc cọc"); return; }
             }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
