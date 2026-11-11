@@ -255,7 +255,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                 }
             }
-            if (!(config.Profile.UsePlanDetailComponents && view is ViewPlan))
+            if (config.Profile.UsePlanDetailComponents && view is ViewPlan plan &&
+                (role == "Plan-Top" || role == "Plan-Bot"))
+                FootingPlanRebarAnnotationBuilder.Refresh(doc, plan, footing, role == "Plan-Top", config.Profile, warnings);
+            else
                 FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
         }
 
@@ -400,8 +403,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 (role.EndsWith("Top", StringComparison.OrdinalIgnoreCase) || role.EndsWith("Bot", StringComparison.OrdinalIgnoreCase)))
             {
                 FootingDrawingProfile saved = FootingDrawingDetailState.Read(view, footing, out IList<string> ignoredSections);
-                FootingDrawingVisibility.Configure(plan, footing, role.EndsWith("Top", StringComparison.OrdinalIgnoreCase),
-                    saved?.ApplyViewTemplatesOnce ?? true, warnings ?? new List<string>());
+                // The Detail Item mode deliberately hides the native Rebar only in generated plan views.
+                // Do not re-enable Rebar or alter view filters when recomputing the crop.
+                if (saved == null || !saved.UsePlanDetailComponents)
+                    FootingDrawingVisibility.Configure(plan, footing, role.EndsWith("Top", StringComparison.OrdinalIgnoreCase),
+                        saved?.ApplyViewTemplatesOnce ?? true, warnings ?? new List<string>());
             }
         }
         private static void PlaceViewports(Document doc, ViewSheet sheet, IList<View> views, int batchIndex, IList<string> warnings)
