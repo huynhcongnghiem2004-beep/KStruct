@@ -69,8 +69,14 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string FootingKindMode { get; set; } = "Auto";
         // Opt-in for old projects: only use a loaded point-placeable Detail Item family.
         public bool CreatePileSectionSymbols { get; set; }
+        // Explicit user verification of view-based Family graphical origin (not only LocationPoint).
+        public bool PileSymbolOriginConfirmed { get; set; }
+        // Empty parameter name: only unique, clearly named diameter parameters are accepted.
+        public string PileDiameterParameterName { get; set; } = "";
+        // Allows families with project-specific pile naming without guessing element geometry.
+        public string PileFamilyFilter { get; set; } = "cọc,coc,pile";
         public string PileSectionDetailTypeUniqueId { get; set; }
-        // Optional insertion-point calibration in section axes (mm); never edit shared Type params.
+        // Legacy XML fields only: manual offsets are ignored for new placements.
         public double PileSymbolOffsetXmm { get; set; }
         public double PileSymbolOffsetYmm { get; set; }
         public bool AnnotateBot { get; set; } = true;
