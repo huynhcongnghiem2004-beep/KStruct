@@ -50,8 +50,6 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly CheckBox _pileSection2D = new CheckBox
             { Content = "Đặt Detail Component Cọc 2D tại vị trí cọc thật trên Detail-X / Detail-Y" };
         private readonly ComboBox _pileSectionFamily = new ComboBox { MinWidth = 260 };
-        private readonly TextBox _pileSectionOffsetX = new TextBox { Text = "0" };
-        private readonly TextBox _pileSectionOffsetY = new TextBox { Text = "0" };
         private readonly CheckBox _planSizeConfirmed = new CheckBox { Content = "Tôi đã kiểm tra ánh xạ với Family Types (bắt buộc)", IsChecked = false };
         private readonly TextBox _planCoverMm = new TextBox { Text = "0" };
         private readonly TextBox[] _planExpressions = new [] {
@@ -382,8 +380,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             PlanBotDetailTypeUniqueId = Selected(_planBotDetail)?.UniqueId,
             CreatePileSectionSymbols = _pileSection2D.IsChecked == true,
             PileSectionDetailTypeUniqueId = Selected(_pileSectionFamily)?.UniqueId,
-            PileSymbolOffsetXmm = ParseDouble(_pileSectionOffsetX.Text, double.NaN),
-            PileSymbolOffsetYmm = ParseDouble(_pileSectionOffsetY.Text, double.NaN),
+            PileSymbolOffsetXmm = 0, PileSymbolOffsetYmm = 0,
             RebarMultiTagTypeName = TypeName(Selected(_rebarTag)), RebarMultiTagTypeUniqueId = Selected(_rebarTag)?.UniqueId,
             FoundationTagFamily = FamilyName(Selected(_foundationTag)), FoundationTagType = TypeName(Selected(_foundationTag)),
             DimensionTypeName = TypeName(Selected(_dimension)), OutputLayers = _topLayer.IsChecked == true ? (_bottomLayer.IsChecked == true ? "Both" : "Top") : (_bottomLayer.IsChecked == true ? "Bot" : "None"),
@@ -423,8 +420,6 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _pileSection2D.IsChecked = p.CreatePileSectionSymbols;
             _pileSectionFamily.SelectedItem = _pileSectionFamily.Items.Cast<Item>()
                 .FirstOrDefault(x => x.Element?.UniqueId == p.PileSectionDetailTypeUniqueId);
-            _pileSectionOffsetX.Text = p.PileSymbolOffsetXmm.ToString(System.Globalization.CultureInfo.CurrentCulture);
-            _pileSectionOffsetY.Text = p.PileSymbolOffsetYmm.ToString(System.Globalization.CultureInfo.CurrentCulture);
             _beamBreaks.IsChecked = p.CreateBeamBreakLines; _reverseBreak.IsChecked = p.ReverseBreakLineMask;
             _breakPadding.Text = p.BreakLinePaddingPaperMm.ToString("0.##"); SelectByPair(_breakLine, p.BreakLineFamily, p.BreakLineType);
             _fourSides.IsChecked = p.DimensionFourSides;
@@ -555,9 +550,6 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 { MessageBox.Show(this, "Hãy chọn Family BS_FM_Detail Cọc 2D dạng ViewBased (đặt bằng điểm).", "Thiếu Family Cọc 2D"); return; }
                 if (!AnyDetailSelected)
                 { MessageBox.Show(this, "Phải bật Detail A–A hoặc B–B để đặt ký hiệu Cọc 2D.", "Thiếu View Detail"); return; }
-                if (!(!double.IsNaN(ParseDouble(_pileSectionOffsetX.Text, double.NaN)) && !double.IsInfinity(ParseDouble(_pileSectionOffsetX.Text, double.NaN))) ||
-                    !(!double.IsNaN(ParseDouble(_pileSectionOffsetY.Text, double.NaN)) && !double.IsInfinity(ParseDouble(_pileSectionOffsetY.Text, double.NaN))))
-                { MessageBox.Show(this, "Offset ký hiệu Cọc 2D phải là số mm hợp lệ.", "Sai Offset"); return; }
             }
             ViewPlan source = Selected(_sourcePlan) as ViewPlan;
             if (_callouts.IsChecked == true && source == null)
