@@ -75,7 +75,7 @@ User-approved decisions:
 - Generate BASE/MID/NODE cross-sections per storey and one native 3D rebar view on the sheet; longitudinal reference numbers match MID views.
 
 **Unfinished acceptance gates**
-- The combined column-line bending schedule is still not created/placed automatically. Existing generic Rebar Schedule command is not scoped to the selected stack. Never place an unfiltered project-wide schedule on a column-specific sheet.
+- The drawing pipeline now creates native Revit BBS schedules **per column**, filtered by each column's KStruct Partition, and places them on the sheet. A consolidated bending/weight reconciliation and safe presentation/layout remain pending Revit runtime acceptance.
 - Three-level cut views, 3D visibility, multipart reinforcement connections, sheet annotation preservation and dimension references require an actual Revit 2024 project run.
 - Default joint-tie geometry is a presentation/detailing choice only; node reinforcement requires structural engineer approval.
 - Revit runtime TC-01..TC-13 status remains NOT ACCEPTED until instrumented RVT tests are recorded.
