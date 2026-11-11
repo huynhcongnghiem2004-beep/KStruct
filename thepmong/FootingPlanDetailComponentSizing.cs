@@ -29,14 +29,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
             double b = UnitUtils.ConvertFromInternalUnits(local.Max.X - local.Min.X, UnitTypeId.Millimeters);
             double h = UnitUtils.ConvertFromInternalUnits(local.Max.Y - local.Min.Y, UnitTypeId.Millimeters);
             double c = profile.PlanDetailCoverMm;
-            // Rebar graphics are drawn on bar centerlines; concrete clear cover refers
-            // to the bar OUTER face, so nominal graphic inset = clear cover + diameter/2.
+            double spanX = 0, spanY = 0;
+            // L uses the X-direction bars; W uses the Y-direction bars.
+            // Clear cover is to their OUTER faces, so add half the actual diameter.
             if (profile.PlanDetailAlignToCover)
             {
                 var cover = FootingPlanCoverResolver.Read(doc, footing, profile, top, warnings);
-                c = FootingPlanDetailMath.ClearCoverToBarCenter(cover.Item1, cover.Item2);
-                FootingPlanDetailMath.AlignedSpan(b, cover.Item1, cover.Item2);
-                FootingPlanDetailMath.AlignedSpan(h, cover.Item1, cover.Item2);
+                c = cover.Item1;
+                spanX = FootingPlanDetailMath.AlignedSpan(b, c, cover.Item2);
+                spanY = FootingPlanDetailMath.AlignedSpan(h, c, cover.Item3);
             }
             if (!Finite(b) || !Finite(h) || b <= 0 || h <= 0 || !Finite(c) || c < 0 ||
                 c * 2 >= Math.Min(b, h))
@@ -46,8 +47,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 // Structural alignment overrides legacy full-footing dimensions L=B/W=H.
                 // The Family's L/W must control the line-to-line rebar envelope.
-                mapping[0] = "B-2*C";
-                mapping[1] = "H-2*C";
+                mapping[0] = spanX.ToString("R", CultureInfo.InvariantCulture);
+                mapping[1] = spanY.ToString("R", CultureInfo.InvariantCulture);
             }
             var desired = new List<Tuple<string, Parameter, double>>();
             for (int i = 0; i < Names.Length; i++)
