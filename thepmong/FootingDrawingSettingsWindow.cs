@@ -191,8 +191,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
         private void RefreshPreviews()
         {
-            _sectionXOffset.IsEnabled = _reverseX.IsEnabled = _detailA.IsChecked == true;
-            _sectionYOffset.IsEnabled = _reverseY.IsEnabled = _detailB.IsChecked == true;
+            _autoSectionX.IsEnabled = _reverseX.IsEnabled = _detailA.IsChecked == true;
+            _autoSectionY.IsEnabled = _reverseY.IsEnabled = _detailB.IsChecked == true;
+            _sectionXOffset.IsEnabled = _detailA.IsChecked == true && _autoSectionX.IsChecked != true;
+            _sectionYOffset.IsEnabled = _detailB.IsChecked == true && _autoSectionY.IsChecked != true;
             _detailType.IsEnabled = _sectionTemplate.IsEnabled = _sectionScale.IsEnabled = _sectionDepth.IsEnabled = AnyDetailSelected;
             bool detectedPile = _previewHost != null && IsPileCap(_previewHost);
             bool pile = FootingDrawingLayerPolicy.IsPileCap(_footingKind.SelectedItem as string, detectedPile);
@@ -419,6 +421,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             UseDetailedLayout = true, DimensionFourSides = _fourSides.IsChecked == true,
             DimensionOffsetPaperMm = ParseDouble(_dimOffset.Text, 8), DimensionGapPaperMm = ParseDouble(_dimGap.Text, 6),
             SectionDepthMm = ParseDouble(_sectionDepth.Text, 1200),
+            AutoAlignSectionXToPiles = _autoSectionX.IsChecked == true,
+            AutoAlignSectionYToPiles = _autoSectionY.IsChecked == true,
             SectionXOffsetMm = ParseDouble(_sectionXOffset.Text, 0), SectionYOffsetMm = ParseDouble(_sectionYOffset.Text, 0),
             ReverseSectionX = _reverseX.IsChecked == true, ReverseSectionY = _reverseY.IsChecked == true,
             SheetRightReserveMm = ParseDouble(_reserveRight.Text, 70), SheetBottomReserveMm = ParseDouble(_reserveBottom.Text, 35),
@@ -456,6 +460,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _fourSides.IsChecked = p.DimensionFourSides;
             _dimOffset.Text = p.DimensionOffsetPaperMm.ToString("0.##"); _dimGap.Text = p.DimensionGapPaperMm.ToString("0.##");
             _sectionDepth.Text = p.SectionDepthMm.ToString("0.##");
+            _autoSectionX.IsChecked = p.AutoAlignSectionXToPiles;
+            _autoSectionY.IsChecked = p.AutoAlignSectionYToPiles;
             _sectionXOffset.Text = p.SectionXOffsetMm.ToString("0.##"); _sectionYOffset.Text = p.SectionYOffsetMm.ToString("0.##");
             _reverseX.IsChecked = p.ReverseSectionX; _reverseY.IsChecked = p.ReverseSectionY;
             _reserveRight.Text = p.SheetRightReserveMm.ToString("0.##"); _reserveBottom.Text = p.SheetBottomReserveMm.ToString("0.##");
