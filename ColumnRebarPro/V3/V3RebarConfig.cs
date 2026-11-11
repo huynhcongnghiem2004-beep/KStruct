@@ -19,6 +19,10 @@ namespace ColumnRebarPro.V3
         // Optional: off by default because hooked cross-ties need compatible Rebar Shapes.
         public bool CrossTies = false;
         public bool CrossTiesAlternating;
+        // True: retain normal tie sets through modelled beam/slab joints.
+        // False: omit tie positions at intersections, explicitly chosen by the operator.
+        // This is a detailing option, not an engineering approval of confinement.
+        public bool ShowJointTies = true;
         public bool JointTies = false;
         public double JointBeamHeight, JointSpacing;
         public V3TieStyle TieStyle = V3TieStyle.Unspecified;
