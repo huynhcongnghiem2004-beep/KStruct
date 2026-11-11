@@ -37,7 +37,7 @@ internal static class Render
     {
         string source = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "App.cs"));
         var buttons = Regex.Matches(source,
-                @"Add\\(\\w+,\\s*dll,\\s*""(?<id>KStruct_[^""]+)"".*?,\\s*""(?<icon>\\w+)""\\);")
+                @"Add\(\w+,\s*dll,\s*""(?<id>KStruct_[^""]+)"".*?,\s*""(?<icon>\w+)""\);")
             .Cast<Match>().Select(match => new
             {
                 Id = match.Groups["id"].Value,
