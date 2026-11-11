@@ -51,6 +51,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             double angle = Math.Atan2(axis.DotProduct(view.UpDirection), axis.DotProduct(view.RightDirection));
             var owned = FootingDrawingDetailState.Annotations(view, footing, Kind).OfType<FamilyInstance>().ToList();
             FamilyInstance placed = owned.FirstOrDefault(x => x.Symbol.Id == symbol.Id);
+            bool created = placed == null;
             if (placed == null)
             {
                 if (owned.Count > 0) FootingDrawingDetailState.Clear(view, footing, Kind);
@@ -76,7 +77,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 // Without an explicit angle parameter, keep existing rotation on update to avoid drift.
                 warnings.Add("Detail Item " + placed.Id.Value + ": giữ nguyên góc xoay cũ; cần kiểm tra sau khi xoay móng.");
             }
-            if (owned.Count == 0 && Math.Abs(angle) > 1e-9)
+            if (created && Math.Abs(angle) > 1e-9)
                 ElementTransformUtils.RotateElement(doc, placed.Id, Line.CreateUnbound(point, view.ViewDirection), angle);
 
             // Re-apply the user's confirmed mapping at creation AND on every update.
