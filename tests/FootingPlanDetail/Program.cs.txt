@@ -49,6 +49,19 @@ internal static class Program
         Check(FootingDrawingLayerPolicy.CreateNote(true, true, false, true, true), "Pile cap TOP annotation remains");
         Check(!FootingDrawingLayerPolicy.CreateNote(false, true, true, false, true), "Master annotation off");
         Throws(() => FootingDrawingLayerPolicy.IsPileCap("Unknown", true), "Invalid footing kind rejected");
-        Console.WriteLine("PASS: " + checks + " footing Detail Item and TOP/BOT policy checks.");
+        Check(FootingPileSectionPolicy.IsCentered(0), "centerline exact");
+        Check(FootingPileSectionPolicy.IsCentered(0.75), "within centerline tolerance");
+        Check(FootingPileSectionPolicy.IsCentered(-1.0), "centerline tolerance boundary");
+        Check(!FootingPileSectionPolicy.IsCentered(1.01), "eccentric cut forbidden");
+        Check(!FootingPileSectionPolicy.IsCentered(double.NaN), "nonfinite center distance");
+        Check(FootingPileSectionPolicy.DiameterMatches(300, 300.04), "diameter small tolerance");
+        Check(!FootingPileSectionPolicy.DiameterMatches(300, 300.5), "diameter mismatch");
+        Check(!FootingPileSectionPolicy.DiameterMatches(0, 0), "zero diameter rejected");
+        Check(FootingPileSectionPolicy.TypeName(300) == "KStruct_Coc2D_D300_000mm", "stable type name D300");
+        Check(FootingPileSectionPolicy.TypeName(300.004) !=
+            FootingPileSectionPolicy.TypeName(300.015), "distinct diameters do not collide");
+        Throws(() => FootingPileSectionPolicy.TypeName(-300), "negative diameter rejected");
+        Throws(() => FootingPileSectionPolicy.TypeName(double.NaN), "nonfinite diameter rejected");
+        Console.WriteLine("PASS: " + checks + " footing Detail Item TOP/BOT and pile-section policy checks.");
     }
 }
