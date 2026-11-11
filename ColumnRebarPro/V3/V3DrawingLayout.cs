@@ -55,12 +55,24 @@ namespace ColumnRebarPro.V3
             var sections=new List<View>();int index=2;
             foreach(var w in ordered)
             {
-                var cross=Section(doc,w,"Cross",w.Geometry.Bottom+w.Geometry.Height/2,w.Geometry.Top);
-                cross.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set("MC: "+index+"-"+index);
-                doc.Regenerate();Annotate(doc,w,cross,"Cross");
-                if(B("CrossShowValue"))SectionTable(doc,w,cross);
-                FitCrop(doc,cross);
-                sections.Add(cross);index++;
+                // Each story has three true horizontal cuts, not three duplicated mid-height views.
+                double height=w.Geometry.Height;
+                double inset=Math.Min(V3Units.Ft(100),height*0.12);
+                var levels=new[]{
+                    Tuple.Create("BASE",w.Geometry.Bottom+inset),
+                    Tuple.Create("MID",w.Geometry.Bottom+height/2),
+                    Tuple.Create("NODE",w.Geometry.Top-inset)
+                };
+                foreach(var level in levels)
+                {
+                    var cross=Section(doc,w,"Cross",level.Item2,w.Geometry.Top);
+                    cross.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set(
+                        "MC: "+index+"-"+index+" "+level.Item1);
+                    doc.Regenerate();Annotate(doc,w,cross,"Cross");
+                    if(B("CrossShowValue") && level.Item1=="MID")SectionTable(doc,w,cross);
+                    FitCrop(doc,cross);
+                    sections.Add(cross);index++;
+                }
             }
             string stackMark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string markName=string.IsNullOrWhiteSpace(stackMark)?("C"+first.Column.Id.Value):stackMark.Trim();
