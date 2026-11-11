@@ -72,6 +72,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 View view = output.View;
                 ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
+                if (view is ViewSection pileSection && (output.Role == "Detail-X" || output.Role == "Detail-Y"))
+                    FootingPileSectionDetailBuilder.Refresh(doc, pileSection, footing, p, warnings);
                 FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
                 FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedDetails : null);
                 FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
