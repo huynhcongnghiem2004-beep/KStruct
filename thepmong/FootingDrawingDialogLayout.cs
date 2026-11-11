@@ -138,7 +138,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             AddButton(auditActions, "Kiểm tra công thức Family trong Revit", AuditPlanDetailFamily);
             dims.Children.Add(auditActions);
             dims.Children.Add(Note("Ánh xạ Family theo mm: B = kích thước trục X móng, H = trục Y, C = lớp bảo vệ. KEEP giữ nguyên. Chỉ xác nhận sau khi kiểm tra Family Types."));
-            Field(dims, "Lớp bảo vệ C (mm)", _planCoverMm);
+            dims.Children.Add(_alignRebarCover);
+            dims.Children.Add(_readHostCover);
+            Field(dims, "Lớp bảo vệ dự phòng C (mm)", _planCoverMm);
+            dims.Children.Add(Note("Khi bật căn theo lớp bảo vệ, L/W tự động tính theo B/H và C + Ø/2 (tim thanh). Công thức L/W lưu cũ được ghi đè để ngăn nét thép nằm trên biên bê tông. Các tham số phụ X1/X2/Y1/Y2 chỉ sửa theo ánh xạ Family đã xác minh."));
             for (int i = 0; i < FootingPlanDetailComponentSizing.Names.Length; i++)
                 Field(dims, "Parameter " + FootingPlanDetailComponentSizing.Names[i], _planExpressions[i]);
             dims.Children.Add(_planSizeConfirmed);
