@@ -1,0 +1,39 @@
+using System;
+using SDK_HD.KStruct.NativeDocumentation;
+
+internal static class Program
+{
+    private static int checks;
+    private static void Check(bool success, string name) { if (!success) throw new Exception(name); checks++; }
+    private static void Near(double actual, double expected, string name) =>
+        Check(Math.Abs(actual - expected) < 1e-8, name);
+    private static void Throws(Action action, string name)
+    {
+        bool failed = false;
+        try { action(); }
+        catch (ArgumentException) { failed = true; }
+        catch (InvalidOperationException) { failed = true; }
+        Check(failed, name);
+    }
+    public static void Main()
+    {
+        const double b = 2200, h = 2600, c = 50;
+        Near(FootingPlanDetailMath.Evaluate("B", b, h, c), 2200, "B");
+        Near(FootingPlanDetailMath.Evaluate("H", b, h, c), 2600, "H");
+        Near(FootingPlanDetailMath.Evaluate("C", b, h, c), 50, "C");
+        Near(FootingPlanDetailMath.Evaluate(" B - 2 * C ", b, h, c), 2100, "B minus twice cover");
+        Near(FootingPlanDetailMath.Evaluate("H-2*C", b, h, c), 2500, "H minus twice cover");
+        Near(FootingPlanDetailMath.Evaluate("B-C", b, h, c), 2150, "B-C");
+        Near(FootingPlanDetailMath.Evaluate("H-C", b, h, c), 2550, "H-C");
+        Near(FootingPlanDetailMath.Evaluate("75.5", b, h, c), 75.5, "mm constant");
+        Throws(() => FootingPlanDetailMath.Evaluate("B/2", b, h, c), "unknown formula rejected");
+        Throws(() => FootingPlanDetailMath.Evaluate("NaN", b, h, c), "nonfinite literal rejected");
+        Throws(() => FootingPlanDetailMath.Evaluate("B", double.NaN, h, c), "nonfinite footing rejected");
+        Near(FootingPlanDetailMath.NormalizeRotation(0), 0, "zero");
+        Near(FootingPlanDetailMath.NormalizeRotation(2 * Math.PI), 0, "full turn");
+        Near(FootingPlanDetailMath.NormalizeRotation(Math.PI / 2 + 4 * Math.PI), Math.PI / 2, "quarter turn");
+        Near(FootingPlanDetailMath.NormalizeRotation(-Math.PI / 2), -Math.PI / 2, "reverse quarter turn");
+        Throws(() => FootingPlanDetailMath.NormalizeRotation(double.PositiveInfinity), "nonfinite rotation rejected");
+        Console.WriteLine("PASS: " + checks + " footing Detail Item math checks.");
+    }
+}
