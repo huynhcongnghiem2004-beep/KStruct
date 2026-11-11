@@ -34,6 +34,21 @@ internal static class Program
         Near(FootingPlanDetailMath.NormalizeRotation(Math.PI / 2 + 4 * Math.PI), Math.PI / 2, "quarter turn");
         Near(FootingPlanDetailMath.NormalizeRotation(-Math.PI / 2), -Math.PI / 2, "reverse quarter turn");
         Throws(() => FootingPlanDetailMath.NormalizeRotation(double.PositiveInfinity), "nonfinite rotation rejected");
-        Console.WriteLine("PASS: " + checks + " footing Detail Item math checks.");
+        Check(!FootingDrawingLayerPolicy.IsPileCap("Isolated", true), "Manual isolated override");
+        Check(FootingDrawingLayerPolicy.IsPileCap("PileCap", false), "Manual pile cap override");
+        Check(FootingDrawingLayerPolicy.IsPileCap("Auto", true), "Automatic pile cap");
+        Check(!FootingDrawingLayerPolicy.IsPileCap("Auto", false), "Automatic isolated footing");
+        Check(FootingDrawingLayerPolicy.CreatePlan(false, false), "Isolated BOT view");
+        Check(!FootingDrawingLayerPolicy.CreatePlan(false, true), "Isolated cannot have TOP view");
+        Check(FootingDrawingLayerPolicy.CreatePlan(true, false) && FootingDrawingLayerPolicy.CreatePlan(true, true),
+            "Pile cap creates separate TOP and BOT views");
+        Check(FootingDrawingLayerPolicy.CreateNote(true, true, true, false, false), "Isolated BOT annotation");
+        Check(!FootingDrawingLayerPolicy.CreateNote(true, true, true, true, false), "Isolated TOP annotation forbidden");
+        Check(!FootingDrawingLayerPolicy.CreateNote(true, false, true, true, true), "Pile cap TOP annotation disabled");
+        Check(FootingDrawingLayerPolicy.CreateNote(true, false, true, false, true), "Pile cap BOT annotation remains");
+        Check(FootingDrawingLayerPolicy.CreateNote(true, true, false, true, true), "Pile cap TOP annotation remains");
+        Check(!FootingDrawingLayerPolicy.CreateNote(false, true, true, false, true), "Master annotation off");
+        Throws(() => FootingDrawingLayerPolicy.IsPileCap("Unknown", true), "Invalid footing kind rejected");
+        Console.WriteLine("PASS: " + checks + " footing Detail Item and TOP/BOT policy checks.");
     }
 }
