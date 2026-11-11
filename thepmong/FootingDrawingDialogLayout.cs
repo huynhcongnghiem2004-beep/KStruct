@@ -123,6 +123,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             dims.Children.Add(_usePlanDetail);
             Field(dims, "Detail Item thép TOP", _planTopDetail);
             Field(dims, "Detail Item thép BOT", _planBotDetail);
+            var auditActions = new WrapPanel();
+            AddButton(auditActions, "Kiểm tra công thức Family trong Revit", AuditPlanDetailFamily);
+            dims.Children.Add(auditActions);
             dims.Children.Add(Note("Ánh xạ Family theo mm: B = kích thước trục X móng, H = trục Y, C = lớp bảo vệ. KEEP giữ nguyên. Chỉ xác nhận sau khi kiểm tra Family Types."));
             Field(dims, "Lớp bảo vệ C (mm)", _planCoverMm);
             for (int i = 0; i < FootingPlanDetailComponentSizing.Names.Length; i++)
