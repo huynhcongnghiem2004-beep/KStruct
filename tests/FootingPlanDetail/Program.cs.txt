@@ -88,6 +88,14 @@ internal static class Program
         Check(!snapped, "No-pile section not moved");
         Near(FootingPileSectionAlignment.ChooseOffsetMm(100, true, new[] { -400.0, 400.0 }, 600, out snapped), 100, "Explicit section offset is respected");
         Check(!snapped, "Explicit offset not overridden");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, true,
+            new[] { -400.0, 400.0 }, 600, out snapped), 0,
+            "Explicit zero offset must remain zero");
+        Check(!snapped, "Zero offset cannot trigger automatic snapping");
+        Near(FootingPileSectionAlignment.ChooseOffsetMm(0, false,
+            new[] { 500.0, -500.0 }, 600, out snapped), -500,
+            "Automatic Update chooses new physical pile row");
+        Check(snapped, "Updated physical pile row triggers automatic alignment");
         Throws(() => FootingPileSectionAlignment.ChooseOffsetMm(600, false, new[] { 400.0 }, 600, out snapped), "Reject section outside footing");
         Console.WriteLine("PASS: " + checks + " footing Detail Item, cover alignment and real pile row checks.");
     }
