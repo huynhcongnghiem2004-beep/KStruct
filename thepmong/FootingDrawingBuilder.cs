@@ -241,7 +241,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
                 if (reverse) right = -right;
                 XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
-                double requestedMm = i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm;
+                bool autoAlign = i == 0 ? p.AutoAlignSectionXToPiles : p.AutoAlignSectionYToPiles;
+                double requestedMm = autoAlign ? 0 : (i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm);
                 double half = i == 0 ? (bounds.Max.Y - bounds.Min.Y) / 2 : (bounds.Max.X - bounds.Min.X) / 2;
                 double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
                 if (autoAlign && detailPiles.Count > 0)
