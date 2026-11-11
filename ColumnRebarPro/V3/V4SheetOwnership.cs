@@ -96,6 +96,16 @@ namespace ColumnRebarPro.V3
                 if (new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance))
                     .Cast<ScheduleSheetInstance>().Any(item => item.OwnerViewId == sheet.Id))
                     return false;
+                // A user can annotate the sheet itself, outside every generated view.
+                // Such additions are not covered by per-view ViewContents metadata.
+                // Never delete a sheet with those user-owned annotations.
+                if (new FilteredElementCollector(doc, sheet.Id)
+                    .WhereElementIsNotElementType()
+                    .Any(element => element.OwnerViewId == sheet.Id &&
+                        (element is TextNote || element is IndependentTag ||
+                         element is Dimension || element is CurveElement ||
+                         element is FilledRegion)))
+                    return false;
                 return sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>()
                     .All(view => view.Name.StartsWith("KSTR V3 MCD ", StringComparison.OrdinalIgnoreCase) ||
                                  view.Name.StartsWith("KSTR V3 MCN ", StringComparison.OrdinalIgnoreCase));
