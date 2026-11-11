@@ -24,8 +24,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (hostBox == null || location == null) throw new InvalidOperationException("Móng cần có LocationPoint và bounding box.");
             FootingDrawingProfile p = config.Profile;
             var outputs = new List<ViewOutput>();
-            bool top = p.OutputLayers == "Top" || p.OutputLayers == "Both";
-            bool bot = p.OutputLayers == "Bot" || p.OutputLayers == "Both";
+            bool pileCap = FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(footing));
+            // Isolated footing: BOT only. Pile cap: two physically separate plan views.
+            bool top = FootingDrawingLayerPolicy.CreatePlan(pileCap, true);
+            bool bot = FootingDrawingLayerPolicy.CreatePlan(pileCap, false);
             if (!p.CreateCallouts && (top || bot))
             {
                 if (config.PlanType.ViewFamily != ViewFamily.StructuralPlan && config.PlanType.ViewFamily != ViewFamily.FloorPlan)
@@ -481,6 +483,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             for (int x=0;x<2;x++) for(int y=0;y<2;y++) for(int z=0;z<2;z++) result.Add(t.OfPoint(new XYZ(x==0?box.Min.X:box.Max.X,y==0?box.Min.Y:box.Max.Y,z==0?box.Min.Z:box.Max.Z)));
             return result;
         }
+        internal static bool IsPileCapForPolicy(FamilyInstance footing) => IsPileCap(footing);
         private static bool IsPileCap(FamilyInstance footing)
         {
             if (footing == null) return false;
