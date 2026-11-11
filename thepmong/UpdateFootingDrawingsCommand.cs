@@ -92,6 +92,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                                             throw new InvalidOperationException("View " + detailAxis.Name +
                                                 " dùng trục mặt cắt cũ không khớp " + role +
                                                 ". Hãy tạo lại hồ sơ móng để hiệu chỉnh trục X/Y an toàn; không tự xoay View cũ có annotation.");
+                                        if (pose != null)
+                                            FootingDrawingBuilder.AlignDetailRowOnUpdate(
+                                                detailAxis, footing, pose, role, warnings);
                                     }
                                     FootingDrawingBuilder.UpdateCrop(view, footing, margin, role, warnings);
                                 }
