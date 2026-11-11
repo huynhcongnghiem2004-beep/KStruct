@@ -30,9 +30,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     continue;
                 }
                 XYZ center = transform.Inverse.OfPoint(location.Point);
-                if (center.X < local.Min.X - tolerance || center.X > local.Max.X + tolerance ||
-                    center.Y < local.Min.Y - tolerance || center.Y > local.Max.Y + tolerance)
-                    continue;
+                // Test all axes together after reading the real pile extents.
                 BoundingBoxXYZ extent = pile.get_BoundingBox(null);
                 if (extent == null)
                 {
@@ -41,26 +39,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 }
                 // Only piles at or beneath this cap; a nearby foundation on another level
                 // must not be mistaken for a member of the pile group.
-                if (extent.Min.Z > capBottom + tolerance || extent.Max.Z < capBottom - tolerance)
+                if (!FootingPileIdentityPolicy.InCap(center.X, center.Y, extent.Min.Z, extent.Max.Z,
+                    local.Min.X, local.Max.X, local.Min.Y, local.Max.Y, capBottom, tolerance))
                     continue;
                 matches.Add(pile);
             }
             return matches;
         }
 
-        internal static bool MatchesPileFamily(FamilyInstance pile, string filter)
-        {
-            string family = pile.Symbol?.FamilyName ?? "";
-            string type = pile.Name ?? "";
-            string text = (family + " " + type).ToLowerInvariant();
-            if (new[] { "pile cap", "pilecap", "đài", "dai coc", "đế cọc" }
-                .Any(token => text.Contains(token))) return false;
-            string[] tokens = (string.IsNullOrWhiteSpace(filter) ? "cọc,coc,pile" : filter)
-                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim()).Where(s => s.Length != 0).ToArray();
-            return tokens.Any(token =>
-                family.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0);
-        }
+        internal static bool MatchesPileFamily(FamilyInstance pile, string filter) =>
+            FootingPileIdentityPolicy.Matches(pile.Symbol?.FamilyName, pile.Name, filter);
     }
 }
