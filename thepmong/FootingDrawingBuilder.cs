@@ -86,6 +86,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails, warnings);
             if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p, warnings);
             else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
+            // Both the simple and detailed sheet flows must prevent invalid viewport overlap.
+            FootingDrawingSheetLayout.ValidateNoOverlap(doc, sheet, outputs.Select(x => x.View).ToList());
             return sheet;
         }
 
