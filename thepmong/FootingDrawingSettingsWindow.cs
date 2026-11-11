@@ -503,10 +503,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { MessageBox.Show(this, "Hãy chọn Multi-Rebar Annotation Type có Rebar Tag và Dimension Type, hoặc tắt tạo tag. Tag thép đơn không dùng cho MultiTag.", "Thiếu MultiTag"); return; }
             if (_usePlanDetail.IsChecked == true && _planSizeConfirmed.IsChecked != true)
             { MessageBox.Show(this, "Hãy đối chiếu L/W/L1/L2/X/Y với Family Types rồi xác nhận ánh xạ kích thước.", "Chưa xác nhận kích thước"); return; }
+            bool anyPileCap = CheckedFootings.Any(f =>
+                FootingDrawingLayerPolicy.IsPileCap(_footingKind.SelectedItem as string, IsPileCap(f)));
             if (_usePlanDetail.IsChecked == true &&
-                ((_topLayer.IsChecked == true && !(Selected(_planTopDetail) is FamilySymbol)) ||
-                 (_bottomLayer.IsChecked == true && !(Selected(_planBotDetail) is FamilySymbol))))
-            { MessageBox.Show(this, "Hãy chọn Detail Item Type cho các mặt bằng TOP/BOT.", "Thiếu Detail Item"); return; }
+                ((anyPileCap && !(Selected(_planTopDetail) is FamilySymbol)) ||
+                 !(Selected(_planBotDetail) is FamilySymbol)))
+            { MessageBox.Show(this, "Mọi móng cần Family BOT; nếu có móng cọc phải chọn thêm Family TOP.", "Thiếu Detail Item"); return; }
             if (_usePlanDetail.IsChecked == true)
             {
                 double cover = ParseDouble(_planCoverMm.Text, -1);
