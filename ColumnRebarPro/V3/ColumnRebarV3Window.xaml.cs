@@ -350,6 +350,7 @@ namespace ColumnRebarPro.V3
             CrossCheck.IsChecked = c.CrossTies;
             CrossAlternateCheck.IsChecked = c.CrossTiesAlternating;
             JointTiesCheck.IsChecked = c.JointTies;
+            QuickJointTiesCheck.IsChecked = c.ShowJointTies;
             JointHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             BeamHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             JointStepBox.Text = c.JointSpacing > 0 ? c.JointSpacing.ToString(CultureInfo.InvariantCulture) : "";
@@ -415,7 +416,8 @@ namespace ColumnRebarPro.V3
                 c.CrossTieShapeUniqueId = (CrossTieShapeBox.SelectedItem as V3RebarShapeChoice)?.UniqueId ?? "";
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
-                c.JointTies = false; // no reinforcement within intersecting joints
+                c.ShowJointTies = QuickJointTiesCheck.IsChecked == true;
+                c.JointTies = false; // Legacy starter-zone setting remains disabled.
                 if (c.JointTies)
                 {
                     c.JointBeamHeight = ReadPositive(JointHeightBox, "Chiều cao nút dầm sàn");
@@ -500,6 +502,7 @@ namespace ColumnRebarPro.V3
                 QuickEndBox.Text = "Ø" + diameter + "a" + EndStepBox.Text;
                 QuickMidBox.Text = "Ø" + diameter + "a" + MidStepBox.Text;
                 QuickStarterCheck.IsChecked = MainStarterCheck.IsChecked == true;
+                QuickJointTiesCheck.IsChecked = ActiveConfig.ShowJointTies;
                 QuickTieStyleBox.SelectedIndex = LoopRadio.IsChecked == true ? 1 : 0;
                 QuickDrawingCheck.IsChecked = _deployment != null && _deployment.IsDeploymentEnabled;
             }
@@ -528,6 +531,10 @@ namespace ColumnRebarPro.V3
                 {
                     MainStarterCheck.IsChecked = QuickStarterCheck.IsChecked;
                     StarterCheck.IsChecked = QuickStarterCheck.IsChecked;
+                }
+                else if (ReferenceEquals(sender, QuickJointTiesCheck))
+                {
+                    ActiveConfig.ShowJointTies = QuickJointTiesCheck.IsChecked == true;
                 }
             }
             finally { _compactSync = false; }
