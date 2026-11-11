@@ -22,6 +22,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 if (existing.Count != 0) FootingDrawingDetailState.Clear(view, cap, Kind);
                 return;
             }
+            if (!profile.PileSymbolOriginConfirmed)
+                throw new InvalidOperationException("Chưa xác nhận gốc Family BS_FM_Detail Cọc 2D nằm trên tim hình học cọc. Hãy kiểm tra Reference Planes trong Family Editor và đánh dấu xác nhận.");
             if (view.ViewType != ViewType.Detail)
                 throw new InvalidOperationException("Ký hiệu Cọc 2D chỉ áp dụng cho View Detail-X/Detail-Y.");
             var symbol = doc.GetElement(profile.PileSectionDetailTypeUniqueId) as FamilySymbol;
@@ -51,15 +53,20 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
             var piles = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFoundation)
                 .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
-                .Where(p => p.Id.Value != cap.Id.Value && IsPile(p))
+                .Where(p => p.Id.Value != cap.Id.Value && IsPile(p, profile.PileFamilyFilter))
                 .OrderBy(p => p.Id.Value).ToList();
             var targets = new List<Tuple<FamilyInstance, XYZ, double>>();
             foreach (FamilyInstance pile in piles)
             {
                 List<XYZ> vertices;
                 try { vertices = FootingDrawingGeometry.WorldVertices(pile); }
-                catch (InvalidOperationException) { continue; }
-                if (vertices.Count == 0) continue;
+                catch (InvalidOperationException ex)
+                {
+                    warnings.Add(view.Name + ": bỏ qua cọc " + pile.Id.Value + " vì " + ex.Message);
+                    continue;
+                }
+                if (vertices.Count == 0)
+                    throw new InvalidOperationException("Cọc " + pile.Id.Value + " không có Solid, không thể xác định tim.");
                 // Use actual solid vertices rather than axis-aligned model bounding boxes,
                 // so rotated pile families are correctly tested against the section plane.
                 List<XYZ> localVertices = vertices.Select(axis.Inverse.OfPoint).ToList();
@@ -74,13 +81,33 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 double low = vertices.Min(p => (p - origin).DotProduct(normal));
                 double high = vertices.Max(p => (p - origin).DotProduct(normal));
                 if (low > tol || high < -tol) continue;
-                // The physical pile head center is determined from real pile solid geometry.
-                // Its projection onto the cut plane preserves exact horizontal section location.
+                // A full-width centerline symbol must NEVER represent an eccentric cut.
                 XYZ pileCenter = axis.OfPoint(new XYZ(centerX, centerY, 0));
+                double centerDistanceMm = UnitUtils.ConvertFromInternalUnits(
+                    Math.Abs((pileCenter - origin).DotProduct(normal)), UnitTypeId.Millimeters);
+                if (!FootingPileSectionPolicy.IsCentered(centerDistanceMm))
+                {
+                    warnings.Add(view.Name + ": cọc " + pile.Id.Value +
+                        " giao mặt cắt nhưng tuyến cắt lệch tim " +
+                        centerDistanceMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
+                        " mm; không đặt Cọc 2D toàn tiết diện.");
+                    continue;
+                }
+                // Reject unverified off-center placement origins rather than presenting a
+                // graphical center which may not match the true model pile axis.
+                LocationPoint actualLocation = pile.Location as LocationPoint;
+                if (actualLocation == null)
+                    throw new InvalidOperationException("Cọc " + pile.Id.Value +
+                        " không có LocationPoint để xác nhận tim cọc.");
+                double originDiff = new XYZ(actualLocation.Point.X - pileCenter.X,
+                    actualLocation.Point.Y - pileCenter.Y, 0).GetLength();
+                if (originDiff > tol)
+                    throw new InvalidOperationException("Cọc " + pile.Id.Value +
+                        " có gốc Family lệch tim Solid > 1 mm. Cần xác minh Family cọc trước khi đặt ký hiệu.");
+                // Anchor at the real pile-head elevation, along actual centerline.
                 XYZ pileHead = new XYZ(pileCenter.X, pileCenter.Y, pileTop);
-                XYZ cutPoint = pileHead - normal * (pileHead - origin).DotProduct(normal);
-                XYZ point = cutPoint;
-                double diameter = FootingPileSectionDiameter.ReadPileDiameter(doc, pile);
+                XYZ point = pileHead - normal * (pileHead - origin).DotProduct(normal);
+                double diameter = FootingPileSectionDiameter.ReadPileDiameter(doc, pile, profile.PileDiameterParameterName);
                 targets.Add(Tuple.Create(pile, point, diameter));
             }
             if (targets.Count == 0)
@@ -130,11 +157,21 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
-        private static bool IsPile(FamilyInstance fi)
+        private static bool IsPile(FamilyInstance fi, string filter)
         {
             string family = fi.Symbol?.FamilyName ?? "";
             string type = fi.Name ?? "";
-            return new[] { "cọc", "coc", "pile" }.Any(token =>
+            string combined = (family + " " + type).ToLowerInvariant();
+            // Pile-cap families can include "pile"/"cọc" in their names; never classify
+            // them as individual piles for this Detail Item placement.
+            if (new[] { "pile cap", "pilecap", "đài", "dai coc", "đế cọc" }
+                .Any(x => combined.Contains(x))) return false;
+            string[] tokens = (string.IsNullOrWhiteSpace(filter) ? "cọc,coc,pile" : filter)
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim()).Where(t => t.Length > 0).ToArray();
+            if (tokens.Length == 0)
+                throw new InvalidOperationException("Danh sách nhận diện Family cọc đang trống.");
+            return tokens.Any(token =>
                 family.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0 ||
                 type.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0);
         }
