@@ -20,6 +20,17 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string PlanTemplateName { get; set; }
         public string SectionTemplateName { get; set; }
         public bool UsePlanDetailComponents { get; set; }
+        // Explicit mapping required: B/H are local footing dimensions in mm, C is user-confirmed cover.
+        public bool PlanDetailSizingConfirmed { get; set; }
+        public double PlanDetailCoverMm { get; set; }
+        public string PlanDetailLExpression { get; set; } = "B";
+        public string PlanDetailWExpression { get; set; } = "H";
+        public string PlanDetailL1Expression { get; set; } = "KEEP";
+        public string PlanDetailL2Expression { get; set; } = "KEEP";
+        public string PlanDetailX1Expression { get; set; } = "KEEP";
+        public string PlanDetailX2Expression { get; set; } = "KEEP";
+        public string PlanDetailY1Expression { get; set; } = "KEEP";
+        public string PlanDetailY2Expression { get; set; } = "KEEP";
         public string PlanTopDetailTypeUniqueId { get; set; }
         public string PlanBotDetailTypeUniqueId { get; set; }
         public string RebarMultiTagTypeName { get; set; }
