@@ -85,3 +85,5 @@ namespace SDK_HD.KStruct.NativeDocumentation
             warnings.Add(view.Name + ": đã đặt Detail Component; cần ánh xạ L/W/L1/L2/X/Y theo công thức Family trước khi tự đổi kích thước.");
         }
     }
+
+}
