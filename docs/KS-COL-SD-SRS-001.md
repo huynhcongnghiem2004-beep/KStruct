@@ -63,3 +63,19 @@ Status: **functional baseline / NOT accepted for construction**. Target: Revit 2
 ## Release gate
 
 Do not merge as a production-complete Shop Drawing feature or label any TC PASS without test evidence. Keep this PR as a guarded incremental fix pending Revit model-based validation and design decisions for joint ties, transitions and connections.
+
+## Implementation update — 2026-11-11 (PR #53)
+
+User-approved decisions:
+- `Đai nút khung` option: checked retains tie sets at beam/slab intersections; unchecked omits intersecting positions. Default checked. Neither choice constitutes structural approval.
+- Keep current sheet layout handling: overflow/overlap remains DRAFT with a warning in sheet name, not a transaction failure.
+- Open verified `BottleneckToUpper + ConnectionPlan` paths; unsupported splice/stagger and missing plans remain blocked.
+- Mandatory configured main/tie tags and cross dimensions must not fail silently.
+- Regeneration rejects sheets with manually added sheet-level notes/annotations.
+- Generate BASE/MID/NODE cross-sections per storey and one native 3D rebar view on the sheet; longitudinal reference numbers match MID views.
+
+**Unfinished acceptance gates**
+- The combined column-line bending schedule is still not created/placed automatically. Existing generic Rebar Schedule command is not scoped to the selected stack. Never place an unfiltered project-wide schedule on a column-specific sheet.
+- Three-level cut views, 3D visibility, multipart reinforcement connections, sheet annotation preservation and dimension references require an actual Revit 2024 project run.
+- Default joint-tie geometry is a presentation/detailing choice only; node reinforcement requires structural engineer approval.
+- Revit runtime TC-01..TC-13 status remains NOT ACCEPTED until instrumented RVT tests are recorded.
