@@ -4,6 +4,7 @@
     <Compile Include="../../thepmong/FootingPlanDetailMath.cs" Link="FootingPlanDetailMath.cs" />
     <Compile Include="../../thepmong/FootingDrawingLayerPolicy.cs" Link="FootingDrawingLayerPolicy.cs" />
     <Compile Include="../../thepmong/FootingPileSectionPolicy.cs" Link="FootingPileSectionPolicy.cs" />
+    <Compile Include="../../thepmong/FootingPileIdentityPolicy.cs" Link="FootingPileIdentityPolicy.cs" />
     <Compile Include="Program.cs.txt" />
   </ItemGroup>
 </Project>
