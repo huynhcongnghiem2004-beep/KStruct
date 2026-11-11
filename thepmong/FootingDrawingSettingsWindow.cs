@@ -303,6 +303,40 @@ namespace SDK_HD.KStruct.NativeDocumentation
             if (_profiles.SelectedIndex < 0 && items.Count > 0) _profiles.SelectedIndex = 0;
         }
 
+        private void AuditPlanDetailFamily()
+        {
+            FamilySymbol symbol = Selected(_planTopDetail) as FamilySymbol ??
+                                  Selected(_planBotDetail) as FamilySymbol;
+            if (symbol == null)
+            {
+                MessageBox.Show(this, "Chọn một Detail Item TOP hoặc BOT trong project trước khi kiểm tra.",
+                    "Thiếu Family"); return;
+            }
+            try
+            {
+                string report = FootingPlanFamilyAudit.Inspect(_doc, symbol);
+                var output = new TextBox { Text = report, IsReadOnly = true, AcceptsReturn = true,
+                    AcceptsTab = true, TextWrapping = TextWrapping.NoWrap,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto };
+                var dialog = new Window
+                {
+                    Title = "KStruct - Kiểm tra công thức Family (chỉ đọc)",
+                    Owner = this, Width = Math.Min(980, SystemParameters.WorkArea.Width - 60),
+                    Height = Math.Min(760, SystemParameters.WorkArea.Height - 60),
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Content = output
+                };
+                dialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Không kiểm tra được Family: " + ex.Message +
+                    "\\nHãy mở Family trong Revit 2024 để kiểm tra trực tiếp.",
+                    "Kiểm tra Family", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
         private FootingDrawingProfile ReadProfile(string name = null) => new FootingDrawingProfile
         {
             Name = name ?? string.Empty,
