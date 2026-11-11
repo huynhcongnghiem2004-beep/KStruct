@@ -370,6 +370,28 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
+        private void AuditPileFamily()
+        {
+            FamilySymbol symbol = Selected(_pileSectionFamily) as FamilySymbol;
+            if (symbol == null)
+            { MessageBox.Show(this, "Chưa chọn Family Cọc 2D.", "Kiểm tra Family"); return; }
+            try
+            {
+                string report = FootingPlanFamilyAudit.Inspect(_doc, symbol);
+                var output = new TextBox { Text = report + "\\nGHI CHÚ: Đây là báo cáo thông số, không phải chứng nhận nét tim đồ họa nằm đúng tại gốc Family. Hãy kiểm tra Reference Planes và hình vẽ trong Family Editor.", IsReadOnly = true,
+                    AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto };
+                new Window { Title = "KStruct - Kiểm tra Family Cọc 2D", Owner = this,
+                    Width = Math.Min(980, SystemParameters.WorkArea.Width - 60),
+                    Height = Math.Min(760, SystemParameters.WorkArea.Height - 60),
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = output }.ShowDialog();
+            }
+            catch (Exception ex)
+            { MessageBox.Show(this, "Không thể đọc Family Cọc 2D: " + ex.Message,
+                "Kiểm tra Family", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }
+
         private FootingDrawingProfile ReadProfile(string name = null) => new FootingDrawingProfile
         {
             Name = name ?? string.Empty,
