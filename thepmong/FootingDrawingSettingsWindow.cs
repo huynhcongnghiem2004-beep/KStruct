@@ -69,6 +69,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private bool AnyDetailSelected => _detailA.IsChecked == true || _detailB.IsChecked == true;
         private readonly CheckBox _dimensions = new CheckBox { Content = "Tạo kích thước host", IsChecked = true };
         private readonly CheckBox _tags = new CheckBox { Content = "Gắn tag móng và Rebar", IsChecked = true };
+        private readonly ComboBox _footingKind = new ComboBox { MinWidth = 260 };
+        private readonly CheckBox _noteBot = new CheckBox { Content = "Ghi chú nhóm thép BOT", IsChecked = true };
+        private readonly CheckBox _noteTop = new CheckBox { Content = "Ghi chú nhóm thép TOP (móng cọc)", IsChecked = true };
         private readonly CheckBox _newSheet = new CheckBox { Content = "Tạo sheet mới cho từng móng", IsChecked = true };
         private readonly TextBox _planScale = new TextBox { Text = "20", MinWidth = 90 };
         private readonly TextBox _sectionScale = new TextBox { Text = "20", MinWidth = 90 };
@@ -148,6 +151,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
 
 
 
+            foreach (string mode in new[] { "Auto", "Isolated", "PileCap" }) _footingKind.Items.Add(mode);
+            _footingKind.SelectedIndex = 0;
+            _footingKind.SelectionChanged += (s, e) => RefreshPreviews();
             _existingSheet.SelectionChanged += (s, e) => { if (_existingSheet.SelectedItem is Item i && i.Element is ViewSheet) _newSheet.IsChecked = false; };
             _newSheet.Checked += (s, e) => _existingSheet.IsEnabled = false;
             _newSheet.Unchecked += (s, e) => _existingSheet.IsEnabled = true;
@@ -178,6 +184,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _sectionXOffset.IsEnabled = _reverseX.IsEnabled = _detailA.IsChecked == true;
             _sectionYOffset.IsEnabled = _reverseY.IsEnabled = _detailB.IsChecked == true;
             _detailType.IsEnabled = _sectionTemplate.IsEnabled = _sectionScale.IsEnabled = _sectionDepth.IsEnabled = AnyDetailSelected;
+            bool detectedPile = _previewHost != null && IsPileCap(_previewHost);
+            bool pile = FootingDrawingLayerPolicy.IsPileCap(_footingKind.SelectedItem as string, detectedPile);
+            _bottomLayer.IsChecked = true;
+            _topLayer.IsChecked = pile;
+            _bottomLayer.IsEnabled = _topLayer.IsEnabled = false;
+            _noteTop.IsEnabled = pile;
             if (_planCanvas == null || _sectionCanvas == null) return;
             try { DrawModelPlanPreview(_planCanvas); DrawSheetPreview(_sectionCanvas); }
             catch (Exception ex) { _status.Text = "Không xem trước được móng: " + ex.Message; }
@@ -370,11 +382,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
             SheetMarginMm = ParseDouble(_sheetMargin.Text, 10), SourceViewUniqueId = Selected(_sourcePlan)?.UniqueId,
             CreateCallouts = _callouts.IsChecked == true, CreateSections = AnyDetailSelected, CreateDetailA = _detailA.IsChecked == true, CreateDetailB = _detailB.IsChecked == true,
             CreateDimensions = _dimensions.IsChecked == true, CreateTags = _tags.IsChecked == true,
+            FootingKindMode = _footingKind.SelectedItem as string ?? "Auto",
+            AnnotateBot = _noteBot.IsChecked == true, AnnotateTop = _noteTop.IsChecked == true,
             PlaceOnNewSheet = _newSheet.IsChecked == true, ExistingSheetUniqueId = SheetUniqueId(_existingSheet)
         };
         private void ApplyProfile(FootingDrawingProfile p)
         {
             _templateOnce.IsChecked = p.ApplyViewTemplatesOnce;
+            _footingKind.SelectedItem = new[] { "Auto", "Isolated", "PileCap" }.Contains(p.FootingKindMode) ? p.FootingKindMode : "Auto";
+            _noteBot.IsChecked = p.AnnotateBot;
+            _noteTop.IsChecked = p.AnnotateTop;
             _usePlanDetail.IsChecked = p.UsePlanDetailComponents;
             _planSizeConfirmed.IsChecked = p.PlanDetailSizingConfirmed;
             _planCoverMm.Text = p.PlanDetailCoverMm.ToString(System.Globalization.CultureInfo.CurrentCulture);
