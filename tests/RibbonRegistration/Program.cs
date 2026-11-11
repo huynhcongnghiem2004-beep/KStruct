@@ -74,9 +74,9 @@ internal static class Program
         Require(source.Contains("footingDropdown.Image = FlatRibbonIcons.Create") &&
                 source.Contains("footingDropdown.LargeImage = FlatRibbonIcons.Create"),
                 "Footing group icon must be regenerated at both native sizes");
-        Require(Regex.Matches(source, @"data\\.Image = FlatRibbonIcons\\.Create\\(id, icon, 16\\);").Count == 3,
+        Require(source.Split(new[] { "data.Image = FlatRibbonIcons.Create(id, icon, 16);" }, StringSplitOptions.None).Length == 4,
                 "All three command registration paths must set 16px flat icons");
-        Require(Regex.Matches(source, @"data\\.LargeImage = FlatRibbonIcons\\.Create\\(id, icon, 32\\);").Count == 3,
+        Require(source.Split(new[] { "data.LargeImage = FlatRibbonIcons.Create(id, icon, 32);" }, StringSplitOptions.None).Length == 4,
                 "All three command registration paths must set 32px flat icons");
         Require(!source.Contains("data.Image = Icon(") &&
                 !source.Contains("data.LargeImage = Icon("),
