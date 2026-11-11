@@ -56,6 +56,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
             { Content = "Đã kiểm tra tim nét vẽ tại gốc Family 2D trong Family Editor", IsChecked = false };
         private readonly CheckBox _planSizeConfirmed = new CheckBox { Content = "Tôi đã kiểm tra ánh xạ với Family Types (bắt buộc)", IsChecked = false };
         private readonly TextBox _planCoverMm = new TextBox { Text = "0" };
+        private readonly CheckBox _alignRebarCover = new CheckBox
+            { Content = "Căn thép 2D theo lớp bảo vệ móng và tim thanh (L/W = B/H trừ 2 × (C + Ø/2))", IsChecked = true };
+        private readonly CheckBox _readHostCover = new CheckBox
+            { Content = "Ưu tiên Rebar Cover - Other Faces của móng thật", IsChecked = true };
         private readonly TextBox[] _planExpressions = new [] {
             new TextBox { Text = "B" }, new TextBox { Text = "H" },
             new TextBox { Text = "KEEP" }, new TextBox { Text = "KEEP" },
@@ -389,6 +393,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             UsePlanDetailComponents = _usePlanDetail.IsChecked == true,
             PlanDetailSizingConfirmed = _planSizeConfirmed.IsChecked == true,
             PlanDetailCoverMm = ParseDouble(_planCoverMm.Text, -1),
+            PlanDetailAlignToCover = _alignRebarCover.IsChecked == true,
+            PlanDetailReadHostCover = _readHostCover.IsChecked == true,
             PlanDetailLExpression = _planExpressions[0].Text, PlanDetailWExpression = _planExpressions[1].Text,
             PlanDetailL1Expression = _planExpressions[2].Text, PlanDetailL2Expression = _planExpressions[3].Text,
             PlanDetailX1Expression = _planExpressions[4].Text, PlanDetailX2Expression = _planExpressions[5].Text,
@@ -432,6 +438,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             _usePlanDetail.IsChecked = p.UsePlanDetailComponents;
             _planSizeConfirmed.IsChecked = p.PlanDetailSizingConfirmed;
             _planCoverMm.Text = p.PlanDetailCoverMm.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            _alignRebarCover.IsChecked = p.PlanDetailAlignToCover;
+            _readHostCover.IsChecked = p.PlanDetailReadHostCover;
             string[] expressions = FootingPlanDetailComponentSizing.Expressions(p);
             for (int i = 0; i < _planExpressions.Length; i++)
                 _planExpressions[i].Text = expressions[i] ?? "KEEP";
