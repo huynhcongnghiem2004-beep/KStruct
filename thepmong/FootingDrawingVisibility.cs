@@ -47,6 +47,55 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
             catch {return true;}
         }
+        // Strict membership for 2D Family envelope calculations only. Unlike InLayer(),
+        // do not admit ties, side bars, vertical-only bars or uncertain layer identity.
+        internal static bool IsPrincipalBarInLayer(Rebar bar, BoundingBoxXYZ host, bool top)
+        {
+            if (host == null) return false;
+            string group;
+            try { group = ManagedGroup(bar); }
+            catch { return false; }
+            if (!string.IsNullOrWhiteSpace(group))
+            {
+                if (group.StartsWith("Top-", StringComparison.Ordinal)) return top;
+                if (group.StartsWith("Bottom-", StringComparison.Ordinal)) return !top;
+                return false; // SideTies and any nonprincipal group are not mat reinforcement.
+            }
+            try
+            {
+                int position = Enumerable.Range(0, bar.NumberOfBarPositions)
+                    .Where(i => bar.DoesBarExistAtPosition(i)).DefaultIfEmpty(-1).First();
+                if (position < 0) return false;
+                double horizontal = 0, total = 0, zWeighted = 0;
+                foreach (Curve curve in bar.GetTransformedCenterlineCurves(false, false, true,
+                    MultiplanarOption.IncludeAllMultiplanarCurves, position))
+                {
+                    var pts = curve.Tessellate();
+                    for (int i = 1; i < pts.Count; i++)
+                    {
+                        XYZ a = pts[i], b = pts[i-1], d = a-b;
+                        double length = d.GetLength();
+                        if (length < 1e-8) continue;
+                        total += length;
+                        double projected = Math.Sqrt(d.X*d.X + d.Y*d.Y);
+                        if (projected > 1e-8 && Math.Abs(d.Z) <= projected * 0.05)
+                        {
+                            horizontal += projected;
+                            zWeighted += projected * (a.Z+b.Z)/2;
+                        }
+                    }
+                }
+                if (horizontal <= 1e-8 || total <= 1e-8 || horizontal / total < 0.5)
+                    return false;
+                double z = zWeighted / horizontal;
+                double midpoint = (host.Min.Z + host.Max.Z)/2;
+                double margin = UnitUtils.ConvertToInternalUnits(1, UnitTypeId.Millimeters);
+                if (Math.Abs(z-midpoint) <= margin) return false; // ambiguous middle layer
+                return top ? z > midpoint : z < midpoint;
+            }
+            catch { return false; }
+        }
+
         private static string ManagedGroup(Rebar bar)
         {
             var host=bar.Document.GetElement(bar.GetHostId()) as FamilyInstance;
