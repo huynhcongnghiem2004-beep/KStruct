@@ -147,7 +147,8 @@ namespace ColumnRebarPro.V3
             {
                 var schedule = ViewSchedule.CreateSchedule(doc,
                     new ElementId(BuiltInCategory.OST_Rebar));
-                schedule.Name = "KSTR V4 BBS " + work.Column.Id.Value + " - DRAFT";
+                schedule.Name = UniqueViewName(doc,
+                    "KSTR V4 BBS " + work.Column.Id.Value + " - DRAFT");
                 var definition = schedule.Definition;
                 definition.IsItemized = false;
                 var available = definition.GetSchedulableFields();
