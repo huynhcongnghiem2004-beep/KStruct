@@ -28,7 +28,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 List<FamilyInstance> footings = ui.Selection.GetElementIds().Select(doc.GetElement).OfType<FamilyInstance>()
                     .Where(IsFoundation).Distinct().ToList();
                 var hostIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (FootingDrawingStorage.TryRead(ui.ActiveView, out string activeHost, out string activeRole, out double activeMargin)) hostIds.Add(activeHost);
+                // Explicit selection always takes precedence. Never also update a different
+                // footing merely because its drawing happens to be the active view.
+                if (footings.Count == 0 && ui.Selection.GetElementIds().Count == 0 &&
+                    FootingDrawingStorage.TryRead(ui.ActiveView, out string activeHost,
+                        out string activeRole, out double activeMargin))
+                    hostIds.Add(activeHost);
                 foreach (ElementId selectedId in ui.Selection.GetElementIds())
                 {
                     Element selected = doc.GetElement(selectedId);
