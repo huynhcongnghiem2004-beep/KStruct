@@ -37,7 +37,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var bars = new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
                 .Where(r => r.GetHostId() == footing.Id && r.CanBeHidden(view))
                 .Select(r => r.Id).ToList();
-            if (bars.Count > 0) view.HideElements(bars.Where(id => !doc.GetElement(id).IsHidden(view)).ToList());
+            var newlyHidden = bars.Where(id => !doc.GetElement(id).IsHidden(view)).ToList();
+            if (newlyHidden.Count > 0) view.HideElements(newlyHidden);
 
             BoundingBoxXYZ local = FootingDrawingGeometry.LocalBounds(footing);
             Transform frame = local.Transform;
