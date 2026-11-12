@@ -77,7 +77,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 using (var json = new StreamWriter(outputPath, false, new UTF8Encoding(false)))
                 using (var csv = new StreamWriter(csvPath, false, new UTF8Encoding(true)))
                 {
-                    csv.WriteLine("Class,Category,ElementId,UniqueId,Name,Family,Type,Level,HostId,DiameterMm,RebarCount,MinXmm,MinYmm,MinZmm,MaxXmm,MaxYmm,MaxZmm,Notes");
+                    csv.WriteLine("Class,Category,ElementId,UniqueId,Name,Family,Type,Level,HostId,DiameterMm,RebarCount,MinXmm,MinYmm,MinZmm,MaxXmm,MaxYmm,MaxZmm,LocationXmm,LocationYmm,LocationZmm,Notes");
                     json.Write("{\n\"schema\":\"kstruct.model-audit.v1\",\"generatedUtc\":");
                     String(json, DateTime.UtcNow.ToString("o", Invariant));
                     json.Write(",\"document\":{");
@@ -171,6 +171,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 string category = element.Category?.Name ?? "";
                 string klass = element.GetType().Name;
                 string family = "", type = "", level = "", host = "", notes = "";
+                XYZ locationPoint = (element.Location as LocationPoint)?.Point;
                 double? diameter = null;
                 int? rebarCount = null;
                 if (element is FamilyInstance instance)
@@ -187,7 +188,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     diameter = barType?.get_Parameter(BuiltInParameter.REBAR_BAR_DIAMETER) is Parameter diameterParameter && diameterParameter.HasValue
                         ? Mm(diameterParameter.AsDouble()) : (double?)null;
                     rebarCount = bar.NumberOfBarPositions;
-                    notes = "ShapeId=" + bar.GetShapeId().Value.ToString(Invariant);
+                    try { notes = "ShapeId=" + bar.GetShapeId().Value.ToString(Invariant); }
+                    catch { notes = "ShapeId=UNAVAILABLE"; }
                 }
                 if (element is View view)
                 {
@@ -223,6 +225,16 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Pair(json, "hostId", host, true);
                 Pair(json, "diameterMm", diameter, true);
                 Pair(json, "rebarPositions", rebarCount, true);
+                json.Write("\"locationMm\":");
+                if (locationPoint == null) json.Write("null,");
+                else
+                {
+                    json.Write("{");
+                    Pair(json, "x", Mm(locationPoint.X), true);
+                    Pair(json, "y", Mm(locationPoint.Y), true);
+                    Pair(json, "z", Mm(locationPoint.Z), false);
+                    json.Write("},");
+                }
                 json.Write("\"boundsMm\":");
                 if (bounds == null) json.Write("null");
                 else
@@ -236,6 +248,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     Pair(json, "maxZ", Mm(bounds.Max.Z), false);
                     json.Write("}");
                 }
+                json.Write(",\"parameters\":");
+                WriteRelevantParameters(json, element);
                 json.Write(",");
                 Pair(json, "notes", notes, false);
                 json.Write("}");
@@ -249,7 +263,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     bounds != null ? Number(Mm(bounds.Min.Z)) : "",
                     bounds != null ? Number(Mm(bounds.Max.X)) : "",
                     bounds != null ? Number(Mm(bounds.Max.Y)) : "",
-                    bounds != null ? Number(Mm(bounds.Max.Z)) : "", notes
+                    bounds != null ? Number(Mm(bounds.Max.Z)) : "",
+                    locationPoint != null ? Number(Mm(locationPoint.X)) : "",
+                    locationPoint != null ? Number(Mm(locationPoint.Y)) : "",
+                    locationPoint != null ? Number(Mm(locationPoint.Z)) : "", notes
                 };
                 csv.WriteLine(string.Join(",", row.Select(Csv)));
                 counts[klass] = counts.TryGetValue(klass, out int n) ? n + 1 : 1;
@@ -262,6 +279,55 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     warnings.Add("Element " + element.Id.Value + ": " + e.GetType().Name + " - " + e.Message);
                 // A failed element must not corrupt JSON; all risky reads are before opening the record.
             }
+        }
+
+        // Audit only dimensions/identifiers needed for KStruct diagnosis. Other project
+        // parameters can contain private client data and should not be exported implicitly.
+        private static void WriteRelevantParameters(TextWriter writer, Element element)
+        {
+            string[] names =
+            {
+                "D Coc", "D Cọc", "Đường kính cọc", "Pile Diameter", "Diameter",
+                "L", "W", "B", "H", "L1", "L2", "X1", "X2", "Y1", "Y2",
+                "Mark", "Comments", "2D-Top", "2D-Bot"
+            };
+            writer.Write("{");
+            bool comma = false;
+            foreach (string name in names)
+            {
+                Parameter p;
+                try { p = element.LookupParameter(name); } catch { continue; }
+                if (p == null || !p.HasValue) continue;
+                string value;
+                try
+                {
+                    switch (p.StorageType)
+                    {
+                        case StorageType.Double:
+                            value = p.AsDouble().ToString("R", Invariant);
+                            if (p.Definition?.GetDataType() == SpecTypeId.Length)
+                                value = Mm(p.AsDouble()).ToString("0.###", Invariant) + " mm";
+                            break;
+                        case StorageType.Integer:
+                            value = p.AsInteger().ToString(Invariant);
+                            break;
+                        case StorageType.ElementId:
+                            value = p.AsElementId()?.Value.ToString(Invariant) ?? "";
+                            break;
+                        case StorageType.String:
+                            value = p.AsString() ?? "";
+                            break;
+                        default: continue;
+                    }
+                }
+                catch { continue; }
+                if (comma) writer.Write(",");
+                comma = true;
+                String(writer, name);
+                writer.Write(":");
+                String(writer, value);
+            }
+            writer.Write("}");
         }
 
         private static string SafeName(Element e)
