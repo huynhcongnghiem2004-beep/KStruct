@@ -5,16 +5,19 @@ Provide **local coordinate frames** for structural hosts before implementing Bea
 
 ## New code
 - `Core/V5/HostCoordinateFrame.cs` – pure vector and orthonormal-coordinate-frame operations. Handles straight and sloped location lines, transform-based instances, world/local projections, validation and serialization, with no Revit API dependency.
-- `Core/V5/RevitHostGeometryResolver.cs` – Revit 2024 adapter. For straight framing, use a `LocationCurve` of type `Line` as local X; derive Y from world-up, Z via right-handed cross product. For columns/foundations, use the FamilyInstance transform and validate handedness, orthogonality and scale.
+- `Core/V5/RevitHostGeometryResolver.cs` – Revit 2024 adapter. For straight framing, canonicalize the `LocationCurve` endpoints for diagnostics and project the Family `BasisY` onto its normal plane as a transverse reference; the resulting frame reflects a reference to section rotation but does not certify the concrete solid. An axis parallel to the beam is rejected. For columns/foundations, use the FamilyInstance transform and validate handedness, orthogonality and scale.
 - `NativeDocumentation/AuditModelV2Command.cs` – for every eligible host, export `hostLocalFrame`. For each Rebar whose host frame can be resolved, report `fromHostLocalMm` and `toHostLocalMm` on each exported centerline segment.
 
 ## Interpretation
 - Coordinate values are in **millimeters**; axes are unitless vectors.
 - For a beam, X is its straight location-axis direction; Y/Z are construction coordinate axes. They **do not certify beam physical top, bottom, side, cover** or location-line alignment relative to concrete.
 - For a column/foundation, the Family instance basis is used; this does not certify which Solid is concrete, its faces or its real cross-section.
-- **Mirrored**, scaled, skewed, curved, unhosted and degenerate instances are **not silently assigned a frame**: `validatedOrthonormal=false` and `reason` are emitted.
+- Scaled, skewed, curved, unhosted and degenerate instances are **not silently assigned a frame**: `validatedOrthonormal=false` and `reason` are emitted.
 - Candidate Solid world bounds from Audit V2 remain diagnostics, not automatic pile-cap classification.
 - Local bar curve coordinates alone do not validate hooks, end cover, support joints or lap splice.
+- Valid mirrored Family transforms retain signed left-handed coordinates and `handedness=mirrored`; this is still a diagnostic frame, not approval for Rebar placement.
+- All frames have `placementApproved=false`. Projecting actual rebar onto the frame never authorizes creating or updating steel.
+- `planarFaceSamples` (max 24 planar faces per candidate Solid) reports area, normal and orientation `±X/Y/Z-face-candidate` or `oblique-candidate`. These faces have `classification=unverified-planar-face`. No cover offset, top/bottom or pile-cap classification is inferred.
 
 ## Revit 2024 smoke-test acceptance
 1. Open a **copy** of Mr.Khoa RVT in Revit 2024.
@@ -32,3 +35,10 @@ Provide **local coordinate frames** for structural hosts before implementing Bea
 - Multi-level column stack and joint segmentation.
 - Foundation cap-vs-pile geometry and real top/bottom concrete faces.
 - Real runtime acceptance on several models before enabling Rebar creation/update V5.
+
+## Known blockers before creating steel
+1. Validate physical cross-section against real concrete solids, not just the Family section axis.
+2. Determine physical support start/end (canonical lexicographic line direction is diagnostic only).
+3. Resolve actual concrete faces and cover offsets, pile-versus-cap identity and nested geometry transforms.
+4. Resolve column stacks, structural joints, host ownership, hooks and lap lengths.
+5. Pass real-model sample checks and Revit API transaction rollback tests before activating any V5 write action.
