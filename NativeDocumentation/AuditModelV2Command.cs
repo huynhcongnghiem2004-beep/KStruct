@@ -413,14 +413,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 var options=new Options{ComputeReferences=false,IncludeNonVisibleObjects=false,
                     DetailLevel=ViewDetailLevel.Fine};
                 GeometryElement geometry=instance.get_Geometry(options);
-                if(geometry!=null) CollectSolids(geometry,Transform.Identity,values,0);
+                RevitHostGeometryResolver.TryResolve(instance,out HostCoordinateFrame frame,out _);
+                if(geometry!=null) CollectSolids(geometry,Transform.Identity,values,0,frame);
                 record["solidCandidates"]=values;
                 record["solidWarning"]="Solid metrics may include nested pile or symbolic body; not certified concrete.";
             }
             catch(Exception ex){Warn(warnings,instance.Id.Value,"SOLID_UNAVAILABLE",ex.Message);}
         }
         private static void CollectSolids(GeometryElement geometry,Transform transform,
-            List<object> values,int depth)
+            List<object> values,int depth,HostCoordinateFrame frame)
         {
             if(depth>6||values.Count>=100)return;
             foreach(GeometryObject item in geometry)
@@ -445,7 +446,23 @@ namespace SDK_HD.KStruct.NativeDocumentation
                             maximum[axis]=Math.Max(maximum[axis],xyz[axis]);
                         }
                     }
+                    var faceSamples=new List<object>();
+                    foreach(Face surface in solid.Faces)
+                    {
+                        if(faceSamples.Count>=24)break;
+                        if(!(surface is PlanarFace planar)||
+                            !HostFaceCandidatePolicy.ValidFaceArea(planar.Area))continue;
+                        XYZ normal=transform.OfVector(planar.FaceNormal);
+                        faceSamples.Add(new Dictionary<string,object>{
+                            {"areaSquareMm",planar.Area*304.8*304.8},
+                            {"worldNormal",RawPoint(normal)},
+                            {"hostLocalOrientation",HostFaceCandidatePolicy.Orientation(frame,
+                                RevitHostGeometryResolver.ToUnitless(normal))},
+                            {"classification","unverified-planar-face"}
+                        });
+                    }
                     values.Add(new Dictionary<string,object>{
+                        {"planarFaceSamples",faceSamples},
                         {"volumeCubicMm",solid.Volume*304.8*304.8*304.8},
                         {"faces",solid.Faces.Size},{"depth",depth},
                         {"worldBoundsMm",new Dictionary<string,object>{
@@ -460,7 +477,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 {
                     GeometryElement nestedGeometry=nested.GetSymbolGeometry();
                     if(nestedGeometry!=null)
-                        CollectSolids(nestedGeometry,transform.Multiply(nested.Transform),values,depth+1);
+                        CollectSolids(nestedGeometry,transform.Multiply(nested.Transform),values,depth+1,frame);
                 }
             }
         }
