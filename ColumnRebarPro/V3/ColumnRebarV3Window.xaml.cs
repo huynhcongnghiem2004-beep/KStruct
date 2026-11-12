@@ -153,6 +153,12 @@ namespace ColumnRebarPro.V3
             // is controlled by the deployment settings, not by changing the label.
             for (int n = 2; n <= 20; n++) { CxBox.Items.Add(n); CyBox.Items.Add(n); }
             foreach (BarSizeChoice size in _sizes) { MainBarBox.Items.Add(size); TieBarBox.Items.Add(size); }
+            for (int n = 2; n <= 20; n++) { QuickCxBox.Items.Add(n); QuickCyBox.Items.Add(n); }
+            foreach (BarSizeChoice size in _sizes) QuickTieBarBox.Items.Add(size);
+            foreach (var label in new[] { "B20", "B25", "B30", "B35", "B40" }) QuickConcreteBox.Items.Add(label);
+            foreach (var label in new[] { "CB300-V", "CB400-V", "CB500-V" }) QuickSteelGradeBox.Items.Add(label);
+            QuickConcreteBox.SelectedItem = "B30";
+            QuickSteelGradeBox.SelectedItem = "CB400-V";
             foreach (ColumnSegment s in _segments.OrderByDescending(s => s.BottomMm))
             {
                 V3RebarConfig c = _configs[s.Id.Value];
@@ -496,11 +502,17 @@ namespace ColumnRebarPro.V3
                         Math.Abs(option.Size.Mm - current.Mm) < .01) selected = option;
                 }
                 QuickMainBarBox.SelectedItem = selected;
+                QuickCxBox.SelectedItem = CxBox.SelectedItem;
+                QuickCyBox.SelectedItem = CyBox.SelectedItem;
+                QuickWidthBox.Text = Math.Round(ActiveRow.Segment.WidthMm).ToString(CultureInfo.InvariantCulture);
+                QuickHeightBox.Text = Math.Round(ActiveRow.Segment.DepthMm).ToString(CultureInfo.InvariantCulture);
+                QuickBeamHeightBox.Text = BeamHeightBox.Text;
+                SetDiameter(QuickTieBarBox, ActiveConfig.TieDiameter, ActiveConfig.TieBarTypeUniqueId);
                 string diameter = ActiveConfig.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture);
-                QuickCoverBox.Text = CoverBox.Text + " mm";
-                QuickZoneBox.Text = ZoneBox.Text + " mm";
-                QuickEndBox.Text = "Ø" + diameter + "a" + EndStepBox.Text;
-                QuickMidBox.Text = "Ø" + diameter + "a" + MidStepBox.Text;
+                QuickCoverBox.Text = CoverBox.Text;
+                QuickZoneBox.Text = ZoneBox.Text;
+                QuickEndBox.Text = EndStepBox.Text;
+                QuickMidBox.Text = MidStepBox.Text;
                 QuickStarterCheck.IsChecked = MainStarterCheck.IsChecked == true;
                 QuickJointTiesCheck.IsChecked = ActiveConfig.ShowJointTies;
                 QuickTieStyleBox.SelectedIndex = LoopRadio.IsChecked == true ? 1 : 0;
@@ -522,6 +534,9 @@ namespace ColumnRebarPro.V3
                     var selected = QuickMainBarBox.SelectedItem as QuickBarChoice;
                     if (selected != null) MainBarBox.SelectedItem = selected.Size;
                 }
+                else if (ReferenceEquals(sender, QuickCxBox)) { CxBox.SelectedItem = QuickCxBox.SelectedItem; }
+                else if (ReferenceEquals(sender, QuickCyBox)) { CyBox.SelectedItem = QuickCyBox.SelectedItem; }
+                else if (ReferenceEquals(sender, QuickTieBarBox)) { TieBarBox.SelectedItem = QuickTieBarBox.SelectedItem; }
                 else if (ReferenceEquals(sender, QuickTieStyleBox))
                 {
                     if (QuickTieStyleBox.SelectedIndex == 1) LoopRadio.IsChecked = true;
@@ -582,8 +597,9 @@ namespace ColumnRebarPro.V3
                 // Validate *all* visible fields before changing any legacy values.
                 string cover = QuickNumber(QuickCoverBox.Text, "Lớp bảo vệ");
                 string zone = QuickNumber(QuickZoneBox.Text, "Chiều dài vùng đầu");
-                string end = QuickTieSpacing(QuickEndBox.Text, "Đai hai đầu");
-                string mid = QuickTieSpacing(QuickMidBox.Text, "Đai giữa");
+                string end = QuickNumber(QuickEndBox.Text, "Bước đai dày");
+                string mid = QuickNumber(QuickMidBox.Text, "Bước đai thưa");
+                string beam = QuickNumber(QuickBeamHeightBox.Text, "Cao dầm sàn");
                 _compactSync = true;
                 try
                 {
@@ -591,6 +607,8 @@ namespace ColumnRebarPro.V3
                     ZoneBox.Text = zone;
                     EndStepBox.Text = end;
                     MidStepBox.Text = mid;
+                    BeamHeightBox.Text = beam;
+                    JointHeightBox.Text = beam;
                 }
                 finally { _compactSync = false; }
                 if (!SaveActive(true))
