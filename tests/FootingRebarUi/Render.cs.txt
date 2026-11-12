@@ -43,8 +43,8 @@ internal static class Render
                 Id = match.Groups["id"].Value,
                 Family = match.Groups["icon"].Value
             }).ToList();
-        if (buttons.Count != 93)
-            throw new InvalidOperationException("Expected 93 configured KStruct commands, got " + buttons.Count);
+        if (buttons.Count != 94)
+            throw new InvalidOperationException("Expected 94 configured KStruct commands, got " + buttons.Count);
         const int cols = 10, cellW = 140, cellH = 66;
         int rows = (buttons.Count + cols - 1) / cols;
         var visual = new DrawingVisual();
@@ -84,7 +84,7 @@ internal static class Render
         using (var stream = File.Create(Path.Combine(output, "kstruct-flat-icons-atlas.png")))
             image.Save(stream);
         File.WriteAllText(Path.Combine(output, "kstruct-flat-icons-design.txt"),
-            "93 live-rendered Ribbon commands, 16px and 32px native raster from WPF vectors.\\r\\n" +
+            "94 live-rendered Ribbon commands, 16px and 32px native raster from WPF vectors.\\r\\n" +
             "Inverse palette: Navy #183248, earth #B57B56, ivory #F8F2E7.\\r\\n" +
             "Each command retains its existing ID, tool handler and Ribbon panel.\\r\\n");
     }
