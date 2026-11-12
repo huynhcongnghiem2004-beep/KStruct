@@ -13,6 +13,8 @@ using Autodesk.Revit.UI;
 using Panel = System.Windows.Controls.Panel;
 using TextBox = System.Windows.Controls.TextBox;
 using ComboBox = System.Windows.Controls.ComboBox;
+using Grid = System.Windows.Controls.Grid;
+using Color = System.Windows.Media.Color;
 using SDK_HD.KStruct.Core.V5;
 
 namespace SDK_HD.KStruct.NativeDocumentation
@@ -49,7 +51,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Element selected=selectedHosts.FirstOrDefault();
                 double[] barDiameters=new FilteredElementCollector(doc)
                     .OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
-                    .Select(x=>AuditV2Policy.Mm(x.BarDiameter))
+                    .Select(x=>AuditV2Policy.Mm(x.BarModelDiameter))
                     .Where(AuditV2Policy.IsFinite).Distinct().OrderBy(x=>x).ToArray();
                 var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters);
                 new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
