@@ -51,6 +51,22 @@ using(var parsed=JsonDocument.Parse(json)) {
 }
 Check(AuditV2Policy.SafeSegment(new[]{0.0,0.0,0.0},new[]{10.0,20.0,30.0}),"valid segment");
 Check(!AuditV2Policy.SafeSegment(new[]{0.0,double.NaN,0.0},new[]{10.0,20.0,30.0}),"nonfinite segment");
+// Revit 2024: Single does not expose ArrayLength. Distributed layout does.
+Check(!AuditRebarLayoutPolicy.HasArrayLength("Single"),"Single must not access ArrayLength");
+Check(!AuditRebarLayoutPolicy.HasArrayLength("single"),"Single case insensitive");
+Check(!AuditRebarLayoutPolicy.HasArrayLength("unavailable"),"Missing layout must not access ArrayLength");
+Check(!AuditRebarLayoutPolicy.HasArrayLength(null!),"Null layout must not access ArrayLength");
+Check(AuditRebarLayoutPolicy.HasArrayLength("FixedNumber"),"FixedNumber distribution");
+Check(AuditRebarLayoutPolicy.HasArrayLength("MaximumSpacing"),"MaximumSpacing distribution");
+Check(AuditRebarLayoutPolicy.HasArrayLength("NumberWithSpacing"),"NumberWithSpacing distribution");
+Check(AuditRebarLayoutPolicy.IsConsistentSingle("Single",1,1),"Single exactly one bar");
+Check(!AuditRebarLayoutPolicy.IsConsistentSingle("Single",2,2),"Single multiple positions invalid");
+Check(!AuditRebarLayoutPolicy.IsConsistentSingle("Single",1,0),"Single absent bar invalid");
+Check(!AuditRebarLayoutPolicy.IsValidArrayLength(double.NaN),"Reject NaN distribution");
+Check(!AuditRebarLayoutPolicy.IsValidArrayLength(double.PositiveInfinity),"Reject infinity distribution");
+Check(!AuditRebarLayoutPolicy.IsValidArrayLength(-1),"Reject negative distribution");
+Check(AuditRebarLayoutPolicy.IsValidArrayLength(0),"Allow zero length edge case for diagnosis");
+Check(AuditRebarLayoutPolicy.IsValidArrayLength(8),"Accept positive distribution length");
 // Verify successful two-file promotion, failed staging and preservation of prior reports.
 var testDir=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"kstruct-v5-audit-"+Guid.NewGuid().ToString("N"));
 System.IO.Directory.CreateDirectory(testDir);
