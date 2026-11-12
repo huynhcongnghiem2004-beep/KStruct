@@ -65,6 +65,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly Dictionary<string,TextBox> fields=new Dictionary<string,TextBox>();
         private readonly double[] types;
         private readonly string hostId;
+        private readonly V5StructuralModule? hostModule;
         private readonly ComboBox module;
         private readonly TextBlock result;
         private readonly TextBlock status;
@@ -74,6 +75,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
         {
             types=availableTypes??new double[0];
             hostId=host?.UniqueId;
+            long? categoryId=host?.Category?.Id.Value;
+            hostModule=categoryId==(long)BuiltInCategory.OST_StructuralFraming?V5StructuralModule.Beam:
+                categoryId==(long)BuiltInCategory.OST_StructuralColumns?V5StructuralModule.Column:
+                categoryId==(long)BuiltInCategory.OST_StructuralFoundation?V5StructuralModule.Footing:
+                (V5StructuralModule?)null;
             Title="KStruct V5  |  Structural Workspace";
             Width=980;Height=720;MinWidth=850;MinHeight=650;
             WindowStartupLocation=WindowStartupLocation.CenterOwner;
@@ -111,8 +117,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             module=new ComboBox{Height=36,FontSize=13,Margin=new Thickness(0,0,0,17)};
             module.Items.Add("Dầm / Beam");module.Items.Add("Cột / Column");
             module.Items.Add("Móng / Foundation");
-            module.SelectedIndex=host?.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralColumns?1:
-                host?.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFoundation?2:0;
+            module.SelectedIndex=hostModule.HasValue?(int)hostModule.Value:0;
+            // A selected Host fixes the structural module; avoid accidental cross-host settings.
+            module.IsEnabled=!hostModule.HasValue;
+            module.ToolTip=hostModule.HasValue
+                ?"Module được khóa theo Category của Host đã chọn trong Revit."
+                :"Chọn cấu kiện trong Revit để tự động xác định Module.";
             module.SelectionChanged+=(sender,e)=>Validate();
             left.Children.Add(module);
             left.Children.Add(Label("02  /  CẤU HÌNH SƠ BỘ (mm)",15,Navy,true,new Thickness(0,0,0,11)));
@@ -191,6 +201,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Math.Truncate(countValue)==countValue?(int)countValue:0;
             var input=new V5RebarInput{
                 Module=(V5StructuralModule)module.SelectedIndex,HostUniqueId=hostId,
+                HostModule=hostModule,
                 WidthMm=number("width"),HeightMm=number("height"),CoverMm=number("cover"),
                 MainBarDiameterMm=number("main"),TieDiameterMm=number("tie"),
                 TieSpacingMm=number("spacing"),MainBarCount=count
