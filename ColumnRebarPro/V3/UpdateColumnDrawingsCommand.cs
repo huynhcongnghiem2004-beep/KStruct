@@ -33,6 +33,13 @@ namespace ColumnRebarPro.V3
             Document doc = ui.Document;
             try
             {
+                DeploymentSettingsFile deployment = V3DeploymentControl.LoadSavedSettings(doc);
+                if (!V3DeploymentControl.IsSavedDeploymentEnabled(deployment))
+                {
+                    TaskDialog.Show("KStruct - Triển khai cột", DeploymentSetupMessage(deployment));
+                    return Result.Cancelled;
+                }
+
                 List<FamilyInstance> picked = ui.Selection.GetElementIds().Select(doc.GetElement)
                     .OfType<FamilyInstance>().Where(c => new ColumnFilter().AllowElement(c)).Distinct().ToList();
                 if (picked.Count == 0)
@@ -42,10 +49,6 @@ namespace ColumnRebarPro.V3
                         .Select(reference => doc.GetElement(reference)).OfType<FamilyInstance>().Distinct().ToList();
                 }
                 if (picked.Count == 0) return Result.Cancelled;
-
-                DeploymentSettingsFile deployment = V3DeploymentControl.LoadSavedSettings(doc);
-                if (deployment == null)
-                    throw new InvalidOperationException("Project chưa lưu thiết lập triển khai. Mở lệnh Tạo thép cột, cấu hình tab Triển khai và xác nhận để lưu thiết lập trước.");
 
                 var jobs = new List<DrawingJob>();
                 var seen = new HashSet<ElementId>();
@@ -126,6 +129,14 @@ namespace ColumnRebarPro.V3
                 TaskDialog.Show("KStruct V3 - Cập nhật bản vẽ", ex.Message);
                 return Result.Failed;
             }
+        }
+
+        private static string DeploymentSetupMessage(DeploymentSettingsFile settings)
+        {
+            string status = settings == null
+                ? "Project này chưa có thiết lập Triển khai đã lưu."
+                : "Thiết lập Triển khai của project đang tắt.";
+            return status + " Mở KStruct > Tạo thép cột > Triển khai, bật triển khai, chọn Title Block và loại View mặt cắt, rồi nhấn Lưu thiết lập triển khai. Sau đó chạy lại lệnh này. Không cần tạo lại thép cột.";
         }
 
         private static bool HasV3Rebar(Document doc, ElementId columnId)

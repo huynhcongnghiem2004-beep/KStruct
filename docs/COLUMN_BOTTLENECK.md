@@ -11,9 +11,13 @@ khoảng hở dầm/sàn 400 mm. Luồng mới xét chiều dài thép thực th
 - Ví dụ khoảng hở 400 mm, d20, cover tầng trên 30 mm: L=1000 mm cho đoạn nối thẳng
   560 mm. L=600 mm chỉ còn 160 mm, không đủ giới hạn dưới 400 mm; giao diện báo cần
   ít nhất 840 mm. Đây chưa phải chiều dài nối tính toán cuối cùng.
-- Khi hai tầng có cùng số thanh và phân bố cạnh tương thích, lệnh ghép từng thanh theo
-  tọa độ mô hình, giữ ghép góc với góc. Có thể khác tiết diện, cover, đường kính hoặc
-  hướng trục; không còn chặn chỉ vì các thông số này khác nhau.
+- Khi hai tầng khác số thanh, lệnh ghép tối đa thanh theo thứ tự quanh chu vi, giữ ghép góc
+  với góc và ưu tiên tổng khoảng cách ngang nhỏ nhất. Thanh dư dưới kết thúc trước mạch ngừng
+  trong phạm vi cover và đai; thanh dư trên bắt đầu sau cover/đai ở chân cột. Preview và hộp
+  thoại báo riêng số thanh dư từng phía. Kỹ sư phải kiểm tra neo/cắt thanh, cốt đai vùng nối,
+  nút dầm-sàn và khả năng thi công trước khi phát hành.
+- Khi số thanh bằng nhau, lệnh vẫn ghép theo tọa độ mô hình và giữ ghép góc với góc. Có thể
+  khác tiết diện, cover, đai, đường kính hoặc hướng trục.
 - Thanh dưới nhấn đến vị trí nằm cạnh thanh trên; thanh trên giữ thẳng. Khoảng cách tâm
   tại đoạn nối = (d dưới + d trên)/2 + khe hở, mặc định khe hở dựng hình 2 mm.
   Độ dịch và chiều cao nhấn tính riêng từng thanh; chiều cao = độ dịch × n, mặc định 1:6.
@@ -45,16 +49,15 @@ thanh giao nhau hoặc Revit tạo bán kính dưới mức kiểm tra thì roll
 
 ## Giới hạn và kiểm thử
 
-Giữ chặn cột chồng cao độ quá 2 mm, khác số thanh, phân bố cạnh không ghép được góc,
-phương án ghép mơ hồ, thiếu cover/chiều dài hoặc giao đường tâm nhấn. Không tự bổ sung
-hay kết thúc thanh khi đổi số lượng. Nối so le và cấu hình nối cũ chưa hỗ trợ.
+Giữ chặn cột chồng cao độ quá 2 mm, phân bố cạnh không ghép được góc, phương án ghép mơ hồ,
+thiếu cover/chiều dài hoặc giao đường tâm nhấn. Nối so le và cấu hình nối cũ chưa hỗ trợ.
 Không tự nhận diện bê tông trong khoảng hở và không tự thay chiều dài đã nhập.
 Kiểm tra tránh giao hiện xét các đoạn đường tâm trước bo; chưa thay thế kiểm tra va chạm
 solid, đai và toàn bộ thanh sau khi Revit dựng.
 
 Bộ `tests/ColumnRebarLayout` liên kết trực tiếp bộ ghép, adapter, resolver và toán đường
 thanh dùng trong ứng dụng; không thay bộ so sánh bằng boolean giả. Kiểm tra đổi tiết diện,
-cover, đai, đường kính, tâm, xoay/mirror, đổi số thanh, phân bố cạnh, neo L, nhóm set,
+cover, đai, đường kính, tâm, xoay/mirror, đổi số thanh và vị trí thanh dư, phân bố cạnh, neo L, nhóm set,
 đường nhiều mặt phẳng, cung uốn, khoảng hở 0/400/1500 mm và chiều dài nối.
 Build CI dùng API Revit 2024; kiểm tra toán học và build không xác nhận chạy Revit thực.
 

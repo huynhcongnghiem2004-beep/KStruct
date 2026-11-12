@@ -23,7 +23,7 @@ namespace ColumnRebarPro.V3
         internal int BarIndex;
         internal double Shift,Height;
         internal V3Point3 Normal;
-        internal bool Planar;
+        internal bool Planar,Unmatched;
         internal void Inspect()
         {
             Normal=new V3Point3();

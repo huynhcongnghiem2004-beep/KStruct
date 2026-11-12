@@ -48,6 +48,13 @@ namespace ColumnRebarPro.V3
             Document doc = ui.Document;
             try
             {
+                DeploymentSettingsFile settings = V3DeploymentControl.LoadSavedSettings(doc);
+                if (!V3DeploymentControl.IsSavedDeploymentEnabled(settings))
+                {
+                    TaskDialog.Show("KStruct - Triển khai cột", DeploymentSetupMessage(settings));
+                    return Result.Cancelled;
+                }
+
                 List<FamilyInstance> picked = ui.Selection.GetElementIds().Select(doc.GetElement)
                     .OfType<FamilyInstance>().Where(c => new ColumnFilter().AllowElement(c)).Distinct().ToList();
                 if (picked.Count == 0)
@@ -55,10 +62,6 @@ namespace ColumnRebarPro.V3
                             "Chọn cột KStruct cần " + (update ? "cập nhật" : "triển khai") + " bản vẽ")
                         .Select(r => doc.GetElement(r)).OfType<FamilyInstance>().Distinct().ToList();
                 if (picked.Count == 0) return Result.Cancelled;
-
-                DeploymentSettingsFile settings = V3DeploymentControl.LoadSavedSettings(doc);
-                if (settings == null || !settings.Entries.Any(e => e.Name == "EnableCheck" && e.Value == "true"))
-                    throw new InvalidOperationException("Chưa có thiết lập triển khai V3. Mở lệnh Thép cột, vào tab Triển khai, bật và lưu thiết lập trước.");
 
                 var seen = new HashSet<ElementId>();
                 var jobs = new List<List<V3SegmentWork>>();
@@ -139,6 +142,14 @@ namespace ColumnRebarPro.V3
                 TaskDialog.Show("KStruct - Triển khai cột", ex.Message);
                 return Result.Failed;
             }
+        }
+
+        private static string DeploymentSetupMessage(DeploymentSettingsFile settings)
+        {
+            string status = settings == null
+                ? "Project này chưa có thiết lập Triển khai đã lưu."
+                : "Thiết lập Triển khai của project đang tắt.";
+            return status + " Mở KStruct > Tạo thép cột > Triển khai, bật triển khai, chọn Title Block và loại View mặt cắt, rồi nhấn Lưu thiết lập triển khai. Sau đó chạy lại lệnh này. Không cần tạo lại thép cột.";
         }
 
         private sealed class DrawingTypes { public FamilySymbol TitleBlock; public ViewFamilyType SectionType; }
