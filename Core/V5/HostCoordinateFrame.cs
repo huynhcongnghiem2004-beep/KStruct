@@ -62,7 +62,10 @@ namespace SDK_HD.KStruct.Core.V5
             foreach(HostVector3 candidate in references)
                 if(Math.Abs(HostVector3.Dot(candidate,tangent))<
                    Math.Abs(HostVector3.Dot(reference,tangent)))reference=candidate;
-            return TryLineWithReference(start,end,reference,"location-curve-straight",out frame);
+            // Preserve legacy diagnostics: the reference is a normal/up vector,
+            // while TryLineWithReference expects a transverse Y axis.
+            return TryLineWithReference(start,end,HostVector3.Cross(reference,tangent),
+                "location-curve-straight",out frame);
         }
 
         // Project a known section transverse axis onto the plane normal to the
