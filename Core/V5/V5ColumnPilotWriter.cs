@@ -22,7 +22,7 @@ namespace SDK_HD.KStruct.Core.V5
         {
             if(doc==null || host==null || input==null)
                 throw new InvalidOperationException("Thiếu Host hoặc cấu hình Pilot.");
-            if(doc.IsFamilyDocument || host.Document!=doc ||
+            if(doc.IsFamilyDocument || doc.IsReadOnly || host.Document!=doc ||
                host.Category?.Id.Value!=(long)BuiltInCategory.OST_StructuralColumns ||
                input.Module!=V5StructuralModule.Column || input.HostModule!=V5StructuralModule.Column ||
                input.HostUniqueId!=host.UniqueId || input.MainBarCount!=4)
@@ -40,12 +40,12 @@ namespace SDK_HD.KStruct.Core.V5
                 throw new InvalidOperationException("Phải có đúng một RebarBarType thép chủ phù hợp.");
             RebarBarType barType=matches[0];
             if(new FilteredElementCollector(doc).OfClass(typeof(Rebar))
-                .Cast<Rebar>().Any(r=>r.GetHostId()==host.Id))
+                .Cast<Rebar>().Any(r=>r.GetHostId().Equals(host.Id)))
                 throw new InvalidOperationException(
                     "Cột đã có Rebar: Pilot không chèn trùng hoặc thay thép hiện hữu.");
 
             if(!RevitHostGeometryResolver.TryResolve(host,out var frame,out string reason) ||
-               frame.IsMirrored || Math.Abs(frame.Z.Z)<0.9999 ||
+               frame.IsMirrored || frame.Z.Z<0.9999 ||
                Math.Abs(frame.X.Z)>0.0001 || Math.Abs(frame.Y.Z)>0.0001)
                 throw new InvalidOperationException("Chỉ hỗ trợ cột đứng, không mirror: "+reason);
 
@@ -107,7 +107,7 @@ namespace SDK_HD.KStruct.Core.V5
                             new List<Curve>{Line.CreateBound(p0,p0+XYZ.BasisZ*length)},
                             RebarHookOrientation.Right,RebarHookOrientation.Right,
                             "V5 Pilot thanh dọc");
-                        if(r==null || r.GetHostId()!=host.Id)
+                        if(r==null || !r.GetHostId().Equals(host.Id))
                             throw new InvalidOperationException("Rebar tạo không thuộc đúng cột.");
                         Parameter partition=r.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM);
                         if(partition==null || partition.IsReadOnly ||
