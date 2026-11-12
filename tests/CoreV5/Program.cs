@@ -139,8 +139,12 @@ Near(back[2],26.2,"Sloped roundtrip Z");
 Check(HostCoordinateFrame.TryInstance(origin,new HostVector3(0,1,0),
     new HostVector3(-1,0,0),new HostVector3(0,0,1),out var rotated),"Rotated column Family frame");
 Near(rotated.ToLocal(new HostVector3(100,400,300))[0],200,"Rotated column local X");
-Check(!HostCoordinateFrame.TryInstance(origin,new HostVector3(1,0,0),
-    new HostVector3(0,-1,0),new HostVector3(0,0,1),out _),"Mirrored instance is unverified");
+Check(HostCoordinateFrame.TryInstance(origin,new HostVector3(1,0,0),
+    new HostVector3(0,-1,0),new HostVector3(0,0,1),out var mirrored),
+    "Valid mirrored Family frame can be diagnosed");
+Check(mirrored.IsMirrored,"Mirrored handedness retained");
+Near(mirrored.ToLocal(new HostVector3(100,300,300))[1],-100,
+    "Mirrored Y signed coordinates");
 Check(!HostCoordinateFrame.TryInstance(origin,new HostVector3(2,0,0),
     new HostVector3(0,1,0),new HostVector3(0,0,1),out _),"Scaled transform rejected");
 Check(!HostCoordinateFrame.TryInstance(origin,new HostVector3(1,0,0),
