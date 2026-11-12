@@ -32,7 +32,17 @@ namespace SDK_HD.KStruct.Core.V5
             value=0;
             if(string.IsNullOrWhiteSpace(text))return false;
             // No grouping separators: "1,500" could ambiguously mean 1.5 or 1500.
-            string normalized=text.Trim().Replace(',', '.');
+            string raw=text.Trim();
+            // A single separator with three following digits is a common
+            // thousands-grouping ambiguity (1,500 versus 1.500). Reject it.
+            int separator=raw.IndexOfAny(new[]{'.',','});
+            if(separator>0 && raw.IndexOfAny(new[]{'.',','},separator+1)<0 &&
+               raw.Length-separator-1==3 &&
+               raw.Substring(0,separator).TrimStart('+','-').Length<=3 &&
+               raw.Substring(0,separator).TrimStart('+','-').All(char.IsDigit) &&
+               raw.Substring(separator+1).All(char.IsDigit))
+                return false;
+            string normalized=raw.Replace(',', '.');
             if(normalized.Count(c=>c=='.')>1)return false;
             if(!double.TryParse(normalized,NumberStyles.AllowLeadingSign|
                 NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out value))return false;
