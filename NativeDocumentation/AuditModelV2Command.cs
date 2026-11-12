@@ -163,15 +163,19 @@ namespace SDK_HD.KStruct.NativeDocumentation
             Dictionary<string,object> record,
             List<Tuple<long,string,HostVector3,HostVector3>> targets)
         {
-            if(host.Category?.Id.Value!=(long)BuiltInCategory.OST_StructuralFraming)return;
+            long category=host.Category?.Id.Value??0;
+            if(category!=(long)BuiltInCategory.OST_StructuralFraming &&
+                category!=(long)BuiltInCategory.OST_StructuralColumns)return;
             var candidates=new List<object>();
-            if(host.Location is LocationCurve loc && loc.Curve is Line line)
+            bool truncated=false;
+            if(category==(long)BuiltInCategory.OST_StructuralFraming &&
+                host.Location is LocationCurve loc && loc.Curve is Line line)
             {
                 var start=RevitHostGeometryResolver.ToMm(line.GetEndPoint(0));
                 var end=RevitHostGeometryResolver.ToMm(line.GetEndPoint(1));
                 foreach(var target in targets)
                 {
-                    if(candidates.Count>=100)break;
+                    if(candidates.Count>=100){truncated=true;break;}
                     if(StructuralJointCandidatePolicy.TrySegmentBox(start,end,
                         target.Item3,target.Item4,0,out double entry,out double exit))
                     {
@@ -183,8 +187,40 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     }
                 }
             }
+            if(category==(long)BuiltInCategory.OST_StructuralColumns)
+            {
+                try
+                {
+                    BoundingBoxXYZ own=host.get_BoundingBox(null);
+                    if(own!=null)
+                    {
+                        HostVector3 ownMin=RevitHostGeometryResolver.ToMm(own.Min);
+                        HostVector3 ownMax=RevitHostGeometryResolver.ToMm(own.Max);
+                        foreach(var target in targets)
+                        {
+                            if(target.Item1==host.Id.Value || target.Item2!="column")continue;
+                            if(candidates.Count>=100){truncated=true;break;}
+                            bool above=StructuralJointCandidatePolicy.TryColumnStackCandidate(
+                                ownMin,ownMax,target.Item3,target.Item4,10,20,out double areaAbove);
+                            bool below=StructuralJointCandidatePolicy.TryColumnStackCandidate(
+                                target.Item3,target.Item4,ownMin,ownMax,10,20,out double areaBelow);
+                            if(above||below)
+                                candidates.Add(new Dictionary<string,object>{
+                                    {"otherHostId",target.Item1},
+                                    {"direction",above?"candidate-above":"candidate-below"},
+                                    {"xyOverlapSquareMm",above?areaAbove:areaBelow},
+                                    {"classification","unverified-column-stack-candidate"}
+                                });
+                        }
+                    }
+                }
+                catch(Exception ex)
+                {
+                    record["jointCandidateError"]=ex.GetType().Name;
+                }
+            }
             record["jointCandidates"]=candidates;
-            record["jointCandidateLimitReached"]=candidates.Count>=100;
+            record["jointCandidateLimitReached"]=truncated;
         }
 
         private static IEnumerable<Element> Collect(Document doc)
