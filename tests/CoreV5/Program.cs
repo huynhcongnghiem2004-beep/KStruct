@@ -276,6 +276,18 @@ var v5Input=new V5RebarInput{
 var v5Bars=new[]{8.0,12.0,16.0,20.0};
 var v5Ready=V5RebarInputPolicy.Review(v5Input,v5Bars);
 Check(v5Ready.IsValid,"Valid basic V5 entry values");
+v5Input.HostModule=V5StructuralModule.Column;
+Check(V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Matching selected host category is permitted");
+v5Input.Module=V5StructuralModule.Beam;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Host Column cannot use Beam input module");
+v5Input.Module=V5StructuralModule.Column;
+v5Input.HostModule=(V5StructuralModule)999;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Invalid trusted host category is rejected");
+v5Input.HostModule=V5StructuralModule.Column;
+
 Check(!v5Ready.CanCreateRebar,"Safety gate blocks V5 Rebar creation even for valid inputs");
 Near(v5Ready.InnerWidthMm,218,"Input inner width from cover and steel");
 Near(v5Ready.InnerHeightMm,218,"Input inner height from cover and steel");
