@@ -65,67 +65,57 @@ namespace SDK_HD.KStruct.NativeDocumentation
             int written=0;
             try
             {
-                // Build to temp paths, move results only after successful closing.
-                string tmpJson=path+".partial",tmpCsv=csv+".partial";
-                try
+                AuditPairPublisher.Write(path,csv,(json,table)=>
                 {
-                    using(var json=new StreamWriter(tmpJson,false,new UTF8Encoding(false)))
-                    using(var table=new StreamWriter(tmpCsv,false,new UTF8Encoding(true)))
+                    table.WriteLine("Class,Category,ElementId,UniqueId,HostId,Family,Type,Level,RebarDiameterMm,RebarPositions,CenterXmm,CenterYmm,CenterZmm,Status");
+                    json.Write("{\"schema\":");
+                    json.Write(AuditV2Policy.Json(AuditV2Policy.Schema));
+                    json.Write(",\"generatedUtc\":"+AuditV2Policy.Json(DateTime.UtcNow.ToString("o",Culture)));
+                    json.Write(",\"document\":"+AuditV2Policy.Json(new Dictionary<string,object>{
+                        {"title",doc.Title},{"revitVersion",data.Application.Application.VersionNumber},
+                        {"isWorkshared",doc.IsWorkshared},
+                        {"path",doc.PathName}
+                    }));
+                    json.Write(",\"elements\":[");
+                    bool first=true;
+                    foreach(Element e in Collect(doc))
                     {
-                        table.WriteLine("Class,Category,ElementId,UniqueId,HostId,Family,Type,Level,RebarDiameterMm,RebarPositions,CenterXmm,CenterYmm,CenterZmm,Status");
-                        json.Write("{\"schema\":");
-                        json.Write(AuditV2Policy.Json(AuditV2Policy.Schema));
-                        json.Write(",\"generatedUtc\":"+AuditV2Policy.Json(DateTime.UtcNow.ToString("o",Culture)));
-                        json.Write(",\"document\":"+AuditV2Policy.Json(new Dictionary<string,object>{
-                            {"title",doc.Title},{"revitVersion",data.Application.Application.VersionNumber},
-                            {"isWorkshared",doc.IsWorkshared},
-                            {"path",doc.PathName}
-                        }));
-                        json.Write(",\"elements\":[");
-                        bool first=true;
-                        foreach(Element e in Collect(doc))
+                        Dictionary<string,object> record;
+                        string serialized;
+                        string csvRow;
+                        try
                         {
-                            try
-                            {
-                                var record=Describe(doc,e,issues);
-                                string serialized=AuditV2Policy.Json(record);
-                                if(!first)json.Write(",");
-                                first=false;
-                                json.Write(serialized);
-                                var row=new[]{
-                                    Text(record,"class"),Text(record,"category"),Text(record,"elementId"),
-                                    Text(record,"uniqueId"),Text(record,"hostId"),
-                                    Text(record,"family"),Text(record,"type"),Text(record,"level"),
-                                    Text(record,"diameterMm"),Text(record,"barPositions"),
-                                    Text(record,"xMm"),Text(record,"yMm"),Text(record,"zMm"),
-                                    Text(record,"status")};
-                                table.WriteLine(string.Join(",",row.Select(Csv)));
-                                string type=Text(record,"category");
-                                counts[type]=counts.TryGetValue(type,out int old)?old+1:1;
-                                written++;
-                            }
-                            catch(Exception ex)
-                            {
-                                Warn(issues,e.Id.Value,"RECORD_ERROR",ex.GetType().Name+": "+ex.Message);
-                            }
+                            record=Describe(doc,e,issues);
+                            serialized=AuditV2Policy.Json(record);
+                            var columns=new[]{
+                                Text(record,"class"),Text(record,"category"),Text(record,"elementId"),
+                                Text(record,"uniqueId"),Text(record,"hostId"),
+                                Text(record,"family"),Text(record,"type"),Text(record,"level"),
+                                Text(record,"diameterMm"),Text(record,"barPositions"),
+                                Text(record,"xMm"),Text(record,"yMm"),Text(record,"zMm"),
+                                Text(record,"status")};
+                            csvRow=string.Join(",",columns.Select(Csv));
                         }
-                        json.Write("],\"summary\":"+AuditV2Policy.Json(new Dictionary<string,object>{
-                            {"records",written},{"warnings",issues.Count},
-                            {"counts",counts.ToDictionary(x=>x.Key,x=>(object)x.Value)}
-                        }));
-                        json.Write(",\"warnings\":"+AuditV2Policy.Json(issues)+"}");
+                        catch(Exception ex)
+                        {
+                            Warn(issues,e.Id.Value,"RECORD_ERROR",ex.GetType().Name+": "+ex.Message);
+                            continue;
+                        }
+                        // Serialization completes before either staged writer is touched.
+                        // Any disk error aborts the entire export, never skips a CSV row.
+                        if(!first)json.Write(",");
+                        first=false;
+                        json.Write(serialized);
+                        table.WriteLine(csvRow);
+                        string category=Text(record,"category");
+                        counts[category]=counts.TryGetValue(category,out int previous)?previous+1:1;
+                        written++;
                     }
-                    // JSON and CSV are produced from the same successful records.
-                    // Avoid leaving partial outputs after exceptions.
-                    if(File.Exists(path))File.Delete(path);
-                    if(File.Exists(csv))File.Delete(csv);
-                    File.Move(tmpJson,path);File.Move(tmpCsv,csv);
-                }
-                finally
-                {
-                    if(File.Exists(tmpJson))File.Delete(tmpJson);
-                    if(File.Exists(tmpCsv))File.Delete(tmpCsv);
-                }
+                    json.Write("],\"summary\":"+AuditV2Policy.Json(new Dictionary<string,object>{
+                        {"records",written},{"warnings",issues.Count},
+                        {"counts",counts.ToDictionary(x=>x.Key,x=>(object)x.Value)}
+                    }));
+                    json.Write(",\"warnings\":"+AuditV2Policy.Json(issues)+"}");                });
                 TaskDialog.Show("KStruct Audit V2","Xuất xong (không sửa mô hình): "+
                     written+" bản ghi, "+issues.Count+" cảnh báo.\nJSON: "+path+"\nCSV: "+csv);
                 return Result.Succeeded;
