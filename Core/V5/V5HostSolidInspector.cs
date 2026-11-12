@@ -13,6 +13,8 @@ namespace SDK_HD.KStruct.Core.V5
     internal sealed class V5HostSolidInventory
     {
         internal int SolidCount;
+        internal int ConcreteMaterialCandidateSolids;
+        internal int UnknownOrMixedMaterialSolids;
         internal int PlanarFaceCount;
         internal int NonPlanarFaceCount;
         internal int UnavailableMaterialFaceCount;
@@ -50,7 +52,7 @@ namespace SDK_HD.KStruct.Core.V5
                     result.Warnings.Add("Revit không trả về GeometryElement cho Host.");
                     return result;
                 }
-                Scan(geometry, result, 0);
+                Scan(geometry, host.Document, result, 0);
             }
             catch (Exception ex)
             {
@@ -64,7 +66,8 @@ namespace SDK_HD.KStruct.Core.V5
             return result;
         }
 
-        private static void Scan(GeometryElement geometry, V5HostSolidInventory result, int depth)
+        private static void Scan(GeometryElement geometry, Document doc,
+            V5HostSolidInventory result, int depth)
         {
             if (geometry == null || result.Truncated) return;
             if (depth > MaxDepth)
@@ -77,7 +80,7 @@ namespace SDK_HD.KStruct.Core.V5
                 if (result.Truncated) break;
                 if (item is Solid solid)
                 {
-                    InspectSolid(solid, result);
+                    InspectSolid(solid, doc, result);
                 }
                 else if (item is GeometryInstance instance)
                 {
@@ -85,7 +88,7 @@ namespace SDK_HD.KStruct.Core.V5
                     {
                         // Instance geometry is already transformed into host coordinates.
                         // Do not additionally apply instance.Transform.
-                        Scan(instance.GetInstanceGeometry(), result, depth + 1);
+                        Scan(instance.GetInstanceGeometry(), doc, result, depth + 1);
                     }
                     catch (Exception ex)
                     {
@@ -95,7 +98,8 @@ namespace SDK_HD.KStruct.Core.V5
             }
         }
 
-        private static void InspectSolid(Solid solid, V5HostSolidInventory result)
+        private static void InspectSolid(Solid solid, Document doc,
+            V5HostSolidInventory result)
         {
             if (solid == null) return;
             double volume;
@@ -115,6 +119,8 @@ namespace SDK_HD.KStruct.Core.V5
             double volumeMm = volume * 304.8 * 304.8 * 304.8;
             if (AuditV2Policy.IsFinite(volumeMm))
                 result.GrossSolidVolumeCubicMm += volumeMm;
+            bool allConcrete=true;
+            int recognizedFaces=0;
             try
             {
                 foreach (Face face in solid.Faces)
@@ -124,17 +130,44 @@ namespace SDK_HD.KStruct.Core.V5
                     else result.NonPlanarFaceCount++;
                     try
                     {
-                        if (face.MaterialElementId == null ||
-                            face.MaterialElementId == ElementId.InvalidElementId)
+                        ElementId materialId=face.MaterialElementId;
+                        if (materialId==null || materialId==ElementId.InvalidElementId)
+                        {
                             result.UnavailableMaterialFaceCount++;
+                            allConcrete=false;
+                            continue;
+                        }
+                        Material material=doc.GetElement(materialId) as Material;
+                        if (material?.StructuralAssetId==null ||
+                            material.StructuralAssetId==ElementId.InvalidElementId)
+                        {
+                            allConcrete=false;
+                            result.UnavailableMaterialFaceCount++;
+                            continue;
+                        }
+                        PropertySetElement set=doc.GetElement(material.StructuralAssetId)
+                            as PropertySetElement;
+                        StructuralAsset asset=set?.GetStructuralAsset();
+                        if (asset==null || asset.StructuralAssetClass!=StructuralAssetClass.Concrete)
+                            allConcrete=false;
+                        else recognizedFaces++;
                     }
-                    catch { result.UnavailableMaterialFaceCount++; }
+                    catch
+                    {
+                        allConcrete=false;
+                        result.UnavailableMaterialFaceCount++;
+                    }
                 }
             }
             catch (Exception ex)
             {
+                allConcrete=false;
                 result.Warnings.Add("Không đọc được các mặt Solid: " + ex.GetType().Name);
             }
+            if (allConcrete && recognizedFaces>0)
+                result.ConcreteMaterialCandidateSolids++;
+            else
+                result.UnknownOrMixedMaterialSolids++;
         }
     }
 }
