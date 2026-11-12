@@ -322,4 +322,24 @@ Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
 v5Input.TieSpacingMm=150;
 v5Input.Module=(V5StructuralModule)999;
 Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,"Invalid module blocked");
+var executionEvidence=new V5ExecutionEvidence();
+var executionReview=V5ExecutionGatePolicy.Review(executionEvidence);
+Check(!executionReview.IsReady && executionReview.Blockers.Count==6,
+    "V5 starts fail-closed with all six structural drawing gates");
+Check(!V5ExecutionGatePolicy.Review(null!).IsReady,
+    "Missing verified evidence cannot authorize V5");
+executionEvidence.HostSolidIsConcrete=true;
+Check(!V5ExecutionGatePolicy.Review(executionEvidence).IsReady,
+    "Solid evidence alone cannot approve reinforcement");
+executionEvidence.PhysicalCoverFacesVerified=true;
+executionEvidence.JointsAndSupportsVerified=true;
+executionEvidence.AnchorsAndLapsApproved=true;
+executionEvidence.OwnershipAndRollbackVerified=true;
+Check(!V5ExecutionGatePolicy.Review(executionEvidence).IsReady,
+    "V5 drawing gate blocks when 2D deliverables are not verified");
+executionEvidence.ViewsTagsDimensionsVerified=true;
+Check(V5ExecutionGatePolicy.Review(executionEvidence).IsReady,
+    "All six independent evidence flags must be provided for hypothetical readiness");
+Check(!v5Ready.CanCreateRebar,
+    "Even validated evidence does not bypass the V5 hard Rebar write lock");
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
