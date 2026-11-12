@@ -10,5 +10,6 @@
     <Compile Include="../../Core/V5/AuditOwnershipPolicy.cs" Link="AuditOwnershipPolicy.cs" />
     <Compile Include="../../Core/V5/AuditPairPublisher.cs" Link="AuditPairPublisher.cs" />
     <Compile Include="../../Core/V5/AuditRebarLayoutPolicy.cs" Link="AuditRebarLayoutPolicy.cs" />
+    <Compile Include="../../Core/V5/HostCoordinateFrame.cs" Link="HostCoordinateFrame.cs" />
   </ItemGroup>
 </Project>
