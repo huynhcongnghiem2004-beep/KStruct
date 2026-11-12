@@ -11,15 +11,15 @@
 - JSON schema: `kstruct.model-audit.v2`; CSV lists matching successful records.
 - Structural foundation/column/framing/floor/wall, Rebar, Detail Components, Views, Viewports, CAD links/imports and Revit links.
 - Each record: ElementId/UniqueId, HostId when available, instance and type parameters, dimensions, LocationPoint and BoundingBox (global values in mm).
-- Rebar: real bar type diameter, ShapeId, start/end HookType ids, physical positions, first existing bar position's curve segments, length and direction *candidates*, shape-driven layout rule/array length if available.
+- Rebar: real bar type diameter, ShapeId, start/end HookType ids, existing positions, centerline segments for up to 256 existing positions (at most 4096 segments per set), length and direction *candidates*, shape-driven layout rule/array length if available. Limits and failed positions are marked in warnings.
 - Detail/Section Views: origin and basis axes, CropBox transform, scale, template and known KStruct footing-drawing metadata.
-- Foundation instances: visible solid volume candidates including nested geometry. These are for diagnosis **only**; nested piles may be present and are not automatically identified as concrete cap.
+- Foundation instances: visible solid volume and transformed world-BoundingBox candidates including nested geometry. These are for diagnosis **only**; nested piles may be present and are not automatically identified as concrete cap.
 - Errors and unsupported API access are explicit warning entries. An unknown result is not silently classified as a valid result.
 
 ## Safety and privacy
 Run on a **copy** of the RVT. Save exports to a local folder you control. Output may include private document paths, element names and Family details; review before sharing.
 
-Revit project is not modified, but the command writes/overwrites JSON/CSV on disk after confirmation. It writes temporary files before promoting completed outputs. If overwriting an existing pair, the promotion is not fully atomic across both files; keep copies of important reports.
+Revit project is not modified, but the command writes/overwrites JSON/CSV on disk after confirmation. It writes uniquely named temporary files and makes recovery copies before promoting completed outputs. Ordinary I/O failures trigger rollback to earlier reports. Promotion of two separate filenames cannot be fully atomic through a power outage; preserve important backups.
 
 ## Phase 1 acceptance gate
 1. Repository tests for pure JSON, unit conversion, finite geometry, bar orientation candidates and Ownership classification pass.
@@ -31,9 +31,16 @@ Revit project is not modified, but the command writes/overwrites JSON/CSV on dis
 7. Phase 1 is **not complete at runtime** until real Revit smoke tests (steps 3-6) are signed off.
 
 ## Known limitations and backlog
-- Some Rebar can be free-form, varying, multiplanar or have several bar positions with distinct centerlines. V2 records *only the first existing bar position's* centerline; do not use it for complete fabrication quantities.
+- Some Rebar can be free-form, varying, multiplanar or have more than 256 existing positions. V2 records multiple positions with explicit caps; truncated and unavailable geometry is signaled. Do not use the diagnostic export for complete fabrication quantities.
 - Rebar direction is a segment-level X/Y/Z heuristic, not a beam/column local-axis classifier. TOP/BOT must be determined using Host geometry and cover rules in subsequent V5 Core releases.
-- Nested solids may count graphics that do not belong to concrete cap. The correct physical cap solid requires Family-specific relationship/geometry validation.
+- Nested solids may count graphics that do not belong to concrete cap, even when transformed bounds are correct. The correct physical cap solid requires Family-specific relationship/geometry validation.
 - ShapeDriven layout may be unavailable for freeform bars; warnings are expected.
 - Known KStruct footing View ownership metadata is read where available. Other module ownership protocols need separate read-only adapters, not name matching.
 - Avoid relying on Type names as proof of a pile's actual diameter or reinforcement capacity.
+
+## Fixes after static review
+- Output rows are now serialized into both formats before being written; staging failures never promote incomplete reports.
+- Audit's paired-file publisher preserves previous outputs and attempts rollback after a failed second destination. A power outage is not equivalent to an ordinary I/O exception.
+- Rebar centerlines are read for each existing position up to explicit caps, with per-position errors visible.
+- Nested footing Solid bounds now compose transforms for world-coordinate diagnostics. Concrete-versus-pile classification remains unverified.
+- Revit runtime validation is still outstanding; keep PR Draft and do not merge into main.
