@@ -64,7 +64,7 @@ try
     try
     {
         AuditPairPublisher.Write(outJson,outCsv,(j,c)=>{
-            j.Write("{\\"schema\\":\\"test\\"}");
+            j.Write("{\"schema\":\"test\"}");
             throw new System.IO.IOException("Injected failure before CSV");
         });
     }
@@ -73,11 +73,11 @@ try
     Check(System.IO.File.ReadAllText(outJson)=="OLD-JSON","preserve old JSON on staging failure");
     Check(System.IO.File.ReadAllText(outCsv)=="OLD-CSV","preserve old CSV on staging failure");
     AuditPairPublisher.Write(outJson,outCsv,(j,c)=>{
-        j.Write("{\\"count\\":1}");
-        c.Write("id\\n1\\n");
+        j.Write("{\"count\":1}");
+        c.Write("id\n1\n");
     });
-    Check(System.IO.File.ReadAllText(outJson)=="{\\"count\\":1}","publish JSON successfully");
-    Check(System.IO.File.ReadAllText(outCsv).TrimStart('\uFEFF')=="id\\n1\\n","publish CSV successfully");
+    Check(System.IO.File.ReadAllText(outJson)=="{\"count\":1}","publish JSON successfully");
+    Check(System.IO.File.ReadAllText(outCsv).TrimStart('\uFEFF')=="id\n1\n","publish CSV successfully");
     Check(System.IO.Directory.GetFiles(testDir,"*.tmp").Length==0,"no leftover staged files");
     Check(System.IO.Directory.GetFiles(testDir,"*.bak").Length==0,"no leftover backup files");
 }
