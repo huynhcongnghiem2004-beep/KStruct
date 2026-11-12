@@ -121,7 +121,9 @@ namespace SDK_HD.KStruct.Core.V5
             return new Dictionary<string,object> {
                 {"originMm",Origin.Components},{"axisX",X.Components},
                 {"axisY",Y.Components},{"axisZ",Z.Components},
-                {"source",Source},{"validatedOrthonormal",true}
+                {"source",Source},{"validatedOrthonormal",true},
+                {"placementApproved",false},
+                {"placementBlocker","Local axes alone do not establish concrete faces, cover, joint or anchorage."}
             };
         }
     }
