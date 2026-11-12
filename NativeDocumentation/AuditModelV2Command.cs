@@ -161,8 +161,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 {"family",null},{"type",null},{"level",null},
                 {"diameterMm",null},{"barPositions",null},
                 {"xMm",null},{"yMm",null},{"zMm",null},
-                {"instanceParameters",ReadParameters(e)},
-                {"typeParameters",ReadParameters(doc.GetElement(e.GetTypeId()))}
+                {"instanceParameters",ReadParameters(e,issues)},
+                {"typeParameters",ReadParameters(doc.GetElement(e.GetTypeId()),issues)}
             };
             if(e is FamilyInstance instance)
             {
@@ -482,7 +482,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
-        private static Dictionary<string,object> ReadParameters(Element e)
+        private static Dictionary<string,object> ReadParameters(Element e,
+            List<Dictionary<string,object>> issues)
         {
             var values=new Dictionary<string,object>(StringComparer.Ordinal);
             if(e==null)return values;
@@ -490,7 +491,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 try
                 {
-                    Parameter p=e.LookupParameter(name);
+                    // GetParameters returns all matching definitions. LookupParameter
+                    // chooses one arbitrarily when Family/shared parameters collide.
+                    IList<Parameter> matches=e.GetParameters(name);
+                    if(matches==null||matches.Count==0)continue;
+                    if(matches.Count>1)
+                    {
+                        Warn(issues,e.Id.Value,"PARAMETER_NAME_AMBIGUOUS",
+                            "Multiple parameters share name '"+name+
+                            "'; use GUID/BuiltInParameter before creating Rebar.");
+                        continue;
+                    }
+                    Parameter p=matches[0];
                     if(p==null||!p.HasValue)continue;
                     object v=null;
                     if(p.StorageType==StorageType.String)v=p.AsString();
