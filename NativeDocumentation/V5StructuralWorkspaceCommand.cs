@@ -15,6 +15,7 @@ using TextBox = System.Windows.Controls.TextBox;
 using ComboBox = System.Windows.Controls.ComboBox;
 using Grid = System.Windows.Controls.Grid;
 using Color = System.Windows.Media.Color;
+using Shapes = System.Windows.Shapes;
 using SDK_HD.KStruct.Core.V5;
 
 namespace SDK_HD.KStruct.NativeDocumentation
@@ -83,6 +84,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly TextBlock result;
         private readonly TextBlock status;
         private readonly Border shapePreview;
+        private readonly Canvas sectionCanvas;
 
         internal V5StructuralWorkspaceWindow(string docTitle,Element host,double[] availableTypes,
             V5HostSolidInventory inventory,V5HostCoverSnapshot cover)
@@ -173,14 +175,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
             columns.Children.Add(rightScroll);Grid.SetColumn(rightScroll,1);
             right.Children.Add(Label("03  /  KIỂM TRA VÀ XEM TRƯỚC",15,Navy,true,new Thickness(0,0,0,12)));
             var previewPanel=new StackPanel{Background=Brushes.White,Margin=new Thickness(0,0,0,12)};
-            shapePreview=new Border{Width=230,Height=155,Margin=new Thickness(10),
-                BorderThickness=new Thickness(3),BorderBrush=Accent,
-                Background=ColorBrush(226,237,239),CornerRadius=new CornerRadius(3),
+            shapePreview=new Border{Margin=new Thickness(10),
+                BorderThickness=new Thickness(1),BorderBrush=ColorBrush(203,216,222),
+                Background=Brushes.White,CornerRadius=new CornerRadius(5),
+                HorizontalAlignment=HorizontalAlignment.Stretch};
+            sectionCanvas=new Canvas{Width=310,Height=244,
                 HorizontalAlignment=HorizontalAlignment.Center};
-            var marker=new TextBlock{Text="TIẾT DIỆN MINH HỌA\nKhông phải hình học từ mô hình",
-                TextAlignment=TextAlignment.Center,Foreground=Navy,FontSize=12,
-                VerticalAlignment=VerticalAlignment.Center,HorizontalAlignment=HorizontalAlignment.Center};
-            shapePreview.Child=marker;
+            shapePreview.Child=sectionCanvas;
             previewPanel.Children.Add(shapePreview);right.Children.Add(previewPanel);
             status=Label("",13,Accent,true,new Thickness(0,0,0,8));right.Children.Add(status);
             result=Label("",12,Navy,false,new Thickness(0,0,0,0));
@@ -257,13 +258,68 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     review.InnerHeightMm.ToString("0.#",CultureInfo.InvariantCulture)+" mm.");
             messages.AddRange(review.Warnings.Select(x=>"• "+x));
             result.Text=string.Join("\n\n",messages);
-            if(AuditV2Policy.IsFinite(input.WidthMm)&&AuditV2Policy.IsFinite(input.HeightMm)&&
-                input.WidthMm>0&&input.HeightMm>0)
+            DrawSectionPreview(input,review);
+        }
+
+        // Diagram only: scaled to available viewport, never based on certified
+        // Revit Solid geometry or a construction-approved bar arrangement.
+        private void DrawSectionPreview(V5RebarInput input,V5InputReview review)
+        {
+            sectionCanvas.Children.Clear();
+            const double viewportX=28,viewportY=26,viewportW=254,viewportH=174;
+            AddCanvasText("MINH HỌA TIẾT DIỆN • KHÔNG PHẢI THÉP THỰC",9,Muted,12,5);
+            if(!AuditV2Policy.IsFinite(input.WidthMm) ||
+               !AuditV2Policy.IsFinite(input.HeightMm) ||
+               input.WidthMm<=0 || input.HeightMm<=0)
             {
-                double ratio=input.WidthMm/input.HeightMm;
-                shapePreview.Width=Math.Max(90,Math.Min(225,160*ratio));
-                shapePreview.Height=Math.Max(90,Math.Min(155,160/Math.Max(ratio,0.5)));
+                AddCanvasText("Nhập chiều rộng và chiều cao hợp lệ.",12,Muted,25,90);
+                return;
             }
+            double scale=Math.Min(viewportW/input.WidthMm,viewportH/input.HeightMm);
+            double w=Math.Max(1,input.WidthMm*scale),h=Math.Max(1,input.HeightMm*scale);
+            double x=viewportX+(viewportW-w)/2,y=viewportY+(viewportH-h)/2;
+            var concrete=new Shapes.Rectangle{Width=w,Height=h,
+                Stroke=Accent,StrokeThickness=2,Fill=ColorBrush(232,241,244)};
+            Canvas.SetLeft(concrete,x);Canvas.SetTop(concrete,y);
+            sectionCanvas.Children.Add(concrete);
+            double offset=(input.CoverMm+input.TieDiameterMm/2)*scale;
+            if(AuditV2Policy.IsFinite(offset) && offset>1 && offset*2<Math.Min(w,h)-4)
+            {
+                var tie=new Shapes.Rectangle{Width=w-2*offset,Height=h-2*offset,
+                    Stroke=ColorBrush(183,107,65),StrokeThickness=2,
+                    Fill=Brushes.Transparent};
+                Canvas.SetLeft(tie,x+offset);Canvas.SetTop(tie,y+offset);
+                sectionCanvas.Children.Add(tie);
+                // Four corner dots are symbolic, independent of entered bar count.
+                double barOffset=(input.CoverMm+input.TieDiameterMm+
+                    input.MainBarDiameterMm/2)*scale;
+                if(AuditV2Policy.IsFinite(barOffset) && barOffset>2 &&
+                    barOffset*2<Math.Min(w,h))
+                {
+                    foreach(double px in new[]{x+barOffset,x+w-barOffset})
+                        foreach(double py in new[]{y+barOffset,y+h-barOffset})
+                        {
+                            var dot=new Shapes.Ellipse{Width=7,Height=7,
+                                Fill=Navy,Stroke=Brushes.White,StrokeThickness=0.5};
+                            Canvas.SetLeft(dot,px-3.5);Canvas.SetTop(dot,py-3.5);
+                            sectionCanvas.Children.Add(dot);
+                        }
+                }
+            }
+            AddCanvasText("B = "+input.WidthMm.ToString("0.#",CultureInfo.InvariantCulture)+
+                " mm",11,Navy,15,207);
+            AddCanvasText("H = "+input.HeightMm.ToString("0.#",CultureInfo.InvariantCulture)+
+                " mm",11,Navy,174,207);
+            AddCanvasText("4 chấm thép tượng trưng; không thể hiện số lượng thanh thực.",
+                9,Muted,12,226);
+        }
+
+        private void AddCanvasText(string value,double size,Brush color,double x,double y)
+        {
+            var t=new TextBlock{Text=value,FontSize=size,Foreground=color,
+                TextWrapping=TextWrapping.NoWrap};
+            Canvas.SetLeft(t,x);Canvas.SetTop(t,y);
+            sectionCanvas.Children.Add(t);
         }
         private static string SafeName(Element e){try{return e.Name;}catch{return "unavailable";}}
         private static SolidColorBrush ColorBrush(byte r,byte g,byte b)=>
