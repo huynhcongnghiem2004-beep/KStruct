@@ -22,7 +22,7 @@ using SDK_HD.KStruct.Core.V5;
 namespace SDK_HD.KStruct.NativeDocumentation
 {
     /// <summary>WPF entry workspace for V5. Read-only: no transaction, no Rebar creation.</summary>
-    [Transaction(TransactionMode.ReadOnly)]
+    [Transaction(TransactionMode.Manual)]
     public sealed class V5StructuralWorkspaceCommand : IExternalCommand
     {
         public Result Execute(ExternalCommandData data,ref string message,ElementSet elements)
@@ -62,6 +62,27 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters,inventory,cover);
                     new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
                     window.ShowDialog();
+                    if(window.RequestPilotCreation)
+                    {
+                        if(!(selected is FamilyInstance pilotColumn))
+                            throw new InvalidOperationException("Phải chọn một cột trước khi chạy Pilot.");
+                        var confirm=new TaskDialog("KStruct V5 - PILOT")
+                        {
+                            MainInstruction="Tạo thử bốn thanh thép dọc, KHÔNG CÓ ĐAI?",
+                            MainContent="Chỉ sử dụng trên BẢN SAO RVT. Lệnh không tính toán kết cấu, " +
+                                "không neo/nối, không tạo đai hay bản vẽ. Pilot sẽ từ chối cột " +
+                                "không phải lăng trụ chữ nhật bê tông đơn nhất, và cột đã có thép. " +
+                                "Không sử dụng các thanh này làm hồ sơ thi công.",
+                            CommonButtons=TaskDialogCommonButtons.Yes|TaskDialogCommonButtons.No,
+                            DefaultButton=TaskDialogResult.No
+                        };
+                        if(confirm.Show()!=TaskDialogResult.Yes) return Result.Cancelled;
+                        int n=V5ColumnPilotWriter.Create(doc,pilotColumn,window.PilotInput);
+                        TaskDialog.Show("KStruct V5 PILOT",
+                            "Tạo xong "+n+" thanh thép dọc thử nghiệm. CHƯA có thép đai / neo / nối. " +
+                            "Không sử dụng cho thi công.");
+                        return Result.Succeeded;
+                    }
                     if(!window.RequestHostSelection) return Result.Succeeded;
                     try
                     {
@@ -122,6 +143,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly Border shapePreview;
         private readonly Canvas sectionCanvas;
         internal bool RequestHostSelection { get; private set; }
+        internal bool RequestPilotCreation { get; private set; }
+        internal V5RebarInput PilotInput { get; private set; }
 
         internal V5StructuralWorkspaceWindow(string docTitle,Element host,double[] availableTypes,
             V5HostSolidInventory inventory,V5HostCoverSnapshot cover)
@@ -252,6 +275,25 @@ namespace SDK_HD.KStruct.NativeDocumentation
             check.Click+=(sender,e)=>Validate();
             var close=Button("Đóng",ColorBrush(225,231,235),Navy);
             close.Click+=(sender,e)=>Close();
+            var pilot=Button("PILOT: 4 thép dọc cột",ColorBrush(174,91,48),Brushes.White);
+            pilot.MinWidth=174;
+            pilot.ToolTip="Tạo thử 4 Rebar thật trên bản sao RVT; KHÔNG có đai, neo, nối hay bản vẽ.";
+            pilot.Click+=(sender,e)=>
+            {
+                Validate();
+                if(hostModule!=V5StructuralModule.Column || PilotInput==null ||
+                   !V5RebarInputPolicy.Review(PilotInput,types).IsValid ||
+                   PilotInput.MainBarCount!=4)
+                {
+                    MessageBox.Show(this,
+                        "Pilot chỉ dùng cho cột đã chọn, đúng 4 thanh, mọi thông số nhập hợp lệ.",
+                        "KStruct V5 PILOT",MessageBoxButton.OK,MessageBoxImage.Warning);
+                    return;
+                }
+                RequestPilotCreation=true;
+                Close();
+            };
+            buttons.Children.Add(pilot);
             buttons.Children.Add(check);buttons.Children.Add(close);
             Grid.SetColumn(buttons,1);bottom.Children.Add(buttons);
             Validate();
@@ -288,6 +330,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 MainBarDiameterMm=number("main"),TieDiameterMm=number("tie"),
                 TieSpacingMm=number("spacing"),MainBarCount=count
             };
+            PilotInput=input;
             var review=V5RebarInputPolicy.Review(input,types);
             status.Text=review.IsValid?"Dữ liệu nhập hợp lệ (chưa cho phép tạo thép)":
                 "Cần điều chỉnh: "+review.Errors.Count+" vấn đề";
