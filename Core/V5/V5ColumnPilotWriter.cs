@@ -64,6 +64,7 @@ namespace SDK_HD.KStruct.Core.V5
                Math.Abs(frame.X.Z)>0.0001 || Math.Abs(frame.Y.Z)>0.0001)
                 throw new InvalidOperationException("Chỉ hỗ trợ cột đứng, không mirror: "+reason);
 
+            RejectOverlappingStructuralHosts(doc,host);
             var inventory=V5HostSolidInspector.Inspect(host);
             if(inventory.Truncated || inventory.SolidCount!=1 ||
                inventory.ConcreteMaterialCandidateSolids!=1 ||
@@ -190,6 +191,42 @@ namespace SDK_HD.KStruct.Core.V5
                     if(tx.GetStatus()==TransactionStatus.Started) tx.RollBack();
                     throw;
                 }
+            }
+        }
+
+        // Broad-phase interferences fail closed: this Pilot is only for isolated
+        // model samples, not for a real connected frame or column stack.
+        private static void RejectOverlappingStructuralHosts(Document doc,Element host)
+        {
+            BoundingBoxXYZ a=host.get_BoundingBox(null);
+            if(a==null) throw new InvalidOperationException("Host không có BoundingBox.");
+            var categories=new[]{
+                BuiltInCategory.OST_StructuralColumns,
+                BuiltInCategory.OST_StructuralFraming,
+                BuiltInCategory.OST_StructuralFoundation,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Walls
+            };
+            var candidates=new FilteredElementCollector(doc)
+                .WhereElementIsNotElementType()
+                .WherePasses(new ElementMulticategoryFilter(categories.ToList()))
+                .ToElements();
+            double tol=Ft(2);
+            foreach(Element other in candidates)
+            {
+                if(other==null || other.Id.Equals(host.Id)) continue;
+                BoundingBoxXYZ b;
+                try {b=other.get_BoundingBox(null);}
+                catch {throw new InvalidOperationException(
+                    "Không kiểm tra được cấu kiện lân cận "+other.Id.Value);}
+                if(b==null) continue;
+                double dx=Math.Min(a.Max.X,b.Max.X)-Math.Max(a.Min.X,b.Min.X);
+                double dy=Math.Min(a.Max.Y,b.Max.Y)-Math.Max(a.Min.Y,b.Min.Y);
+                double dz=Math.Min(a.Max.Z,b.Max.Z)-Math.Max(a.Min.Z,b.Min.Z);
+                if(dx>tol && dy>tol && dz>tol)
+                    throw new InvalidOperationException(
+                        "Pilot không dùng trên cột giao với cấu kiện "+
+                        other.Id.Value+". Dùng mô hình thử cô lập.");
             }
         }
 
