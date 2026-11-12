@@ -13,6 +13,8 @@ using Autodesk.Revit.UI;
 using Panel = System.Windows.Controls.Panel;
 using TextBox = System.Windows.Controls.TextBox;
 using ComboBox = System.Windows.Controls.ComboBox;
+using Grid = System.Windows.Controls.Grid;
+using Color = System.Windows.Media.Color;
 using SDK_HD.KStruct.Core.V5;
 
 namespace SDK_HD.KStruct.NativeDocumentation
@@ -32,15 +34,24 @@ namespace SDK_HD.KStruct.NativeDocumentation
             try
             {
                 Document doc=ui.Document;
-                Element selected=ui.Selection.GetElementIds()
+                var selectedHosts=ui.Selection.GetElementIds()
                     .Select(id=>doc.GetElement(id))
-                    .FirstOrDefault(e=>e is FamilyInstance &&
+                    .Where(e=>e is FamilyInstance &&
                         (e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFraming ||
                          e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralColumns ||
-                         e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFoundation));
+                         e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFoundation))
+                    .Take(2).ToList();
+                // Never silently choose an arbitrary Host from a multi-selection.
+                if(selectedHosts.Count>1)
+                {
+                    TaskDialog.Show("KStruct V5",
+                        "Có nhiều cấu kiện kết cấu đang được chọn. Hãy chỉ chọn một dầm, cột hoặc móng rồi mở lại Workspace.");
+                    return Result.Cancelled;
+                }
+                Element selected=selectedHosts.FirstOrDefault();
                 double[] barDiameters=new FilteredElementCollector(doc)
                     .OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
-                    .Select(x=>AuditV2Policy.Mm(x.BarDiameter))
+                    .Select(x=>AuditV2Policy.Mm(x.BarModelDiameter))
                     .Where(AuditV2Policy.IsFinite).Distinct().OrderBy(x=>x).ToArray();
                 var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters);
                 new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
@@ -65,6 +76,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly Dictionary<string,TextBox> fields=new Dictionary<string,TextBox>();
         private readonly double[] types;
         private readonly string hostId;
+        private readonly V5StructuralModule? hostModule;
         private readonly ComboBox module;
         private readonly TextBlock result;
         private readonly TextBlock status;
@@ -74,6 +86,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
         {
             types=availableTypes??new double[0];
             hostId=host?.UniqueId;
+            long? categoryId=host?.Category?.Id.Value;
+            hostModule=categoryId==(long)BuiltInCategory.OST_StructuralFraming?V5StructuralModule.Beam:
+                categoryId==(long)BuiltInCategory.OST_StructuralColumns?V5StructuralModule.Column:
+                categoryId==(long)BuiltInCategory.OST_StructuralFoundation?V5StructuralModule.Footing:
+                (V5StructuralModule?)null;
             Title="KStruct V5  |  Structural Workspace";
             Width=980;Height=720;MinWidth=850;MinHeight=650;
             WindowStartupLocation=WindowStartupLocation.CenterOwner;
@@ -111,11 +128,17 @@ namespace SDK_HD.KStruct.NativeDocumentation
             module=new ComboBox{Height=36,FontSize=13,Margin=new Thickness(0,0,0,17)};
             module.Items.Add("Dầm / Beam");module.Items.Add("Cột / Column");
             module.Items.Add("Móng / Foundation");
-            module.SelectedIndex=host?.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralColumns?1:
-                host?.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFoundation?2:0;
+            module.SelectedIndex=hostModule.HasValue?(int)hostModule.Value:0;
+            // A selected Host fixes the structural module; avoid accidental cross-host settings.
+            module.IsEnabled=!hostModule.HasValue;
+            module.ToolTip=hostModule.HasValue
+                ?"Module được khóa theo Category của Host đã chọn trong Revit."
+                :"Chọn cấu kiện trong Revit để tự động xác định Module.";
             module.SelectionChanged+=(sender,e)=>Validate();
             left.Children.Add(module);
             left.Children.Add(Label("02  /  CẤU HÌNH SƠ BỘ (mm)",15,Navy,true,new Thickness(0,0,0,11)));
+            left.Children.Add(Label("Giá trị khởi tạo chỉ là ví dụ, KHÔNG lấy từ kích thước Host thực tế.",
+                12,ColorBrush(164,81,30),false,new Thickness(0,0,0,10)));
             AddField(left,"width","Chiều rộng cấu kiện","200");
             AddField(left,"height","Chiều cao cấu kiện","350");
             AddField(left,"cover","Lớp bảo vệ nhập","25");
@@ -191,6 +214,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Math.Truncate(countValue)==countValue?(int)countValue:0;
             var input=new V5RebarInput{
                 Module=(V5StructuralModule)module.SelectedIndex,HostUniqueId=hostId,
+                HostModule=hostModule,
                 WidthMm=number("width"),HeightMm=number("height"),CoverMm=number("cover"),
                 MainBarDiameterMm=number("main"),TieDiameterMm=number("tie"),
                 TieSpacingMm=number("spacing"),MainBarCount=count

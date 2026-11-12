@@ -11,6 +11,9 @@ namespace SDK_HD.KStruct.Core.V5
     internal sealed class V5RebarInput
     {
         internal V5StructuralModule Module;
+        // Optional trusted classification of the selected Revit Host.
+        // Never inferred from user-entered dimensions or UI module selection.
+        internal V5StructuralModule? HostModule;
         internal double WidthMm, HeightMm, CoverMm, MainBarDiameterMm, TieDiameterMm, TieSpacingMm;
         internal int MainBarCount;
         internal string HostUniqueId;
@@ -55,6 +58,10 @@ namespace SDK_HD.KStruct.Core.V5
             if(input==null){result.Errors.Add("Thiếu dữ liệu cấu kiện.");return result;}
             if(!Enum.IsDefined(typeof(V5StructuralModule),input.Module))
                 result.Errors.Add("Module không hợp lệ.");
+            if(input.HostModule.HasValue &&
+               (!Enum.IsDefined(typeof(V5StructuralModule),input.HostModule.Value) ||
+                input.HostModule.Value!=input.Module))
+                result.Errors.Add("Loại cấu kiện nhập không khớp với Host đã chọn trong Revit.");
             if(!Range(input.WidthMm,50,10000))result.Errors.Add("Chiều rộng phải từ 50 đến 10000 mm.");
             if(!Range(input.HeightMm,50,10000))result.Errors.Add("Chiều cao phải từ 50 đến 10000 mm.");
             if(!Range(input.CoverMm,10,200))result.Errors.Add("Lớp bảo vệ nhập từ 10 đến 200 mm để kiểm tra hình học; không tự xác nhận đạt tiêu chuẩn.");
