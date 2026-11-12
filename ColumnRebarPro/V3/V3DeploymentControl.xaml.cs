@@ -136,6 +136,10 @@ namespace ColumnRebarPro.V3
                 StatusText.Text = "Project thiếu Title Block hoặc Section View Family Type. Hãy nạp trước khi lưu cấu hình bật triển khai.";
         }
 
+        public static bool IsSavedDeploymentEnabled(DeploymentSettingsFile settings) =>
+            settings != null && settings.Entries != null &&
+            settings.Entries.Any(entry => entry != null && entry.Name == "EnableCheck" && entry.Value == "true");
+
         public static DeploymentSettingsFile LoadSavedSettings(Document doc)
         {
             string path = SettingsPathFor(doc);

@@ -88,12 +88,18 @@ namespace ColumnRebarPro.V3
             double tolerance=V3Units.Mm(doc.Application.ShortCurveTolerance);
             var paths=ConnectionPaths(item);
             var groups=V3ProfileGeometry.Group(paths,c.GroupLongBars);
+            if(item.BottleneckToUpper &&
+                (item.ConnectionPlan.UnmatchedLower.Count>0 || item.ConnectionPlan.UnmatchedUpper.Count>0))
+                report.Warnings.Add("Tầng " + item.Segment.LevelName + " → " + item.ConnectionPlan.Upper.Label +
+                    ": ghép " + item.ConnectionPlan.Bars.Count + " cặp; " + item.ConnectionPlan.UnmatchedLower.Count +
+                    " thanh dư dưới dừng trước mạch ngừng, " + item.ConnectionPlan.UnmatchedUpper.Count +
+                    " thanh dư trên bắt đầu sau cover. Phải kiểm tra và duyệt chi tiết neo/cắt, cốt đai nút và khả năng thi công trước khi phát hành.");
             // The project Shape for each anchor path is determined from curves.
             foreach(var group in groups)
             {
                 var path=group.Bars[0];
                 var rounded=V3ProfileGeometry.Round(path.Points,radius,tolerance);
-                if(item.BottleneckToUpper)
+                if(item.BottleneckToUpper&&!path.Unmatched)
                 {
                     double lapStart=Math.Max(V3Units.Mm(item.BottleneckUpperBarStart),rounded.Last().Start.Z);
                     double minimum=V3BottleneckRules.MinimumLap(Math.Max(c.MainDiameter,item.ConnectionPlan.Upper.Diameter));
@@ -165,14 +171,25 @@ namespace ColumnRebarPro.V3
                 if(item.BottleneckToUpper)
                 {
                     var connection=item.ConnectionPlan.Bars.SingleOrDefault(p=>(p.Lower-xy).Length<.05);
-                    if(connection==null)throw new InvalidOperationException("Thiếu cặp ghép cho một thanh cột dưới.");
-                    path.BarIndex=connection.LowerIndex;path.Shift=connection.Shift;path.Height=connection.Height;
-                    if(connection.Shift>.001)
+                    if(connection==null)
                     {
-                        path.Points.Add(new V3Point3(xy.X,xy.Y,V3Units.Mm(g.Top)-connection.Height));
-                        path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,V3Units.Mm(g.Top)));
+                        if(!item.ConnectionPlan.UnmatchedLowerPoints.Any(p=>(p-xy).Length<.05))
+                            throw new InvalidOperationException("Không xác định được cặp hoặc trạng thái thanh dư ở tầng dưới.");
+                        path.Unmatched=true;
+                        double stop=V3Units.Mm(g.Top)-c.Cover-c.TieDiameter-c.MainDiameter/2;
+                        if(stop<=low+V3Units.Mm(2))throw new InvalidOperationException("Không đủ chiều cao để kết thúc thanh dư trước mạch ngừng theo lớp bảo vệ.");
+                        path.Points.Add(new V3Point3(xy.X,xy.Y,stop));
                     }
-                    path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high));
+                    else
+                    {
+                        path.BarIndex=connection.LowerIndex;path.Shift=connection.Shift;path.Height=connection.Height;
+                        if(connection.Shift>.001)
+                        {
+                            path.Points.Add(new V3Point3(xy.X,xy.Y,V3Units.Mm(g.Top)-connection.Height));
+                            path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,V3Units.Mm(g.Top)));
+                        }
+                        path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high));
+                    }
                 }
                 else path.Points.Add(new V3Point3(xy.X,xy.Y,high));
                 result.Add(path);

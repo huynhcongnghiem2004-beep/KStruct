@@ -54,7 +54,16 @@ static class PairingTests
         Plan(Profile(),Profile(angle:.1)); // physical rotation, not just axis relabelling
         var foot=Profile();foot.HasFoot=true;foot.FootDirection=V3AnchorDirection.PositiveY;
         Plan(foot,Profile(350,450));
-        Reject(()=>V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6),"Khác số thanh");
+        var moreUpper=V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6);
+        Check(moreUpper.Bars.Count==14&&moreUpper.UnmatchedLower.Count==0&&moreUpper.UnmatchedUpper.Count==2,
+            "Pair all shared bars and expose extra upper bars");
+        Check(moreUpper.UnmatchedUpper.All(i=>!V3ColumnPairing.Points(moreUpper.Upper)[i].Corner),
+            "Never leave a corner bar unmatched");
+        var moreLower=V3ColumnPairing.Create(Profile(cx:5),Profile(),2,6);
+        Check(moreLower.Bars.Count==14&&moreLower.UnmatchedLower.Count==2&&moreLower.UnmatchedUpper.Count==0,
+            "Pair all shared bars and expose extra lower bars");
+        Check(moreLower.UnmatchedLower.All(i=>!V3ColumnPairing.Points(moreLower.Lower)[i].Corner),
+            "Never terminate a corner bar");
         Reject(()=>V3ColumnPairing.Create(Profile(cx:4,cy:5),Profile(cx:3,cy:6),2,6),"các cạnh");
         Reject(()=>V3ColumnPairing.Create(Profile(width:0),Profile(),2,6),"không hợp lệ");
         var bad=Profile();bad.AxisX=new V3Point2(2,0);
@@ -75,7 +84,9 @@ static class PairingTests
         V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
         Check(lower.ConnectionPlan!=null&&lower.ConnectionPlan.Bars.Count==14,"Real resolver accepts changed cover/ties/section");
         upper.Config.Cx=5;
-        Reject(()=>V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper}),"Dưới:");
+        V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
+        Check(lower.ConnectionPlan.Bars.Count==14&&lower.ConnectionPlan.UnmatchedUpper.Count==2,
+            "Real resolver supports different longitudinal counts");
 
         var paths=new List<V3BarPath>();
         for(int i=0;i<4;i++)paths.Add(new V3BarPath {BarIndex=i,Points=new List<V3Point3> {

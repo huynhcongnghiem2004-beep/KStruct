@@ -64,6 +64,8 @@ namespace ColumnRebarPro.V3
     {
         internal V3ConnectionProfile Lower,Upper;
         internal List<V3BarConnection> Bars=new List<V3BarConnection>();
+        internal List<int> UnmatchedLower=new List<int>(),UnmatchedUpper=new List<int>();
+        internal List<V3Point2> UnmatchedLowerPoints=new List<V3Point2>(),UnmatchedUpperPoints=new List<V3Point2>();
         internal double MaximumShift=>Bars.Count==0?0:Bars.Max(b=>b.Shift);
         internal double MaximumHeight=>Bars.Count==0?0:Bars.Max(b=>b.Height);
     }
@@ -120,60 +122,132 @@ namespace ColumnRebarPro.V3
             lower.Validate();upper.Validate();
             if(!V3BottleneckRules.Finite(clearance)||clearance<0||!V3BottleneckRules.Finite(slope)||slope<=0)
                 throw new InvalidOperationException("Khe hở hoặc tỷ lệ nhấn cổ chai không hợp lệ.");
-            var a=Points(lower);var b=Points(upper);int count=a.Count;
-            if(count!=b.Count)
-                throw new InvalidOperationException("Khác số thanh: dưới "+count+", trên "+b.Count+"; "+
-                    Math.Abs(count-b.Count)+" thanh cần "+(count>b.Count?"phương án kết thúc/neo":"phương án bổ sung/neo")+". Chưa tự ghép khi đổi số thanh.");
-            int best=-1;double bestCost=double.MaxValue,secondCost=double.MaxValue;
-            for(int offset=0;offset<count;offset++)
+            var a=Points(lower);var b=Points(upper);
+            List<Tuple<int,int>> pairs;
+            if(a.Count==b.Count)
             {
-                double cost=0;bool valid=true;
-                for(int i=0;i<count;i++)
+                int best=-1;double bestCost=double.MaxValue,secondCost=double.MaxValue;
+                for(int offset=0;offset<a.Count;offset++)
                 {
-                    var target=b[(i+offset)%count];
-                    if(a[i].Corner!=target.Corner){valid=false;break;}
-                    var delta=target.Point-a[i].Point;cost+=delta.Dot(delta);
+                    double cost=0;bool valid=true;
+                    for(int i=0;i<a.Count;i++)
+                    {
+                        var target=b[(i+offset)%b.Count];
+                        if(a[i].Corner!=target.Corner){valid=false;break;}
+                        var delta=target.Point-a[i].Point;cost+=delta.Dot(delta);
+                    }
+                    if(!valid)continue;
+                    if(cost<bestCost){secondCost=bestCost;bestCost=cost;best=offset;}
+                    else secondCost=Math.Min(secondCost,cost);
                 }
-                if(!valid)continue;
-                if(cost<bestCost){secondCost=bestCost;bestCost=cost;best=offset;}
-                else secondCost=Math.Min(secondCost,cost);
+                if(best<0)throw new InvalidOperationException("Tổng số thanh bằng nhau nhưng phân bố trên các cạnh khác nhau; không ghép góc cột với thanh giữa cạnh.");
+                if(secondCost-bestCost<=1e-7*Math.Max(1,bestCost))
+                    throw new InvalidOperationException("Có nhiều phương án ghép thanh tương đương; kiểm tra hướng cột hoặc chỉ định lại vị trí thanh.");
+                pairs=Enumerable.Range(0,a.Count).Select(i=>Tuple.Create(i,(i+best)%b.Count)).ToList();
             }
-            if(best<0)throw new InvalidOperationException("Tổng số thanh bằng nhau nhưng phân bố trên các cạnh khác nhau; không ghép góc cột với thanh giữa cạnh.");
-            if(secondCost-bestCost<=1e-7*Math.Max(1,bestCost))
-                throw new InvalidOperationException("Có nhiều phương án ghép thanh tương đương; kiểm tra hướng cột hoặc chỉ định lại vị trí thanh.");
+            else pairs=MatchUnequal(a,b);
+
             var plan=new V3ColumnConnectionPlan {Lower=lower,Upper=upper};
-            var choices=new List<V3Point2>[count];double separation=(lower.Diameter+upper.Diameter)/2+clearance;
-            for(int i=0;i<count;i++)
+            var lowerUsed=new HashSet<int>(pairs.Select(x=>x.Item1));
+            var upperUsed=new HashSet<int>(pairs.Select(x=>x.Item2));
+            plan.UnmatchedLower.AddRange(Enumerable.Range(0,a.Count).Where(i=>!lowerUsed.Contains(i)));
+            plan.UnmatchedUpper.AddRange(Enumerable.Range(0,b.Count).Where(i=>!upperUsed.Contains(i)));
+            plan.UnmatchedLowerPoints.AddRange(plan.UnmatchedLower.Select(i=>a[i].Point));
+            plan.UnmatchedUpperPoints.AddRange(plan.UnmatchedUpper.Select(i=>b[i].Point));
+            var choices=new List<V3Point2>[pairs.Count];double separation=(lower.Diameter+upper.Diameter)/2+clearance;
+            for(int k=0;k<pairs.Count;k++)
             {
-                var target=b[(i+best)%count];
-                choices[i]=Candidates(lower,upper,a[i],target,separation)
+                int i=pairs[k].Item1,j=pairs[k].Item2;var target=b[j];
+                choices[k]=Candidates(lower,upper,a[i],target,separation)
                     .Where(p=>lower.Contains(p,lower.Diameter)&&upper.Contains(p,lower.Diameter))
                     .Where(p=>b.All(other=>(p-other.Point).Length>=(lower.Diameter+upper.Diameter)/2-1e-5))
                     .OrderBy(p=>(p-a[i].Point).Length).ToList();
-                if(choices[i].Count==0)throw new InvalidOperationException("Thanh "+(i+1)+": không có vị trí cổ chai đủ cover và không giao thanh tầng trên.");
+                if(choices[k].Count==0)throw new InvalidOperationException("Thanh "+(i+1)+": không có vị trí cổ chai đủ cover và không giao thanh tầng trên.");
             }
-            var order=Enumerable.Range(0,count).OrderBy(i=>choices[i].Count).ThenBy(i=>i).ToArray();
-            var selected=new V3Point2[count];var assigned=new bool[count];int attempts=0;
+            var order=Enumerable.Range(0,pairs.Count).OrderBy(i=>choices[i].Count).ThenBy(i=>i).ToArray();
+            var selected=new V3Point2[pairs.Count];var assigned=new bool[pairs.Count];int attempts=0;
             Func<int,bool> solve=null;
             solve=depth=>{
-                if(depth==count)return true;if(++attempts>50000)return false;int i=order[depth];
-                foreach(var p in choices[i])
+                if(depth==pairs.Count)return true;if(++attempts>50000)return false;int k=order[depth];
+                int i=pairs[k].Item1;
+                foreach(var p in choices[k])
                 {
                     bool valid=true;
-                    for(int j=0;j<count;j++)if(assigned[j]&&!Separated(a[i].Point,p,a[j].Point,selected[j],slope,lower.Diameter)){valid=false;break;}
-                    if(!valid)continue;selected[i]=p;assigned[i]=true;
-                    if(solve(depth+1))return true;assigned[i]=false;
+                    for(int q=0;q<pairs.Count;q++)if(assigned[q]&&!Separated(a[i].Point,p,a[pairs[q].Item1].Point,selected[q],slope,lower.Diameter)){valid=false;break;}
+                    if(!valid)continue;selected[k]=p;assigned[k]=true;
+                    if(solve(depth+1))return true;assigned[k]=false;
                 }
                 return false;
             };
             if(!solve(0))throw new InvalidOperationException("Không tìm được bố trí cổ chai không giao nhau; kiểm tra mật độ thanh và khe hở nhấn.");
-            for(int i=0;i<count;i++)
+            for(int k=0;k<pairs.Count;k++)
             {
-                double shift=(selected[i]-a[i].Point).Length;
-                plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=(i+best)%count,
-                    Lower=a[i].Point,Upper=b[(i+best)%count].Point,End=selected[i],Shift=shift,Height=shift*slope});
+                int i=pairs[k].Item1,j=pairs[k].Item2;
+                double shift=(selected[k]-a[i].Point).Length;
+                plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=j,
+                    Lower=a[i].Point,Upper=b[j].Point,End=selected[k],Shift=shift,Height=shift*slope});
             }
             return plan;
+        }
+
+        private sealed class Alignment
+        {
+            internal int Pairs; internal double Cost; internal List<Tuple<int,int>> Map;
+        }
+
+        private static List<Tuple<int,int>> MatchUnequal(List<V3PairPoint> lower,List<V3PairPoint> upper)
+        {
+            Alignment best=null;
+            for(int offset=0;offset<upper.Count;offset++)
+            {
+                int m=upper.Count;var dp=new Alignment[lower.Count+1,m+1];
+                dp[lower.Count,m]=new Alignment{Pairs=0,Cost=0,Map=new List<Tuple<int,int>>()};
+                for(int i=lower.Count;i>=0;i--)for(int j=m;j>=0;j--)
+                {
+                    if(i==lower.Count&&j==m)continue;
+                    Alignment current=null;
+                    Action<Alignment,Tuple<int,int>> consider=(tail,pair)=>{
+                        if(tail==null)return;
+                        var candidate=new Alignment{Pairs=tail.Pairs,Cost=tail.Cost,Map=new List<Tuple<int,int>>(tail.Map)};
+                        if(pair!=null){candidate.Pairs++;var delta=lower[pair.Item1].Point-upper[pair.Item2].Point;candidate.Cost+=delta.Dot(delta);candidate.Map.Insert(0,pair);}
+                        if(current==null||candidate.Pairs>current.Pairs||candidate.Pairs==current.Pairs&&candidate.Cost<current.Cost-1e-7*Math.Max(1,current.Cost))current=candidate;
+                        else if(candidate.Pairs==current.Pairs&&Math.Abs(candidate.Cost-current.Cost)<=1e-7*Math.Max(1,current.Cost))
+                        {
+                            if(CompareMap(candidate.Map,current.Map)<0)current=candidate;
+                        }
+                    };
+                    if(i<lower.Count&&j<m)
+                    {
+                        int upperIndex=(j+offset)%m;
+                        if(lower[i].Corner==upper[upperIndex].Corner)consider(dp[i+1,j+1],Tuple.Create(i,upperIndex));
+                    }
+                    if(i<lower.Count&&!lower[i].Corner)consider(dp[i+1,j],null);
+                    if(j<m&&!upper[(j+offset)%m].Corner)consider(dp[i,j+1],null);
+                    dp[i,j]=current;
+                }
+                var result=dp[0,0];if(result==null)continue;
+                if(best==null||result.Pairs>best.Pairs||result.Pairs==best.Pairs&&result.Cost<best.Cost-1e-7*Math.Max(1,best.Cost))
+                    best=result;
+                else if(result.Pairs==best.Pairs&&Math.Abs(result.Cost-best.Cost)<=1e-7*Math.Max(1,best.Cost))
+                {
+                    if(CompareMap(result.Map,best.Map)<0)best=result;
+                }
+            }
+            if(best==null||best.Map==null||best.Map.Count==0)
+                throw new InvalidOperationException("Không thể ghép các thanh góc giữa hai tầng; kiểm tra hướng và phân bố thanh.");
+            return best.Map;
+        }
+
+        private static int CompareMap(List<Tuple<int,int>> a,List<Tuple<int,int>> b)
+        {
+            for(int i=0;i<Math.Min(a.Count,b.Count);i++)
+            {
+                int compare=a[i].Item1.CompareTo(b[i].Item1);
+                if(compare!=0)return compare;
+                compare=a[i].Item2.CompareTo(b[i].Item2);
+                if(compare!=0)return compare;
+            }
+            return a.Count.CompareTo(b.Count);
         }
 
         private static bool Separated(V3Point2 a,V3Point2 endA,V3Point2 b,V3Point2 endB,double slope,double diameter)

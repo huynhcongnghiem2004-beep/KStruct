@@ -1,6 +1,6 @@
 # Chuyển tiếp thép cột V3
 
-Khi hai tầng có số lượng thanh dọc khác nhau, V3 ghép một-một các thanh theo tổng khoảng cách ngang nhỏ nhất (Hungarian assignment). Các thanh không ghép được kết thúc ở mạch ngừng: thanh dư tầng dưới dừng trước đầu cột; thanh dư tầng trên bắt đầu sau chân cột theo lớp bảo vệ cấu hình.
+Khi hai tầng có số lượng thanh dọc khác nhau, V3 ghép tối đa các cặp theo thứ tự quanh chu vi, giữ ghép góc với góc và tối thiểu hóa tổng khoảng cách ngang. Các thanh không ghép được kết thúc ở mạch ngừng: thanh dư tầng dưới dừng trước đầu cột trong phạm vi cover/đai; thanh dư tầng trên bắt đầu sau cover/đai ở chân cột.
 
 Đây là quy tắc triển khai hình học theo lựa chọn của người dùng, không phải kiểm tra thiết kế TCVN. Bản vẽ và hộp thoại xác nhận phải nêu số cặp ghép và số thanh dư. Kỹ sư kết cấu phải kiểm tra nội lực, vị trí cắt, neo thanh dư, cốt đai vùng nối, nút dầm-sàn và khả năng thi công trước khi phát hành. Không hỗ trợ thay đổi Cx/Cy nếu các cặp ghép gần nhất vượt các giới hạn hình học hiện có; khi đó lệnh dừng trước khi sửa mô hình.
 

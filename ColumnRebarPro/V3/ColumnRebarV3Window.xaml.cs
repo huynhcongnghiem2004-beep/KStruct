@@ -64,6 +64,7 @@ namespace ColumnRebarPro.V3
         private long? _activeId;
         private bool _loading = true;
         private bool _compactSync;
+        private double _longSectionZoom = 1.0;
         private V3DeploymentControl _deployment;
         private sealed class QuickBarChoice
         {
@@ -168,6 +169,7 @@ namespace ColumnRebarPro.V3
             }
             FloorList.ItemsSource = _rows;
             CountLabel.Text = "Số lượng: " + _rows.Count;
+            AdvancedCountLabel.Text = CountLabel.Text;
             _loading = false;
             FloorList.SelectedIndex = Math.Max(0, _rows.Count - 1);
         }
@@ -506,7 +508,6 @@ namespace ColumnRebarPro.V3
                 QuickCyBox.SelectedItem = CyBox.SelectedItem;
                 QuickWidthBox.Text = Math.Round(ActiveRow.Segment.WidthMm).ToString(CultureInfo.InvariantCulture);
                 QuickHeightBox.Text = Math.Round(ActiveRow.Segment.DepthMm).ToString(CultureInfo.InvariantCulture);
-                QuickBeamHeightBox.Text = BeamHeightBox.Text;
                 SetDiameter(QuickTieBarBox, ActiveConfig.TieDiameter, ActiveConfig.TieBarTypeUniqueId);
                 string diameter = ActiveConfig.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture);
                 QuickCoverBox.Text = CoverBox.Text;
@@ -599,7 +600,6 @@ namespace ColumnRebarPro.V3
                 string zone = QuickNumber(QuickZoneBox.Text, "Chiều dài vùng đầu");
                 string end = QuickNumber(QuickEndBox.Text, "Bước đai dày");
                 string mid = QuickNumber(QuickMidBox.Text, "Bước đai thưa");
-                string beam = QuickNumber(QuickBeamHeightBox.Text, "Cao dầm sàn");
                 _compactSync = true;
                 try
                 {
@@ -607,8 +607,6 @@ namespace ColumnRebarPro.V3
                     ZoneBox.Text = zone;
                     EndStepBox.Text = end;
                     MidStepBox.Text = mid;
-                    BeamHeightBox.Text = beam;
-                    JointHeightBox.Text = beam;
                 }
                 finally { _compactSync = false; }
                 if (!SaveActive(true))
@@ -627,14 +625,8 @@ namespace ColumnRebarPro.V3
 
         private void ShowAdvanced(bool show)
         {
-            CompactSurface.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
-            AdvancedSurface.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            if (QuickAdvancedCheck.IsChecked != show)
-            {
-                _compactSync = true;
-                QuickAdvancedCheck.IsChecked = show;
-                _compactSync = false;
-            }
+            CompactSurface.Visibility = Visibility.Collapsed;
+            AdvancedSurface.Visibility = Visibility.Visible;
         }
         private void QuickAdvanced_Click(object sender, RoutedEventArgs e)
         {
@@ -1026,8 +1018,10 @@ namespace ColumnRebarPro.V3
                 {
                     var plan = V3ColumnPairing.Create(lowerProfile, upperProfile, c.BottleneckClearanceMm, c.BottleneckSlope);
                     _previewConnectionPlan = plan;
-                    ConnectionPairingStatus.Text = "Ghép " + plan.Bars.Count + " cặp; dịch ngang lớn nhất " + Math.Round(plan.MaximumShift, 1) +
-                        " mm; chiều cao nhấn lớn nhất " + Math.Round(plan.MaximumHeight, 1) + " mm. Nhóm chỉ khi cùng hình dạng và mặt phẳng.";
+                    ConnectionPairingStatus.Text = "Ghép " + plan.Bars.Count + " cặp; dư dưới " + plan.UnmatchedLower.Count +
+                        " thanh dừng tại mạch ngừng, dư trên " + plan.UnmatchedUpper.Count + " thanh bắt đầu sau cover. Dịch ngang lớn nhất " +
+                        Math.Round(plan.MaximumShift, 1) + " mm; chiều cao nhấn lớn nhất " + Math.Round(plan.MaximumHeight, 1) +
+                        " mm. Kỹ sư cần duyệt neo/cắt thanh dư trước khi phát hành.";
                 }
                 catch (InvalidOperationException ex) { ConnectionPairingStatus.Text = ex.Message; }
             }
@@ -1042,6 +1036,41 @@ namespace ColumnRebarPro.V3
         {
             DrawLongSection();
         }
+
+        private void LongSectionScroll_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateLongSectionExtent();
+        }
+
+        private void UpdateLongSectionExtent()
+        {
+            if (LongSectionScroll == null || LongSectionCanvas == null) return;
+            double width = Math.Max(360, LongSectionScroll.ViewportWidth);
+            double height = Math.Max(320, LongSectionScroll.ViewportHeight);
+            LongSectionCanvas.Width = width * _longSectionZoom;
+            LongSectionCanvas.Height = height * _longSectionZoom;
+            if (LongZoomLabel != null) LongZoomLabel.Text = Math.Round(_longSectionZoom * 100) + "%";
+            DrawLongSection();
+        }
+
+        private void LongZoomIn_Click(object sender, RoutedEventArgs e)
+        {
+            _longSectionZoom = Math.Min(4.0, _longSectionZoom * 1.25);
+            UpdateLongSectionExtent();
+        }
+
+        private void LongZoomOut_Click(object sender, RoutedEventArgs e)
+        {
+            _longSectionZoom = Math.Max(0.5, _longSectionZoom / 1.25);
+            UpdateLongSectionExtent();
+        }
+
+        private void LongZoomReset_Click(object sender, RoutedEventArgs e)
+        {
+            _longSectionZoom = 1.0;
+            UpdateLongSectionExtent();
+            LongSectionScroll?.ScrollToHome();
+        }
         private void DrawSection()
         {
             if (SectionCanvas == null) return;
@@ -1051,59 +1080,76 @@ namespace ColumnRebarPro.V3
             if (c == null || row == null) return;
             double canvasW = SectionCanvas.ActualWidth;
             double canvasH = SectionCanvas.ActualHeight;
-            if (canvasW < 120 || canvasH < 100) return;
+            if (canvasW < 120 || canvasH < 180) return;
             double widthMm = row.Segment.WidthMm, depthMm = row.Segment.DepthMm;
             if (widthMm <= 0 || depthMm <= 0 || c.Cx < 2 || c.Cy < 2) return;
-            double factor = Math.Min((canvasW - 82) / widthMm, (canvasH - 78) / depthMm);
-            if (factor <= 0) return;
-            double w = widthMm * factor, h = depthMm * factor;
-            double left = (canvasW - w) / 2, top = (canvasH - h) / 2;
-            AddOutline(left, top, w, h, Color.FromRgb(47, 143, 86), 5, 0);
-            double inset = (c.Cover + c.TieDiameter / 2) * factor;
-            double tieLeft = left + inset, tieTop = top + inset;
-            double tieW = w - 2 * inset, tieH = h - 2 * inset;
-            if (tieW < 12 || tieH < 12) return;
-            AddOutline(tieLeft, tieTop, tieW, tieH, Color.FromRgb(0, 153, 157), 2.5, 17);
-            double barInset = (c.MainDiameter / 2 + c.TieDiameter / 2) * factor;
-            double bx1 = tieLeft + barInset, bx2 = tieLeft + tieW - barInset;
-            double by1 = tieTop + barInset, by2 = tieTop + tieH - barInset;
-            if (bx2 <= bx1 || by2 <= by1) return;
-            if (c.CrossTies)
+
+            string mainTypeLabel = "Ø" + c.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture);
+            var selectedMainType = MainBarBox.SelectedItem as BarSizeChoice;
+            if (selectedMainType != null) mainTypeLabel = selectedMainType.Label;
+            string[] cutNames = { "A–A  ·  Chân tầng / vùng đai dày", "B–B  ·  Giữa tầng / vùng đai thưa", "C–C  ·  Đỉnh tầng / vùng đai dày" };
+            double panelH = canvasH / 3.0;
+            for (int cut = 0; cut < 3; cut++)
             {
-                for (int i = 1; i < c.Cx - 1; i++)
+                double panelTop = cut * panelH;
+                if (cut > 0)
+                    SectionCanvas.Children.Add(new Line { X1 = 8, X2 = canvasW - 8,
+                        Y1 = panelTop, Y2 = panelTop, Stroke = new SolidColorBrush(Color.FromRgb(226, 232, 240)), StrokeThickness = 1 });
+                var heading = new TextBlock { Text = cutNames[cut], FontSize = 11, FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(51, 65, 85)) };
+                Canvas.SetLeft(heading, 10); Canvas.SetTop(heading, panelTop + 5);
+                SectionCanvas.Children.Add(heading);
+
+                double availableH = panelH - 47;
+                double factor = Math.Min((canvasW - 50) / widthMm, (availableH - 8) / depthMm);
+                if (factor <= 0) continue;
+                double w = widthMm * factor, h = depthMm * factor;
+                double left = (canvasW - w) / 2, top = panelTop + 23 + (availableH - h) / 2;
+                AddOutline(left, top, w, h, Color.FromRgb(47, 143, 86), 2.4, 0);
+                double inset = (c.Cover + c.TieDiameter / 2) * factor;
+                double tieLeft = left + inset, tieTop = top + inset;
+                double tieW = w - 2 * inset, tieH = h - 2 * inset;
+                if (tieW < 8 || tieH < 8) continue;
+                AddOutline(tieLeft, tieTop, tieW, tieH, Color.FromRgb(0, 153, 157), 1.8, 5);
+                double barInset = (c.MainDiameter / 2 + c.TieDiameter / 2) * factor;
+                double bx1 = tieLeft + barInset, bx2 = tieLeft + tieW - barInset;
+                double by1 = tieTop + barInset, by2 = tieTop + tieH - barInset;
+                if (bx2 <= bx1 || by2 <= by1) continue;
+                if (c.CrossTies)
+                {
+                    for (int i = 1; i < c.Cx - 1; i++)
+                    {
+                        double xx = bx1 + (bx2 - bx1) * i / (c.Cx - 1);
+                        AddLine(xx, by1, xx, by2, Brushes.Firebrick);
+                    }
+                    for (int i = 1; i < c.Cy - 1; i++)
+                    {
+                        double yy = by1 + (by2 - by1) * i / (c.Cy - 1);
+                        AddLine(bx1, yy, bx2, yy, Brushes.Firebrick);
+                    }
+                }
+                double barRadius = Math.Max(2.5, Math.Min(7, c.MainDiameter * factor / 2.0));
+                for (int i = 0; i < c.Cx; i++)
                 {
                     double xx = bx1 + (bx2 - bx1) * i / (c.Cx - 1);
-                    AddLine(xx, by1, xx, by2, Brushes.Firebrick);
+                    AddBar(xx, by1, barRadius); AddBar(xx, by2, barRadius);
                 }
-                for (int i = 1; i < c.Cy - 1; i++)
+                for (int j = 1; j < c.Cy - 1; j++)
                 {
-                    double yy = by1 + (by2 - by1) * i / (c.Cy - 1);
-                    AddLine(bx1, yy, bx2, yy, Brushes.Firebrick);
+                    double yy = by1 + (by2 - by1) * j / (c.Cy - 1);
+                    AddBar(bx1, yy, barRadius); AddBar(bx2, yy, barRadius);
                 }
+                string spacing = cut == 1 ? c.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture) : c.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture);
+                var note = new TextBlock {
+                    Text = Math.Round(widthMm) + " × " + Math.Round(depthMm) + " mm   ·   Thép dọc " + c.BarCount + mainTypeLabel +
+                        "   ·   Đai ngoài Ø" + c.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" + spacing +
+                        (c.CrossTies ? "   ·   Có đai phụ" : ""),
+                    FontSize = 10, Foreground = new SolidColorBrush(Color.FromRgb(71, 85, 105)), Width = canvasW - 20,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Canvas.SetLeft(note, 10); Canvas.SetTop(note, panelTop + panelH - 20);
+                SectionCanvas.Children.Add(note);
             }
-            double barRadius = Math.Max(3.5, Math.Min(12, c.MainDiameter * factor / 2.0));
-            for (int i = 0; i < c.Cx; i++)
-            {
-                double xx = bx1 + (bx2 - bx1) * i / (c.Cx - 1);
-                AddBar(xx, by1, barRadius); AddBar(xx, by2, barRadius);
-            }
-            for (int j = 1; j < c.Cy - 1; j++)
-            {
-                double yy = by1 + (by2 - by1) * j / (c.Cy - 1);
-                AddBar(bx1, yy, barRadius); AddBar(bx2, yy, barRadius);
-            }
-            var selectedMainType = MainBarBox.SelectedItem as BarSizeChoice;
-            string mainTypeLabel = selectedMainType == null
-                ? "D" + c.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture)
-                : selectedMainType.Label;
-            var sizeLabel = new TextBlock {
-                Text = Math.Round(widthMm) + " × " + Math.Round(depthMm) + " mm  ·  " +
-                    c.BarCount + " thanh  ·  " + mainTypeLabel,
-                FontSize = 11, Foreground = Brushes.DimGray
-            };
-            Canvas.SetLeft(sizeLabel, Math.Max(4, left));
-            Canvas.SetTop(sizeLabel, Math.Max(4, top - 23));
-            SectionCanvas.Children.Add(sizeLabel);
         }
         private void AddOutline(double x, double y, double w, double h, Color color, double stroke, double radius)
         {
@@ -1264,6 +1310,21 @@ namespace ColumnRebarPro.V3
                     addLn(mmToX(upperX),mmToY(colH+upperGapMm+preview.Upper.Cover+preview.Upper.Diameter/2),
                         mmToX(upperX),mmToY(colH+upperGapMm+upperDrawH),Brushes.Firebrick,1.2);
                 }
+                foreach(var unmatched in preview.UnmatchedLowerPoints)
+                {
+                    double x=project(unmatched);
+                    double stop=colH-c.Cover-c.TieDiameter-c.MainDiameter/2;
+                    addLn(mmToX(x),mmToY(barBot),mmToX(x),mmToY(stop),Brushes.DarkRed,barThick);
+                }
+                foreach(var unmatched in preview.UnmatchedUpperPoints)
+                {
+                    double x=project(unmatched);
+                    double start=colH+upperGapMm+preview.Upper.Cover+preview.Upper.TieDiameter+preview.Upper.Diameter/2;
+                    double end=colH+upperGapMm+upperDrawH;
+                    if(end>start)addLn(mmToX(x),mmToY(start),mmToX(x),mmToY(end),Brushes.DarkOrange,barThick);
+                }
+                if(preview.UnmatchedLowerPoints.Count+preview.UnmatchedUpperPoints.Count>0)
+                    addTxt(8,30,"Đỏ đậm: thanh dư dưới dừng; cam: thanh dư trên bắt đầu sau cover. Cần duyệt neo/cắt.",Brushes.Firebrick,9);
                 addTxt(8,18,"Chiếu theo trục X cột dưới; các thanh có thể chồng hình.",Brushes.DimGray,9);
             }
             else
