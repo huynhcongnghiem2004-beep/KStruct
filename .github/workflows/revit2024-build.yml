@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Check Ribbon command registration (94 commands / 7 panels)
+      - name: Check Ribbon command registration (95 commands / 7 panels)
         run: dotnet run --project tests/RibbonRegistration/RibbonRegistration.csproj --configuration Release
       - name: Check KStruct V5 audit and ownership policies
         run: dotnet run --project tests/CoreV5/CoreV5.csproj --configuration Release
