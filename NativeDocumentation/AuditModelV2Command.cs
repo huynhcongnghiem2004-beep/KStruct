@@ -169,6 +169,19 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 result["family"]=instance.Symbol?.FamilyName;
                 result["type"]=instance.Symbol?.Name;
                 result["level"]=doc.GetElement(instance.LevelId)?.Name;
+                // Only report a structural host frame when its orientation is validated.
+                long categoryId=instance.Category?.Id.Value??0;
+                if(categoryId==(long)BuiltInCategory.OST_StructuralFraming ||
+                    categoryId==(long)BuiltInCategory.OST_StructuralColumns ||
+                    categoryId==(long)BuiltInCategory.OST_StructuralFoundation)
+                {
+                    if(RevitHostGeometryResolver.TryResolve(instance,out HostCoordinateFrame frame,out string reason))
+                        result["hostLocalFrame"]=frame.AsRecord();
+                    else
+                        result["hostLocalFrame"]=new Dictionary<string,object>{
+                            {"validatedOrthonormal",false},{"reason",reason??"unavailable"}
+                        };
+                }
             }
             XYZ center=(e.Location as LocationPoint)?.Point;
             if(center!=null)
@@ -211,7 +224,19 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private static void DescribeRebar(Document doc,Rebar rebar,
             Dictionary<string,object> record,List<Dictionary<string,object>> issues)
         {
-            record["hostId"]=rebar.GetHostId().Value;
+            ElementId rebarHostId=rebar.GetHostId();
+            record["hostId"]=rebarHostId.Value;
+            HostCoordinateFrame hostFrame=null;
+            if(rebarHostId!=ElementId.InvalidElementId)
+            {
+                Element host=doc.GetElement(rebarHostId);
+                if(RevitHostGeometryResolver.TryResolve(host,out hostFrame,out string reason))
+                    record["hostLocalFrame"]=hostFrame.AsRecord();
+                else
+                    record["hostLocalFrame"]=new Dictionary<string,object>{
+                        {"validatedOrthonormal",false},{"reason",reason??"unavailable"}
+                    };
+            }
             record["barPositions"]=rebar.NumberOfBarPositions;
             record["shapeId"]=SafeElementId(()=>rebar.GetShapeId());
             record["startHookTypeId"]=SafeElementId(()=>rebar.GetHookTypeId(0));
@@ -260,12 +285,20 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     {
                         if(segmentCount>=MaxCenterlineSegmentsPerSet)break;
                         var p0=Point(curve.GetEndPoint(0));var p1=Point(curve.GetEndPoint(1));
-                        curvesForPosition.Add(new Dictionary<string,object>{
+                        var segment=new Dictionary<string,object>{
                             {"fromMm",p0},{"toMm",p1},
                             {"lengthMm",AuditV2Policy.Mm(curve.Length)},
                             {"curveType",curve.GetType().Name},
                             {"direction",AuditV2Policy.Direction(p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2])}
-                        });
+                        };
+                        if(hostFrame!=null)
+                        {
+                            segment["fromHostLocalMm"]=hostFrame.ToLocal(
+                                new HostVector3(p0[0],p0[1],p0[2]));
+                            segment["toHostLocalMm"]=hostFrame.ToLocal(
+                                new HostVector3(p1[0],p1[1],p1[2]));
+                        }
+                        curvesForPosition.Add(segment);
                         segmentCount++;
                     }
                     if(segmentCount>=MaxCenterlineSegmentsPerSet && inspected<positions.Count)
