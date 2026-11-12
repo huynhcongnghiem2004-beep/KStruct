@@ -137,6 +137,8 @@ namespace SDK_HD.KStruct
                 Add(nativeDocumentationPanel, dll, "KStruct_NumberSelectedElements", "Đánh mã cấu kiện", typeof(global::SDK_HD.KStruct.NativeDocumentation.NumberSelectedElementsCommand), "Settings");
                 Add(nativeDocumentationPanel, dll, "KStruct_TagElementAtPickedPoint", "Gắn tag cấu kiện", typeof(global::SDK_HD.KStruct.NativeDocumentation.TagElementAtPickedPointCommand), "Settings");
                 Add(nativeDocumentationPanel, dll, "KStruct_AuditModel", "Kiểm tra\nmô hình", typeof(global::SDK_HD.KStruct.NativeDocumentation.AuditModelCommand), "Settings");
+                Add(nativeDocumentationPanel, dll, "KStruct_AuditModelV2", "Audit V2\nRebar & Geometry", typeof(global::SDK_HD.KStruct.NativeDocumentation.AuditModelV2Command), "Settings");
+                Add(nativeDocumentationPanel, dll, "KStruct_V5Workspace", "V5 Workspace\nNhập liệu kết cấu", typeof(global::SDK_HD.KStruct.NativeDocumentation.V5StructuralWorkspaceCommand), "Settings");
                 var nativeSettingsPanel = app.GetRibbonPanels(tab).FirstOrDefault(p => p.Name == "KStruct Thiết lập")
                     ?? app.CreateRibbonPanel(tab, "KStruct Thiết lập");
                 Add(nativeSettingsPanel, dll, "KStruct_RibbonPanelManager", "Quản lý panel", typeof(global::SDK_HD.KStruct.NativeDocumentation.RibbonPanelManagerCommand), "Settings");

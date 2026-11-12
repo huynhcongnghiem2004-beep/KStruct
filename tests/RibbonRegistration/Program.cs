@@ -20,7 +20,7 @@ internal static class Program
         var panels = Regex.Matches(source, @"app\.CreateRibbonPanel\(tab,\s*""(?<panel>[^""]+)""\)")
             .Cast<Match>().Select(match => match.Groups["panel"].Value).ToList();
 
-        Require(buttons.Count == 93, "Expected exactly 93 registered KStruct commands; found " + buttons.Count);
+        Require(buttons.Count == 95, "Expected exactly 95 registered KStruct commands; found " + buttons.Count);
         Require(buttons.Distinct(StringComparer.Ordinal).Count() == buttons.Count, "Duplicate Ribbon command IDs");
         Require(panels.Count == 7, "Expected exactly 7 registered panels; found " + panels.Count);
         Require(panels.Distinct(StringComparer.Ordinal).Count() == panels.Count, "Duplicate Ribbon panels");
@@ -61,10 +61,12 @@ internal static class Program
         var documentation = Regex.Matches(source,
             @"\bAdd\(nativeDocumentationPanel,\s*dll,\s*""(?<id>KStruct_[^""]+)""")
             .Cast<Match>().Select(match => match.Groups["id"].Value).ToArray();
-        Require(documentation.Length == 3, "KStruct Hồ sơ must have three commands");
+        Require(documentation.Length == 5, "KStruct Hồ sơ must have five commands");
         Require(documentation.Contains("KStruct_NumberSelectedElements"), "Missing element numbering command");
         Require(documentation.Contains("KStruct_TagElementAtPickedPoint"), "Missing element tagging command");
         Require(documentation.Contains("KStruct_AuditModel"), "Missing model audit command");
+        Require(documentation.Contains("KStruct_AuditModelV2"), "Missing audit V2 command");
+        Require(documentation.Contains("KStruct_V5Workspace"), "Missing V5 workspace Ribbon command");
 
         // Every Ribbon path must use the shared flat, negative-space image renderer.
         string iconRenderer = File.ReadAllText(Path.Combine(directory.FullName, "Core", "FlatRibbonIcons.cs"));
@@ -82,7 +84,7 @@ internal static class Program
         Require(!source.Contains("data.Image = Icon(") &&
                 !source.Contains("data.LargeImage = Icon("),
                 "Old Ribbon PNG icon pipeline must be fully replaced");
-        Console.WriteLine("PASS: All 93 commands and both group images use the flat Navy/Earth icon system.");
+        Console.WriteLine("PASS: All 95 commands and both group images use the flat Navy/Earth icon system.");
     }
 
     private static void Require(bool condition, string message)
