@@ -14,5 +14,6 @@
     <Compile Include="../../Core/V5/HostFaceCandidatePolicy.cs" Link="HostFaceCandidatePolicy.cs" />
     <Compile Include="../../Core/V5/StructuralJointCandidatePolicy.cs" Link="StructuralJointCandidatePolicy.cs" />
     <Compile Include="../../Core/V5/V5RebarInputPolicy.cs" Link="V5RebarInputPolicy.cs" />
+    <Compile Include="../../Core/V5/V5ExecutionGatePolicy.cs" Link="V5ExecutionGatePolicy.cs" />
   </ItemGroup>
 </Project>
