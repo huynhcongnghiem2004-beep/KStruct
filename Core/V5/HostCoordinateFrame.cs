@@ -52,13 +52,49 @@ namespace SDK_HD.KStruct.Core.V5
             if(!start.IsFinite||!end.IsFinite)return false;
             HostVector3 tangent;
             if(!(end-start).TryUnit(out tangent))return false;
-            var reference=Math.Abs(HostVector3.Dot(tangent,new HostVector3(0,0,1)))>0.98
-                ?new HostVector3(0,1,0):new HostVector3(0,0,1);
-            HostVector3 y,z;
-            if(!HostVector3.Cross(reference,tangent).TryUnit(out y)||
-                !HostVector3.Cross(tangent,y).TryUnit(out z))return false;
-            frame=new HostCoordinateFrame(start,tangent,y,z,"location-curve-straight");
+            // Pick the least aligned global basis. Unlike a hard-coded 0.98 cutoff
+            // this guarantees the cross product is numerically well conditioned.
+            HostVector3[] references={new HostVector3(0,0,1),new HostVector3(0,1,0),
+                new HostVector3(1,0,0)};
+            HostVector3 reference=references[0];
+            foreach(HostVector3 candidate in references)
+                if(Math.Abs(HostVector3.Dot(candidate,tangent))<
+                   Math.Abs(HostVector3.Dot(reference,tangent)))reference=candidate;
+            return TryLineWithReference(start,end,reference,"location-curve-straight",out frame);
+        }
+
+        // Project a known section transverse axis onto the plane normal to the
+        // beam location line. This reflects roll of a Family transform but does
+        // not by itself certify the concrete cross section.
+        internal static bool TryLineWithReference(HostVector3 start,HostVector3 end,
+            HostVector3 sectionAxis,string source,out HostCoordinateFrame frame)
+        {
+            frame=null;
+            HostVector3 tangent, transverse, normal;
+            if(!start.IsFinite||!end.IsFinite||!sectionAxis.IsFinite||
+               !(end-start).TryUnit(out tangent))return false;
+            var projected=sectionAxis-tangent*HostVector3.Dot(sectionAxis,tangent);
+            if(!projected.TryUnit(out transverse))return false;
+            if(!HostVector3.Cross(tangent,transverse).TryUnit(out normal))return false;
+            frame=new HostCoordinateFrame(start,tangent,transverse,normal,
+                string.IsNullOrWhiteSpace(source)?"line-with-reference":source);
             return true;
+        }
+
+        // Revit can reverse the LocationCurve endpoints without changing the
+        // physical host. The canonical direction is only for diagnostics:
+        // structural support/start/end conventions require a separate resolver.
+        internal static bool TryCanonicalLine(HostVector3 start,HostVector3 end,
+            HostVector3 sectionAxis,out HostCoordinateFrame frame,out bool reversed)
+        {
+            reversed=false;
+            frame=null;
+            if(!start.IsFinite||!end.IsFinite)return false;
+            var a=start;var b=end;
+            if(a.X>b.X||(a.X==b.X&&a.Y>b.Y)||
+                (a.X==b.X&&a.Y==b.Y&&a.Z>b.Z))
+            {a=end;b=start;reversed=true;}
+            return TryLineWithReference(a,b,sectionAxis,"canonical-line-section-reference",out frame);
         }
 
         /// <summary>Instance transform frame; reject skewed, mirrored, degenerate and scaled bases.
