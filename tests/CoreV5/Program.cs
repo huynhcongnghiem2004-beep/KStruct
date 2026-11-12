@@ -259,4 +259,47 @@ Check(!StructuralJointCandidatePolicy.TryColumnStackCandidate(
     new HostVector3(0,0,0),new HostVector3(200,200,3000),
     new HostVector3(0,0,3000),new HostVector3(200,200,6000),
     double.NaN,1,out _),"Nonfinite stack tolerance excluded");
+
+Check(V5RebarInputPolicy.TryMillimeters("200",out var parsed200) && Math.Abs(parsed200-200)<1e-6,
+    "UI parse integer millimeters");
+Check(V5RebarInputPolicy.TryMillimeters("25,5",out var parsed255) && Math.Abs(parsed255-25.5)<1e-6,
+    "UI parse Vietnamese decimal comma");
+Check(!V5RebarInputPolicy.TryMillimeters("1,2,3",out _),"Reject ambiguous number");
+Check(!V5RebarInputPolicy.TryMillimeters("100 mm",out _),"Reject mixed unit");
+Check(!V5RebarInputPolicy.TryMillimeters("Infinity",out _),"Reject infinity input");
+Check(!V5RebarInputPolicy.TryMillimeters("NaN",out _),"Reject NaN input");
+var v5Input=new V5RebarInput{
+    Module=V5StructuralModule.Column,WidthMm=300,HeightMm=300,CoverMm=25,
+    MainBarDiameterMm=16,TieDiameterMm=8,TieSpacingMm=150,
+    MainBarCount=4,HostUniqueId="sample-host"
+};
+var v5Bars=new[]{8.0,12.0,16.0,20.0};
+var v5Ready=V5RebarInputPolicy.Review(v5Input,v5Bars);
+Check(v5Ready.IsValid,"Valid basic V5 entry values");
+Check(!v5Ready.CanCreateRebar,"Safety gate blocks V5 Rebar creation even for valid inputs");
+Near(v5Ready.InnerWidthMm,218,"Input inner width from cover and steel");
+Near(v5Ready.InnerHeightMm,218,"Input inner height from cover and steel");
+v5Input.CoverMm=160;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Insufficient concrete section blocked");
+v5Input.CoverMm=25;
+v5Input.MainBarDiameterMm=25;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Absent project rebar type blocked");
+v5Input.MainBarDiameterMm=16;
+v5Input.HostUniqueId="";
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Missing host selection blocked");
+v5Input.HostUniqueId="sample-host";
+Check(!V5RebarInputPolicy.Review(v5Input,new double[0]).IsValid,
+    "No project RebarBarTypes blocked");
+v5Input.MainBarCount=0;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,"Missing main bar count blocked");
+v5Input.MainBarCount=4;
+v5Input.TieSpacingMm=700;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,
+    "Out of validation range tie spacing blocked");
+v5Input.TieSpacingMm=150;
+v5Input.Module=(V5StructuralModule)999;
+Check(!V5RebarInputPolicy.Review(v5Input,v5Bars).IsValid,"Invalid module blocked");
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
