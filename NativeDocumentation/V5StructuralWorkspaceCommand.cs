@@ -128,8 +128,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 12,host==null?ColorBrush(164,81,30):Accent,false,new Thickness(0,0,0,14)));
             left.Children.Add(Label("SOLID THỰC TẾ (CHỈ ĐỌC): "+
                 (inventory==null?"Không có kết quả":
-                    inventory.SolidCount+" Solid, "+inventory.PlanarFaceCount+
-                    " mặt phẳng, "+inventory.NonPlanarFaceCount+" mặt cong."),
+                    inventory.SolidCount+" Solid, "+inventory.ConcreteMaterialCandidateSolids+
+                    " ứng viên vật liệu bê tông, "+inventory.UnknownOrMixedMaterialSolids+
+                    " Solid chưa rõ vật liệu, "+inventory.PlanarFaceCount+" mặt phẳng."),
                 12,Navy,true,new Thickness(0,0,0,6)));
             left.Children.Add(Label(inventory?.Warnings.FirstOrDefault() ??
                 "Không thể xác minh bê tông hay lớp bảo vệ chỉ bằng thống kê Solid.",
