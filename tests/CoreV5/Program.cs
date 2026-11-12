@@ -210,4 +210,53 @@ Check(!HostFaceCandidatePolicy.ValidFaceArea(0),"Zero face area rejected");
 Check(!HostFaceCandidatePolicy.ValidFaceArea(double.PositiveInfinity),"Nonfinite face area rejected");
 Check(HostFaceCandidatePolicy.Orientation(mirrored,new HostVector3(0,-1,0))=="+Y-face-candidate",
     "Mirror face orientation remains signed");
+
+double entry,exit;
+var jointMin=new HostVector3(100,-100,-100);
+var jointMax=new HostVector3(300,100,100);
+Check(StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(0,0,0),new HostVector3(400,0,0),jointMin,jointMax,
+    0,out entry,out exit),"Beam centerline crosses candidate box");
+Near(entry,0.25,"Joint entry position");
+Near(exit,0.75,"Joint exit position");
+Check(!StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(0,200,0),new HostVector3(400,200,0),jointMin,jointMax,
+    0,out _,out _),"Beam misses joint box");
+Check(StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(0,105,0),new HostVector3(400,105,0),jointMin,jointMax,
+    10,out _,out _),"Explicit bounding tolerance candidate");
+Check(!StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(0,0,0),new HostVector3(0,0,0),jointMin,jointMax,
+    0,out _,out _),"Degenerate beam excluded");
+Check(!StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(0,0,0),new HostVector3(400,0,0),jointMin,jointMax,
+    -1,out _,out _),"Negative padding excluded");
+Check(StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(400,0,0),new HostVector3(0,0,0),jointMin,jointMax,
+    0,out entry,out exit),"Reversed beam has candidate");
+Near(entry,0.25,"Reversed beam entry");
+Near(exit,0.75,"Reversed beam exit");
+Check(!StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(double.NaN,0,0),new HostVector3(400,0,0),jointMin,jointMax,
+    0,out _,out _),"Invalid numeric beam excluded");
+Check(StructuralJointCandidatePolicy.TrySegmentBox(
+    new HostVector3(0,100,0),new HostVector3(400,100,0),jointMin,jointMax,
+    0,out _,out _),"Tangential contact reported as candidate");
+Check(StructuralJointCandidatePolicy.TryColumnStackCandidate(
+    new HostVector3(0,0,0),new HostVector3(200,200,3000),
+    new HostVector3(0,0,3000),new HostVector3(200,200,6000),
+    0,1,out var xyArea),"Column stack interface candidate");
+Near(xyArea,40000,"Column stack XY intersection area");
+Check(!StructuralJointCandidatePolicy.TryColumnStackCandidate(
+    new HostVector3(0,0,0),new HostVector3(200,200,3000),
+    new HostVector3(1000,0,3000),new HostVector3(1200,200,6000),
+    5,1,out _),"Disjoint columns not joined");
+Check(!StructuralJointCandidatePolicy.TryColumnStackCandidate(
+    new HostVector3(0,0,0),new HostVector3(200,200,3000),
+    new HostVector3(0,0,4000),new HostVector3(200,200,6000),
+    1,1,out _),"Large vertical column gap excluded");
+Check(!StructuralJointCandidatePolicy.TryColumnStackCandidate(
+    new HostVector3(0,0,0),new HostVector3(200,200,3000),
+    new HostVector3(0,0,3000),new HostVector3(200,200,6000),
+    double.NaN,1,out _),"Nonfinite stack tolerance excluded");
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
