@@ -10,6 +10,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 using Panel = System.Windows.Controls.Panel;
 using TextBox = System.Windows.Controls.TextBox;
 using ComboBox = System.Windows.Controls.ComboBox;
@@ -54,12 +55,34 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     .OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
                     .Select(x=>AuditV2Policy.Mm(x.BarModelDiameter))
                     .Where(AuditV2Policy.IsFinite).Distinct().OrderBy(x=>x).ToArray();
-                var inventory=V5HostSolidInspector.Inspect(selected);
-                var cover=V5HostCoverInspector.Inspect(selected);
-                var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters,inventory,cover);
-                new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
-                window.ShowDialog();
-                return Result.Succeeded;
+                while(true)
+                {
+                    var inventory=V5HostSolidInspector.Inspect(selected);
+                    var cover=V5HostCoverInspector.Inspect(selected);
+                    var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters,inventory,cover);
+                    new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
+                    window.ShowDialog();
+                    if(!window.RequestHostSelection) return Result.Succeeded;
+                    try
+                    {
+                        // Modal WPF is closed before entering Revit's PickObject loop.
+                        // This command is read-only and creates no model transaction.
+                        Reference picked=ui.Selection.PickObject(ObjectType.Element,
+                            new V5StructuralHostSelectionFilter(),
+                            "Chọn một dầm, cột hoặc móng kết cấu rồi nhấn Finish.");
+                        selected=doc.GetElement(picked.ElementId);
+                        if(selected==null)
+                        {
+                            TaskDialog.Show("KStruct V5","Không đọc được cấu kiện đã chọn.");
+                            return Result.Cancelled;
+                        }
+                    }
+                    catch(Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        // Escape during selection exits without modifying the RVT.
+                        return Result.Cancelled;
+                    }
+                }
             }
             catch(Exception ex)
             {
@@ -68,6 +91,19 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 return Result.Failed;
             }
         }
+    }
+
+    internal sealed class V5StructuralHostSelectionFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element element)
+        {
+            if(!(element is FamilyInstance) || element.Category==null) return false;
+            long id=element.Category.Id.Value;
+            return id==(long)BuiltInCategory.OST_StructuralFraming ||
+                   id==(long)BuiltInCategory.OST_StructuralColumns ||
+                   id==(long)BuiltInCategory.OST_StructuralFoundation;
+        }
+        public bool AllowReference(Reference reference,XYZ position) => false;
     }
 
     internal sealed class V5StructuralWorkspaceWindow : Window
@@ -85,6 +121,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly TextBlock status;
         private readonly Border shapePreview;
         private readonly Canvas sectionCanvas;
+        internal bool RequestHostSelection { get; private set; }
 
         internal V5StructuralWorkspaceWindow(string docTitle,Element host,double[] availableTypes,
             V5HostSolidInventory inventory,V5HostCoverSnapshot cover)
@@ -129,6 +166,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 ?"Host đã chọn: "+host.Id.Value+"  ·  "+SafeName(host)
                 :"Chưa chọn Host. Chọn dầm/cột/móng trong Revit rồi mở lại Workspace.",
                 12,host==null?ColorBrush(164,81,30):Accent,false,new Thickness(0,0,0,14)));
+            var pickHost=Button(host==null?"Chọn cấu kiện trong Revit":"Đổi cấu kiện",
+                Accent,Brushes.White);
+            pickHost.MinWidth=188;
+            pickHost.HorizontalAlignment=HorizontalAlignment.Left;
+            pickHost.Margin=new Thickness(0,0,0,12);
+            pickHost.Click+=(sender,e)=>{RequestHostSelection=true;Close();};
+            left.Children.Add(pickHost);
             left.Children.Add(Label("SOLID THỰC TẾ (CHỈ ĐỌC): "+
                 (inventory==null?"Không có kết quả":
                     inventory.SolidCount+" Solid, "+inventory.ConcreteMaterialCandidateSolids+
