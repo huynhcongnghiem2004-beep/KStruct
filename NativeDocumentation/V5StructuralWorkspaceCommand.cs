@@ -64,6 +64,10 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     window.ShowDialog();
                     if(window.RequestPilotCreation)
                     {
+                        if(!V5PilotReleaseGate.Enabled)
+                            throw new InvalidOperationException(
+                                "Pilot V5 chưa được nghiệm thu trên Revit thực. " +
+                                "Hãy sử dụng công cụ tạo thép V4 ở panel Thép cột / KStruct Dầm / Thép móng.");
                         if(!(selected is FamilyInstance pilotColumn))
                             throw new InvalidOperationException("Phải chọn một cột trước khi chạy Pilot.");
                         var confirm=new TaskDialog("KStruct V5 - PILOT")
@@ -112,6 +116,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 return Result.Failed;
             }
         }
+    }
+
+    // The unified production add-in uses V4 for real reinforcement and drawings.
+    // V5 experimental writes require independent Revit runtime approval before enablement.
+    internal static class V5PilotReleaseGate
+    {
+        internal const bool Enabled=false;
     }
 
     internal sealed class V5StructuralHostSelectionFilter : ISelectionFilter
@@ -277,7 +288,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             close.Click+=(sender,e)=>Close();
             var pilot=Button("PILOT: thép cột 3D",ColorBrush(174,91,48),Brushes.White);
             pilot.MinWidth=174;
-            pilot.ToolTip="Tạo thử 4 thanh dọc và bộ đai Maximum Spacing trên bản sao RVT; chưa neo, nối hay bản vẽ.";
+            pilot.IsEnabled=V5PilotReleaseGate.Enabled;
+            pilot.ToolTip="Đang khóa: Pilot V5 chưa nghiệm thu Revit. Dùng lệnh vẽ thép V4 trong Ribbon.";
             pilot.Click+=(sender,e)=>
             {
                 Validate();
