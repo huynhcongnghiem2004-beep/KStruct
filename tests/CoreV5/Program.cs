@@ -265,6 +265,8 @@ Check(V5RebarInputPolicy.TryMillimeters("200",out var parsed200) && Math.Abs(par
 Check(V5RebarInputPolicy.TryMillimeters("25,5",out var parsed255) && Math.Abs(parsed255-25.5)<1e-6,
     "UI parse Vietnamese decimal comma");
 Check(!V5RebarInputPolicy.TryMillimeters("1,2,3",out _),"Reject ambiguous number");
+Check(!V5RebarInputPolicy.TryMillimeters("1,500",out _),"Reject ambiguous comma grouping");
+Check(!V5RebarInputPolicy.TryMillimeters("1.500",out _),"Reject ambiguous period grouping");
 Check(!V5RebarInputPolicy.TryMillimeters("100 mm",out _),"Reject mixed unit");
 Check(!V5RebarInputPolicy.TryMillimeters("Infinity",out _),"Reject infinity input");
 Check(!V5RebarInputPolicy.TryMillimeters("NaN",out _),"Reject NaN input");
