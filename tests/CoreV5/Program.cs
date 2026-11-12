@@ -29,7 +29,7 @@ Check(!AuditV2Policy.HasUniqueOwnershipIds(new[]{"id1",""}),"empty ID");
 Check(AuditOwnershipPolicy.Classify(false,"h","e")=="unverified","no marker");
 Check(AuditOwnershipPolicy.Classify(true,"h","h")=="invalid-self-host","self reference");
 Check(AuditOwnershipPolicy.Classify(true,"h","e")=="marked-owned","persisted marker");
-Check(AuditOwnershipPolicy.Classify(true,null,"e")=="invalid-marker","malformed marker");
+Check(AuditOwnershipPolicy.Classify(true,default!,"e")=="invalid-marker","malformed marker");
 Check(AuditOwnershipPolicy.MatchesHost("hostA","hostA"),"ownership matching");
 Check(!AuditOwnershipPolicy.MatchesHost("hostA","hostB"),"ownership mismatching");
 Check(AuditOwnershipPolicy.NormalizeRebarRole("Top-X")=="top","top group");
@@ -38,7 +38,7 @@ Check(AuditOwnershipPolicy.NormalizeRebarRole("SideTies")=="tie","ties");
 var obj=new Dictionary<string,object>{
  {"text","Cọc \"D300\"\nline 2"},{"count",15},
  {"bad",double.NaN},{"inf",double.PositiveInfinity},
- {"items",new object[]{null,1,true,"x"}},
+ {"items",new object[]{null!,1,true,"x"}},
  {"nested",new Dictionary<string,object>{{"id","abc"},{"dimension",300.0}}}
 };
 string json=AuditV2Policy.Json(obj);
