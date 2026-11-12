@@ -22,7 +22,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             BuiltInCategory.OST_StructuralColumns,
             BuiltInCategory.OST_StructuralFraming,
             BuiltInCategory.OST_Floors,
-            BuiltInCategory.OST_Walls
+            BuiltInCategory.OST_Walls,
+            BuiltInCategory.OST_Stairs
         };
         private static readonly string[] Parameters = {
             "D Coc","D Cọc","Đường kính cọc","Diameter","Pile Diameter",
@@ -115,7 +116,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         {"records",written},{"warnings",issues.Count},
                         {"counts",counts.ToDictionary(x=>x.Key,x=>(object)x.Value)}
                     }));
-                    json.Write(",\"warnings\":"+AuditV2Policy.Json(issues)+"}");                });
+                    json.Write(",\"warnings\":"+AuditV2Policy.Json(issues)+"}");
+                });
                 TaskDialog.Show("KStruct Audit V2","Xuất xong (không sửa mô hình): "+
                     written+" bản ghi, "+issues.Count+" cảnh báo.\nJSON: "+path+"\nCSV: "+csv);
                 return Result.Succeeded;
@@ -232,30 +234,57 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Warn(issues,rebar.Id.Value,"NO_BAR_POSITION","No visible model bar position.");
                 return;
             }
-            var segments=new List<object>();
-            try
+            // Capture every existing position up to a guarded limit to avoid freezing Revit
+            // on exceptionally large/irregular sets. Truncation is explicit in JSON.
+            const int MaxBarPositionsPerSet = 256;
+            const int MaxCenterlineSegmentsPerSet = 4096;
+            int inspected=0, segmentCount=0;
+            var byPosition=new List<object>();
+            foreach(object value in positions)
             {
-                int first=Convert.ToInt32(positions[0],Culture);
-                var curves=rebar.GetTransformedCenterlineCurves(false,false,true,
-                    MultiplanarOption.IncludeAllMultiplanarCurves,first);
-                foreach(Curve curve in curves)
+                int position=Convert.ToInt32(value,Culture);
+                if(inspected>=MaxBarPositionsPerSet || segmentCount>=MaxCenterlineSegmentsPerSet)
                 {
-                    var p0=Point(curve.GetEndPoint(0));var p1=Point(curve.GetEndPoint(1));
-                    segments.Add(new Dictionary<string,object>{
-                        {"fromMm",p0},{"toMm",p1},
-                        {"lengthMm",AuditV2Policy.Mm(curve.Length)},
-                        {"curveType",curve.GetType().Name},
-                        {"direction",AuditV2Policy.Direction(p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2])}
-                    });
+                    record["centerlineTruncated"]=true;
+                    Warn(issues,rebar.Id.Value,"CENTERLINE_TRUNCATED",
+                        "Rebar exceeded audit limits; not all existing positions were inspected.");
+                    break;
                 }
-                record["centerlineFirstPosition"]=segments;
-                record["centerlinePositionIndex"]=first;
+                inspected++;
+                var curvesForPosition=new List<object>();
+                try
+                {
+                    var curves=rebar.GetTransformedCenterlineCurves(false,false,true,
+                        MultiplanarOption.IncludeAllMultiplanarCurves,position);
+                    foreach(Curve curve in curves)
+                    {
+                        if(segmentCount>=MaxCenterlineSegmentsPerSet)break;
+                        var p0=Point(curve.GetEndPoint(0));var p1=Point(curve.GetEndPoint(1));
+                        curvesForPosition.Add(new Dictionary<string,object>{
+                            {"fromMm",p0},{"toMm",p1},
+                            {"lengthMm",AuditV2Policy.Mm(curve.Length)},
+                            {"curveType",curve.GetType().Name},
+                            {"direction",AuditV2Policy.Direction(p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2])}
+                        });
+                        segmentCount++;
+                    }
+                    if(segmentCount>=MaxCenterlineSegmentsPerSet && inspected<positions.Count)
+                        record["centerlineTruncated"]=true;
+                    byPosition.Add(new Dictionary<string,object>{
+                        {"positionIndex",position},{"segments",curvesForPosition}});
+                }
+                catch(Exception ex)
+                {
+                    Warn(issues,rebar.Id.Value,"CENTERLINE_UNAVAILABLE",
+                        "Position "+position+": "+ex.Message);
+                    byPosition.Add(new Dictionary<string,object>{
+                        {"positionIndex",position},{"error",ex.GetType().Name}});
+                }
             }
-            catch(Exception ex)
-            {
-                Warn(issues,rebar.Id.Value,"CENTERLINE_UNAVAILABLE",ex.Message);
-                record["centerlineError"]=ex.GetType().Name;
-            }
+            record["centerlinesByPosition"]=byPosition;
+            record["centerlinePositionsInspected"]=inspected;
+            record["centerlineSegmentsCaptured"]=segmentCount;
+            record["centerlineTruncated"]=record.ContainsKey("centerlineTruncated");
             // Full layout state is model-specific; expose available shape-driven fields
             // but avoid calling unsupported setter APIs in the read-only audit.
             if(rebar.IsRebarShapeDriven())
