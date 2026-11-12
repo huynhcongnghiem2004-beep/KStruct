@@ -190,7 +190,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             catch(Exception ex){Warn(issues,e.Id.Value,"BOUNDS_UNAVAILABLE",ex.Message);}
 
             if(e is Rebar bar) DescribeRebar(doc,bar,result,issues);
-            else if(e is View view) DescribeView(doc,view,result);
+            else if(e is View view) DescribeView(doc,view,result,issues);
             else if(e is Viewport port)
             {
                 result["hostId"]=port.ViewId.Value;
@@ -301,7 +301,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
-        private static void DescribeView(Document doc,View view,Dictionary<string,object> result)
+        private static void DescribeView(Document doc,View view,Dictionary<string,object> result,
+            List<Dictionary<string,object>> issues)
         {
             result["viewType"]=view.ViewType.ToString();
             result["scale"]=view.Scale;
@@ -329,11 +330,18 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 }
             }
             catch {result["crop"]="not-available";}
-            if(FootingDrawingStorage.TryRead(view,out string host,out string role,out double margin))
-                result["kstructFootingDrawing"]=new Dictionary<string,object>{
-                    {"hostUniqueId",host},{"role",role},{"cropMarginMm",margin},
-                    {"ownership",AuditOwnershipPolicy.Classify(true,host,view.UniqueId)}
-                };
+            try
+            {
+                if(FootingDrawingStorage.TryRead(view,out string host,out string role,out double margin))
+                    result["kstructFootingDrawing"]=new Dictionary<string,object>{
+                        {"hostUniqueId",host},{"role",role},{"cropMarginMm",margin},
+                        {"ownership",AuditOwnershipPolicy.Classify(true,host,view.UniqueId)}
+                    };
+            }
+            catch(Exception ex)
+            {
+                Warn(issues,view.Id.Value,"OWNERSHIP_UNAVAILABLE",ex.Message);
+            }
         }
 
         private static void DescribeSolids(FamilyInstance instance,
@@ -359,9 +367,32 @@ namespace SDK_HD.KStruct.NativeDocumentation
             {
                 if(item is Solid solid && solid.Volume>1e-9)
                 {
+                    // Solid.GetBoundingBox() is expressed in the solid's local frame.
+                    // Compose the nested Family transforms before reporting world bounds.
+                    BoundingBoxXYZ solidBox=solid.GetBoundingBox();
+                    Transform world=transform.Multiply(solidBox.Transform);
+                    double[] minimum={double.PositiveInfinity,double.PositiveInfinity,double.PositiveInfinity};
+                    double[] maximum={double.NegativeInfinity,double.NegativeInfinity,double.NegativeInfinity};
+                    foreach(double x in new[]{solidBox.Min.X,solidBox.Max.X})
+                    foreach(double y in new[]{solidBox.Min.Y,solidBox.Max.Y})
+                    foreach(double z in new[]{solidBox.Min.Z,solidBox.Max.Z})
+                    {
+                        XYZ point=world.OfPoint(new XYZ(x,y,z));
+                        double[] xyz=Point(point);
+                        for(int axis=0;axis<3;axis++)
+                        {
+                            minimum[axis]=Math.Min(minimum[axis],xyz[axis]);
+                            maximum[axis]=Math.Max(maximum[axis],xyz[axis]);
+                        }
+                    }
                     values.Add(new Dictionary<string,object>{
                         {"volumeCubicMm",solid.Volume*304.8*304.8*304.8},
-                        {"faces",solid.Faces.Size},{"depth",depth}
+                        {"faces",solid.Faces.Size},{"depth",depth},
+                        {"worldBoundsMm",new Dictionary<string,object>{
+                            {"min",minimum},{"max",maximum},
+                            {"isValid",AuditV2Policy.IsValidBounds(minimum,maximum)}
+                        }},
+                        {"classification","unverified-solid"}
                     });
                     if(values.Count>=100)break;
                 }
