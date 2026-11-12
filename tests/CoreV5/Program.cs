@@ -188,4 +188,26 @@ Near(HostVector3.Dot(HostVector3.Cross(almostVertical.X,almostVertical.Y),almost
 using(var status=JsonDocument.Parse(AuditV2Policy.Json(rolled.AsRecord())))
     Check(!status.RootElement.GetProperty("placementApproved").GetBoolean(),
         "Host diagnostics must not authorize Rebar creation");
+
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(0,0,1))=="+Z-face-candidate",
+    "Beam local top face candidate");
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(0,0,-1))=="-Z-face-candidate",
+    "Beam local bottom face candidate");
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(1,0,0))=="+X-face-candidate",
+    "Beam local end face candidate");
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(0,-1,0))=="-Y-face-candidate",
+    "Beam local left face candidate");
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(0,1,1))=="oblique-candidate",
+    "Diagonal plane is not orthogonal concrete face");
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(0,0,0))=="unverified",
+    "Zero normal rejected");
+Check(HostFaceCandidatePolicy.Orientation(horizontal,new HostVector3(double.NaN,0,0))=="unverified",
+    "Nonfinite normal rejected");
+Check(HostFaceCandidatePolicy.Orientation(null!,new HostVector3(0,0,1))=="unverified",
+    "Unresolved host frame not classified");
+Check(HostFaceCandidatePolicy.ValidFaceArea(10),"Positive face area");
+Check(!HostFaceCandidatePolicy.ValidFaceArea(0),"Zero face area rejected");
+Check(!HostFaceCandidatePolicy.ValidFaceArea(double.PositiveInfinity),"Nonfinite face area rejected");
+Check(HostFaceCandidatePolicy.Orientation(mirrored,new HostVector3(0,-1,0))=="+Y-face-candidate",
+    "Mirror face orientation remains signed");
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
