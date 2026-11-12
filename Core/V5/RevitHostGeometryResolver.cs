@@ -24,19 +24,39 @@ namespace SDK_HD.KStruct.Core.V5
             long category=instance.Category.Id.Value;
             if(category==(long)BuiltInCategory.OST_StructuralFraming)
             {
-                LocationCurve location=instance.Location as LocationCurve;
-                if(location==null || !(location.Curve is Line line))
+                try
                 {
-                    reason="Curved or unavailable framing axis. Local frame not inferred.";
+                    LocationCurve location=instance.Location as LocationCurve;
+                    if(location==null || !(location.Curve is Line line))
+                    {
+                        reason="Curved or unavailable framing axis. Local frame not inferred.";
+                        return false;
+                    }
+                    // A LocationCurve alone does not encode cross-section roll. Revit
+                    // Family transform is only a section reference, not certified
+                    // concrete faces or reinforcement placement permission.
+                    Transform t=instance.GetTransform();
+                    if(t==null)
+                    {
+                        reason="Framing Family transform unavailable.";
+                        return false;
+                    }
+                    bool reversed;
+                    if(HostCoordinateFrame.TryCanonicalLine(ToMm(line.GetEndPoint(0)),
+                        ToMm(line.GetEndPoint(1)),ToUnitless(t.BasisY),out frame,out reversed))
+                    {
+                        reason=null;
+                        return true;
+                    }
+                    reason="Beam transform transverse axis is invalid or parallel to line; "+
+                        "section geometry must be inspected before creating Rebar.";
                     return false;
                 }
-                if(HostCoordinateFrame.TryLine(ToMm(line.GetEndPoint(0)),ToMm(line.GetEndPoint(1)),out frame))
+                catch(Exception ex)
                 {
-                    reason=null;
-                    return true;
+                    reason="Framing location/transform unavailable: "+ex.GetType().Name;
+                    return false;
                 }
-                reason="Degenerate or invalid beam location line.";
-                return false;
             }
             if(category!=(long)BuiltInCategory.OST_StructuralColumns &&
                 category!=(long)BuiltInCategory.OST_StructuralFoundation)
