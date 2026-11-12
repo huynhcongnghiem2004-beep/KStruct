@@ -117,8 +117,11 @@ namespace SDK_HD.KStruct.Core.V5
             }
             result.SolidCount++;
             double volumeMm = volume * 304.8 * 304.8 * 304.8;
-            if (AuditV2Policy.IsFinite(volumeMm))
+            if (AuditV2Policy.IsFinite(volumeMm) &&
+                AuditV2Policy.IsFinite(result.GrossSolidVolumeCubicMm+volumeMm))
                 result.GrossSolidVolumeCubicMm += volumeMm;
+            else
+                result.Warnings.Add("Thể tích cộng dồn không hợp lệ; bỏ qua giá trị.");
             bool allConcrete=true;
             int recognizedFaces=0;
             try
@@ -126,6 +129,14 @@ namespace SDK_HD.KStruct.Core.V5
                 foreach (Face face in solid.Faces)
                 {
                     if (face == null) continue;
+                    // Degenerate/two-sided faces are not reliable outer cover faces.
+                    if (!AuditV2Policy.IsFinite(face.Area) || face.Area<=1e-12 ||
+                        face.IsTwoSided)
+                    {
+                        allConcrete=false;
+                        result.Warnings.Add("Solid có mặt suy biến hoặc hai phía, không duyệt đặt thép.");
+                        continue;
+                    }
                     if (face is PlanarFace) result.PlanarFaceCount++;
                     else result.NonPlanarFaceCount++;
                     try
