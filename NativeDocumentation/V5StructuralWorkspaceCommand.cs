@@ -68,9 +68,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                             throw new InvalidOperationException("Phải chọn một cột trước khi chạy Pilot.");
                         var confirm=new TaskDialog("KStruct V5 - PILOT")
                         {
-                            MainInstruction="Tạo thử bốn thanh thép dọc, KHÔNG CÓ ĐAI?",
+                            MainInstruction="Tạo thử 4 thanh dọc và bộ đai Ø theo Maximum Spacing?",
                             MainContent="Chỉ sử dụng trên BẢN SAO RVT. Lệnh không tính toán kết cấu, " +
-                                "không neo/nối, không tạo đai hay bản vẽ. Pilot sẽ từ chối cột " +
+                                "chưa neo/nối hay tạo bản vẽ. Pilot sẽ từ chối cột " +
                                 "không phải lăng trụ chữ nhật bê tông đơn nhất, và cột đã có thép. " +
                                 "Không sử dụng các thanh này làm hồ sơ thi công.",
                             CommonButtons=TaskDialogCommonButtons.Yes|TaskDialogCommonButtons.No,
@@ -79,7 +79,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         if(confirm.Show()!=TaskDialogResult.Yes) return Result.Cancelled;
                         int n=V5ColumnPilotWriter.Create(doc,pilotColumn,window.PilotInput);
                         TaskDialog.Show("KStruct V5 PILOT",
-                            "Tạo xong "+n+" thanh thép dọc thử nghiệm. CHƯA có thép đai / neo / nối. " +
+                            "Tạo xong "+n+" thanh thép dọc và bộ đai thử nghiệm. CHƯA có neo / nối. " +
                             "Không sử dụng cho thi công.");
                         return Result.Succeeded;
                     }
@@ -171,7 +171,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Margin=new Thickness(0),};
             header.Children.Add(Label("KSTRUCT  /  V5 STRUCTURAL WORKSPACE",22,Brushes.White,true,
                 new Thickness(28,20,20,2)));
-            header.Children.Add(Label("Nhập liệu • Solid & Cover • Pilot tạo 4 thanh dọc (cần xác nhận)",
+            header.Children.Add(Label("Nhập liệu • Solid & Cover • Pilot tạo thép dọc + đai (cần xác nhận)",
                 12,ColorBrush(192,211,224),false,new Thickness(28,0,20,19)));
             root.Children.Add(header);Grid.SetRow(header,0);
 
@@ -255,7 +255,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             result.TextWrapping=TextWrapping.Wrap;
             right.Children.Add(result);
             right.Children.Add(Label("Chú ý: Chưa kiểm chứng Solid, lớp bảo vệ thực, nút khung, neo và nối chồng. "+
-                "Tạo/cập nhật Rebar V5 đầy đủ vẫn khóa. Pilot chỉ thử 4 thanh dọc, V4 không đổi.",
+                "Tạo/cập nhật Rebar V5 đầy đủ vẫn khóa. Pilot thử 4 thanh dọc + đai, V4 không đổi.",
                 12,ColorBrush(164,81,30),false,new Thickness(0,22,0,0)));
             var gateReview=V5ExecutionGatePolicy.Review(new V5ExecutionEvidence());
             right.Children.Add(Label("04  /  ĐIỀU KIỆN CHƯA ĐẠT",15,Navy,true,
@@ -267,7 +267,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             bottom.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
             bottom.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
             Grid.SetRow(bottom,2);root.Children.Add(bottom);
-            var footer=Label("V5 • Xem trước chỉ đọc; Pilot có thể tạo 4 thanh trên BẢN SAO RVT",
+            var footer=Label("V5 • Xem trước chỉ đọc; Pilot tạo thép trên BẢN SAO RVT",
                 11,Muted,false,new Thickness(26,23,0,0));
             bottom.Children.Add(footer);
             var buttons=new StackPanel{Orientation=Orientation.Horizontal,Margin=new Thickness(0,13,24,0)};
@@ -275,9 +275,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
             check.Click+=(sender,e)=>Validate();
             var close=Button("Đóng",ColorBrush(225,231,235),Navy);
             close.Click+=(sender,e)=>Close();
-            var pilot=Button("PILOT: 4 thép dọc cột",ColorBrush(174,91,48),Brushes.White);
+            var pilot=Button("PILOT: thép cột 3D",ColorBrush(174,91,48),Brushes.White);
             pilot.MinWidth=174;
-            pilot.ToolTip="Tạo thử 4 Rebar thật trên bản sao RVT; KHÔNG có đai, neo, nối hay bản vẽ.";
+            pilot.ToolTip="Tạo thử 4 thanh dọc và bộ đai Maximum Spacing trên bản sao RVT; chưa neo, nối hay bản vẽ.";
             pilot.Click+=(sender,e)=>
             {
                 Validate();
