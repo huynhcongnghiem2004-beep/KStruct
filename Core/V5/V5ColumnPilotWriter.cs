@@ -39,6 +39,21 @@ namespace SDK_HD.KStruct.Core.V5
             if(matches.Count!=1)
                 throw new InvalidOperationException("Phải có đúng một RebarBarType thép chủ phù hợp.");
             RebarBarType barType=matches[0];
+            var tieMatches=barTypes.Where(t=>Math.Abs(AuditV2Policy.Mm(t.BarModelDiameter)-
+                input.TieDiameterMm)<0.01).ToList();
+            if(tieMatches.Count!=1)
+                throw new InvalidOperationException("Phải có đúng một RebarBarType thép đai phù hợp.");
+            RebarBarType tieType=tieMatches[0];
+            var hooks=new FilteredElementCollector(doc).OfClass(typeof(RebarHookType))
+                .Cast<RebarHookType>()
+                .Where(h=>h.Style==RebarStyle.StirrupTie &&
+                    Math.Abs(h.HookAngle-135*Math.PI/180)<1e-6 &&
+                    tieType.GetHookPermission(h.Id)).ToList();
+            if(hooks.Count!=1)
+                throw new InvalidOperationException(
+                    "Pilot đai cần đúng một Hook 135° StirrupTie tương thích; " +
+                    "không tự đoán trong nhiều Hook hoặc bỏ móc.");
+            RebarHookType tieHook=hooks[0];
             if(new FilteredElementCollector(doc).OfClass(typeof(Rebar))
                 .Cast<Rebar>().Any(r=>r.GetHostId().Equals(host.Id)))
                 throw new InvalidOperationException(
@@ -115,6 +130,55 @@ namespace SDK_HD.KStruct.Core.V5
                             throw new InvalidOperationException("Không đóng dấu sở hữu Rebar Pilot.");
                         count++;
                     }
+                    // A single maximum-spacing tie set on a plain, isolated prism.
+                    // Revit must find an existing compatible stirrup shape and 135 hook.
+                    double tieCenter=input.CoverMm+input.TieDiameterMm/2;
+                    double tieStart=bounds[4]+tieCenter,tieEnd=bounds[5]-tieCenter;
+                    double tieSpan=tieEnd-tieStart;
+                    if(tieSpan<=input.TieSpacingMm || tieSpan<=0)
+                        throw new InvalidOperationException("Chiều cao phân bố đai không đủ.");
+                    XYZ[] tieCorners={
+                        Point(bounds[0]+tieCenter,bounds[2]+tieCenter,tieStart),
+                        Point(bounds[1]-tieCenter,bounds[2]+tieCenter,tieStart),
+                        Point(bounds[1]-tieCenter,bounds[3]-tieCenter,tieStart),
+                        Point(bounds[0]+tieCenter,bounds[3]-tieCenter,tieStart)
+                    };
+                    XYZ Point(double x,double y,double z)
+                    {
+                        double[] v=frame.ToWorld(x,y,z);
+                        return new XYZ(Ft(v[0]),Ft(v[1]),Ft(v[2]));
+                    }
+                    var tieCurves=new List<Curve>();
+                    for(int k=0;k<4;k++)
+                        tieCurves.Add(Line.CreateBound(tieCorners[k],tieCorners[(k+1)%4]));
+                    Rebar tie=ExistingProjectRebar.Create(doc,RebarStyle.StirrupTie,
+                        tieType,tieHook,tieHook,host,XYZ.BasisZ,tieCurves,
+                        RebarHookOrientation.Right,RebarHookOrientation.Right,
+                        "V5 Pilot đai bao 135°");
+                    if(tie==null || !tie.GetHostId().Equals(host.Id))
+                        throw new InvalidOperationException("Thép đai không thuộc đúng Host.");
+                    using(var accessor=tie.GetShapeDrivenAccessor())
+                        accessor.SetLayoutAsMaximumSpacing(Ft(input.TieSpacingMm),
+                            Ft(tieSpan),true,true,true);
+                    doc.Regenerate();
+                    int positions=tie.NumberOfBarPositions;
+                    if(positions<2 || positions>1002)
+                        throw new InvalidOperationException("Số vị trí đai Revit không hợp lệ.");
+                    using(var accessor=tie.GetShapeDrivenAccessor())
+                    {
+                        XYZ first=accessor.GetBarPositionTransform(0).Origin;
+                        XYZ last=accessor.GetBarPositionTransform(positions-1).Origin;
+                        XYZ delta=last-first;
+                        if(Math.Abs(delta.GetLength()-Ft(tieSpan))>Ft(2) ||
+                            Math.Abs(Math.Abs(delta.Normalize().DotProduct(XYZ.BasisZ))-1)>1e-4 ||
+                            delta.GetLength()/(positions-1)>Ft(input.TieSpacingMm+0.1))
+                            throw new InvalidOperationException(
+                                "Revit không tạo được bộ đai Maximum Spacing đúng hướng, nhịp và bước.");
+                    }
+                    var tiePartition=tie.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM);
+                    if(tiePartition==null || tiePartition.IsReadOnly ||
+                        !tiePartition.Set("KSTRUCT-V5-PILOT-"+host.Id.Value))
+                        throw new InvalidOperationException("Không ghi được sở hữu bộ đai.");
                     doc.Regenerate();
                     if(count!=4) throw new InvalidOperationException("Không đủ 4 thanh thép dọc.");
                     if(tx.Commit()!=TransactionStatus.Committed)
