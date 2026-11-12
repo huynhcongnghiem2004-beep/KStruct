@@ -273,7 +273,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 try
                 {
                     var accessor=rebar.GetShapeDrivenAccessor();
-                    record["layoutRule"]=accessor.LayoutRule.ToString();
+                    Parameter layout=rebar.get_Parameter(BuiltInParameter.REBAR_ELEM_LAYOUT_RULE);
+                    record["layoutRule"]=layout!=null && layout.HasValue
+                        ? ((RebarLayoutRule)layout.AsInteger()).ToString() : "unavailable";
                     record["arrayLengthMm"]=AuditV2Policy.Mm(accessor.ArrayLength);
                 }
                 catch(Exception ex) {Warn(issues,rebar.Id.Value,"LAYOUT_UNAVAILABLE",ex.Message);}
