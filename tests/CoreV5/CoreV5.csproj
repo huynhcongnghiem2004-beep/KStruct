@@ -9,5 +9,6 @@
     <Compile Include="../../Core/V5/AuditV2Policy.cs" Link="AuditV2Policy.cs" />
     <Compile Include="../../Core/V5/AuditOwnershipPolicy.cs" Link="AuditOwnershipPolicy.cs" />
     <Compile Include="../../Core/V5/AuditPairPublisher.cs" Link="AuditPairPublisher.cs" />
+    <Compile Include="../../Core/V5/AuditRebarLayoutPolicy.cs" Link="AuditRebarLayoutPolicy.cs" />
   </ItemGroup>
 </Project>
