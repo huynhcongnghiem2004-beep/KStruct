@@ -78,6 +78,22 @@ try
     });
     Check(System.IO.File.ReadAllText(outJson)=="{\"count\":1}","publish JSON successfully");
     Check(System.IO.File.ReadAllText(outCsv).TrimStart('\uFEFF')=="id\n1\n","publish CSV successfully");
+    // Second destination cannot be promoted: JSON must roll back to its old value.
+    var blockedCsv=System.IO.Path.Combine(testDir,"blocked.csv");
+    System.IO.Directory.CreateDirectory(blockedCsv);
+    bool promotionFailed=false;
+    try
+    {
+        AuditPairPublisher.Write(outJson,blockedCsv,(j,c)=>{
+            j.Write("LATEST-JSON");
+            c.Write("LATEST-CSV");
+        });
+    }
+    catch(System.IO.IOException){promotionFailed=true;}
+    catch(UnauthorizedAccessException){promotionFailed=true;}
+    Check(promotionFailed,"injected second-file promotion failure");
+    Check(System.IO.File.ReadAllText(outJson)=="{\"count\":1}","restore original JSON on CSV promotion failure");
+    Check(System.IO.Directory.Exists(blockedCsv),"destination folder remains intact");
     Check(System.IO.Directory.GetFiles(testDir,"*.tmp").Length==0,"no leftover staged files");
     Check(System.IO.Directory.GetFiles(testDir,"*.bak").Length==0,"no leftover backup files");
 }
