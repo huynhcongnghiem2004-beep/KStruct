@@ -182,7 +182,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 Margin=new Thickness(0),};
             header.Children.Add(Label("KSTRUCT  /  V5 STRUCTURAL WORKSPACE",22,Brushes.White,true,
                 new Thickness(28,20,20,2)));
-            header.Children.Add(Label("Nhập liệu • Solid & Cover • Pilot tạo thép dọc + đai (cần xác nhận)",
+            header.Children.Add(Label("V4 tạo thép & bản vẽ • V5 kiểm tra Solid, Cover và thông số",
                 12,ColorBrush(192,211,224),false,new Thickness(28,0,20,19)));
             root.Children.Add(header);Grid.SetRow(header,0);
 
@@ -268,7 +268,15 @@ namespace SDK_HD.KStruct.NativeDocumentation
             right.Children.Add(Label("Chú ý: Chưa kiểm chứng Solid, lớp bảo vệ thực, nút khung, neo và nối chồng. "+
                 "Tạo/cập nhật Rebar V5 đầy đủ vẫn khóa. Pilot thử 4 thanh dọc + đai, V4 không đổi.",
                 12,ColorBrush(164,81,30),false,new Thickness(0,22,0,0)));
-            var gateReview=V5ExecutionGatePolicy.Review(new V5ExecutionEvidence());
+            right.Children.Add(Label("TẠO THÉP & HỒ SƠ ĐANG DÙNG (V4)",15,Navy,true,
+                new Thickness(0,18,0,8)));
+            right.Children.Add(Label(
+                "Sử dụng các panel Ribbon KStruct: Thép cột → Tạo thép cột V4; " +
+                "KStruct Dầm → Thép dầm; Thép móng → Thép móng cọc & đơn. " +
+                "Các lệnh bản vẽ, cập nhật và thống kê V4 vẫn giữ nguyên. " +
+                "Workspace V5 chỉ kiểm tra mô hình và nhập liệu, KHÔNG chuyển cấu hình nhập sang V4.",
+                12,Accent,false,new Thickness(0,0,0,9)));
+                        var gateReview=V5ExecutionGatePolicy.Review(new V5ExecutionEvidence());
             right.Children.Add(Label("04  /  ĐIỀU KIỆN CHƯA ĐẠT",15,Navy,true,
                 new Thickness(0,18,0,8)));
             right.Children.Add(Label(string.Join("\n",gateReview.Blockers.Select(x=>"• "+x)),
@@ -278,7 +286,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             bottom.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
             bottom.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
             Grid.SetRow(bottom,2);root.Children.Add(bottom);
-            var footer=Label("V5 • Xem trước chỉ đọc; Pilot tạo thép trên BẢN SAO RVT",
+            var footer=Label("KStruct thống nhất • Tạo thép bằng V4; V5 kiểm tra hình học",
                 11,Muted,false,new Thickness(26,23,0,0));
             bottom.Children.Add(footer);
             var buttons=new StackPanel{Orientation=Orientation.Horizontal,Margin=new Thickness(0,13,24,0)};
