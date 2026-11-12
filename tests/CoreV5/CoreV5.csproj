@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Core/V5/AuditV2Policy.cs" Link="AuditV2Policy.cs" />
+    <Compile Include="../../Core/V5/AuditOwnershipPolicy.cs" Link="AuditOwnershipPolicy.cs" />
+  </ItemGroup>
+</Project>
