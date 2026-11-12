@@ -64,6 +64,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var issues=new List<Dictionary<string,object>>();
             var counts=new SortedDictionary<string,int>(StringComparer.Ordinal);
             int written=0;
+            var jointTargets=ReadStructuralTargets(doc);
             try
             {
                 AuditPairPublisher.Write(path,csv,(json,table)=>
@@ -86,7 +87,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                         string csvRow;
                         try
                         {
-                            record=Describe(doc,e,issues);
+                            record=Describe(doc,e,issues,jointTargets);
                             serialized=AuditV2Policy.Json(record);
                             var columns=new[]{
                                 Text(record,"class"),Text(record,"category"),Text(record,"elementId"),
@@ -130,6 +131,62 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
         }
 
+        private static List<Tuple<long,string,HostVector3,HostVector3>> ReadStructuralTargets(Document doc)
+        {
+            var result=new List<Tuple<long,string,HostVector3,HostVector3>>();
+            foreach(Element e in new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_StructuralColumns)
+                .WhereElementIsNotElementType().ToElements()
+                .Concat(new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_StructuralFoundation)
+                    .WhereElementIsNotElementType().ToElements()))
+            {
+                try
+                {
+                    BoundingBoxXYZ bb=e.get_BoundingBox(null);
+                    if(bb==null)continue;
+                    var min=RevitHostGeometryResolver.ToMm(bb.Min);
+                    var max=RevitHostGeometryResolver.ToMm(bb.Max);
+                    if(!StructuralJointCandidatePolicy.ValidBox(min,max))continue;
+                    string category=e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralColumns
+                        ?"column":"foundation";
+                    result.Add(Tuple.Create(e.Id.Value,category,min,max));
+                }
+                catch { /* Unavailable bounds cannot establish a joint candidate. */ }
+            }
+            return result;
+        }
+
+        // Bounding-box broad phase only: any reported point is an *unverified*
+        // joint/proximity candidate, not a structural support or Rebar region.
+        private static void DescribeJointCandidates(FamilyInstance host,
+            Dictionary<string,object> record,
+            List<Tuple<long,string,HostVector3,HostVector3>> targets)
+        {
+            if(host.Category?.Id.Value!=(long)BuiltInCategory.OST_StructuralFraming)return;
+            var candidates=new List<object>();
+            if(host.Location is LocationCurve loc && loc.Curve is Line line)
+            {
+                var start=RevitHostGeometryResolver.ToMm(line.GetEndPoint(0));
+                var end=RevitHostGeometryResolver.ToMm(line.GetEndPoint(1));
+                foreach(var target in targets)
+                {
+                    if(candidates.Count>=100)break;
+                    if(StructuralJointCandidatePolicy.TrySegmentBox(start,end,
+                        target.Item3,target.Item4,0,out double entry,out double exit))
+                    {
+                        candidates.Add(new Dictionary<string,object>{
+                            {"otherHostId",target.Item1},{"otherHostCategory",target.Item2},
+                            {"entryFraction",entry},{"exitFraction",exit},
+                            {"classification","unverified-bbox-joint-candidate"}
+                        });
+                    }
+                }
+            }
+            record["jointCandidates"]=candidates;
+            record["jointCandidateLimitReached"]=candidates.Count>=100;
+        }
+
         private static IEnumerable<Element> Collect(Document doc)
         {
             // Element IDs are unique across collectors; dedup prevents repeated rows.
@@ -152,7 +209,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
         }
 
         private static Dictionary<string,object> Describe(Document doc,Element e,
-            List<Dictionary<string,object>> issues)
+            List<Dictionary<string,object>> issues,
+            List<Tuple<long,string,HostVector3,HostVector3>> jointTargets)
         {
             var result=new Dictionary<string,object>{
                 {"class",e.GetType().Name},{"category",e.Category?.Name??""},
@@ -169,6 +227,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 result["family"]=instance.Symbol?.FamilyName;
                 result["type"]=instance.Symbol?.Name;
                 result["level"]=doc.GetElement(instance.LevelId)?.Name;
+                DescribeJointCandidates(instance,result,jointTargets);
                 // Only report a structural host frame when its orientation is validated.
                 long categoryId=instance.Category?.Id.Value??0;
                 if(categoryId==(long)BuiltInCategory.OST_StructuralFraming ||
