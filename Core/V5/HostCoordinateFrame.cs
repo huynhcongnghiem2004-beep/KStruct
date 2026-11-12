@@ -32,6 +32,8 @@ namespace SDK_HD.KStruct.Core.V5
     {
         internal readonly HostVector3 Origin,X,Y,Z;
         internal readonly string Source;
+        internal double Handedness => HostVector3.Dot(HostVector3.Cross(X,Y),Z);
+        internal bool IsMirrored => Handedness < 0;
         private HostCoordinateFrame(HostVector3 origin,HostVector3 x,HostVector3 y,HostVector3 z,string source)
         {Origin=origin;X=x;Y=y;Z=z;Source=source;}
         internal double[] ToLocal(HostVector3 worldPoint)
@@ -97,8 +99,8 @@ namespace SDK_HD.KStruct.Core.V5
             return TryLineWithReference(a,b,sectionAxis,"canonical-line-section-reference",out frame);
         }
 
-        /// <summary>Instance transform frame; reject skewed, mirrored, degenerate and scaled bases.
-        /// A mirrored Family may be valid in Revit, but this method cannot certify its axes.</summary>
+        /// <summary>Instance transform frame; preserve orthonormal mirrored bases for diagnostics.
+        /// Reflection is not placement approval. Reject skewed, degenerate and scaled bases.</summary>
         internal static bool TryInstance(HostVector3 origin,HostVector3 bx,HostVector3 by,HostVector3 bz,
             out HostCoordinateFrame frame)
         {
@@ -111,7 +113,7 @@ namespace SDK_HD.KStruct.Core.V5
                 Math.Abs(bz.Magnitude-1)>tolerance)return false;
             if(Math.Abs(HostVector3.Dot(x,y))>tolerance||Math.Abs(HostVector3.Dot(y,z))>tolerance||
                 Math.Abs(HostVector3.Dot(z,x))>tolerance)return false;
-            if(HostVector3.Dot(HostVector3.Cross(x,y),z)<1-tolerance)return false;
+            if(Math.Abs(Math.Abs(HostVector3.Dot(HostVector3.Cross(x,y),z))-1)>tolerance)return false;
             frame=new HostCoordinateFrame(origin,x,y,z,"family-instance-transform");
             return true;
         }
@@ -122,6 +124,7 @@ namespace SDK_HD.KStruct.Core.V5
                 {"originMm",Origin.Components},{"axisX",X.Components},
                 {"axisY",Y.Components},{"axisZ",Z.Components},
                 {"source",Source},{"validatedOrthonormal",true},
+                {"handedness",IsMirrored?"mirrored":"right-handed"},
                 {"placementApproved",false},
                 {"placementBlocker","Local axes alone do not establish concrete faces, cover, joint or anchorage."}
             };
