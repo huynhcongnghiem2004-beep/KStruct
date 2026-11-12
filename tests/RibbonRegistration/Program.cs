@@ -20,7 +20,7 @@ internal static class Program
         var panels = Regex.Matches(source, @"app\.CreateRibbonPanel\(tab,\s*""(?<panel>[^""]+)""\)")
             .Cast<Match>().Select(match => match.Groups["panel"].Value).ToList();
 
-        Require(buttons.Count == 95, "Expected exactly 94 registered KStruct commands; found " + buttons.Count);
+        Require(buttons.Count == 95, "Expected exactly 95 registered KStruct commands; found " + buttons.Count);
         Require(buttons.Distinct(StringComparer.Ordinal).Count() == buttons.Count, "Duplicate Ribbon command IDs");
         Require(panels.Count == 7, "Expected exactly 7 registered panels; found " + panels.Count);
         Require(panels.Distinct(StringComparer.Ordinal).Count() == panels.Count, "Duplicate Ribbon panels");
@@ -61,7 +61,7 @@ internal static class Program
         var documentation = Regex.Matches(source,
             @"\bAdd\(nativeDocumentationPanel,\s*dll,\s*""(?<id>KStruct_[^""]+)""")
             .Cast<Match>().Select(match => match.Groups["id"].Value).ToArray();
-        Require(documentation.Length == 4, "KStruct Hồ sơ must have four commands");
+        Require(documentation.Length == 5, "KStruct Hồ sơ must have five commands");
         Require(documentation.Contains("KStruct_NumberSelectedElements"), "Missing element numbering command");
         Require(documentation.Contains("KStruct_TagElementAtPickedPoint"), "Missing element tagging command");
         Require(documentation.Contains("KStruct_AuditModel"), "Missing model audit command");
