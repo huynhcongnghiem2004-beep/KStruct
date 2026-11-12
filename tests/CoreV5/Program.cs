@@ -114,4 +114,39 @@ try
     Check(System.IO.Directory.GetFiles(testDir,"*.bak").Length==0,"no leftover backup files");
 }
 finally {System.IO.Directory.Delete(testDir,true);}
+
+var origin=new HostVector3(100,200,300);
+Check(HostCoordinateFrame.TryLine(origin,new HostVector3(1100,200,300),out var horizontal),"Horizontal beam frame");
+Check(horizontal.Source=="location-curve-straight","Line frame source");
+var pLocal=horizontal.ToLocal(new HostVector3(600,300,400));
+Near(pLocal[0],500,"Beam local X");
+Near(pLocal[1],100,"Beam local Y");
+Near(pLocal[2],100,"Beam local Z");
+var reconstructed=horizontal.ToWorld(500,100,100);
+Near(reconstructed[0],600,"Beam roundtrip X");
+Near(reconstructed[1],300,"Beam roundtrip Y");
+Near(reconstructed[2],400,"Beam roundtrip Z");
+Check(HostCoordinateFrame.TryLine(origin,new HostVector3(100,200,800),out var vertical),"Vertical line frame");
+Near(HostVector3.Dot(HostVector3.Cross(vertical.X,vertical.Y),vertical.Z),1,"Right-handed vertical axis");
+Check(!HostCoordinateFrame.TryLine(origin,origin,out _),"Reject zero-length beam");
+Check(!HostCoordinateFrame.TryLine(new HostVector3(double.NaN,0,0),origin,out _),"Reject invalid origin");
+Check(HostCoordinateFrame.TryLine(origin,new HostVector3(1100,900,700),out var sloped),"Sloped frame");
+var world=sloped.ToWorld(135.5,-17.3,26.2);
+var back=sloped.ToLocal(new HostVector3(world[0],world[1],world[2]));
+Near(back[0],135.5,"Sloped roundtrip X");
+Near(back[1],-17.3,"Sloped roundtrip Y");
+Near(back[2],26.2,"Sloped roundtrip Z");
+Check(HostCoordinateFrame.TryInstance(origin,new HostVector3(0,1,0),
+    new HostVector3(-1,0,0),new HostVector3(0,0,1),out var rotated),"Rotated column Family frame");
+Near(rotated.ToLocal(new HostVector3(100,400,300))[0],200,"Rotated column local X");
+Check(!HostCoordinateFrame.TryInstance(origin,new HostVector3(1,0,0),
+    new HostVector3(0,-1,0),new HostVector3(0,0,1),out _),"Mirrored instance is unverified");
+Check(!HostCoordinateFrame.TryInstance(origin,new HostVector3(2,0,0),
+    new HostVector3(0,1,0),new HostVector3(0,0,1),out _),"Scaled transform rejected");
+Check(!HostCoordinateFrame.TryInstance(origin,new HostVector3(1,0,0),
+    new HostVector3(0.5,1,0),new HostVector3(0,0,1),out _),"Skew transform rejected");
+using(var frameDoc=JsonDocument.Parse(AuditV2Policy.Json(horizontal.AsRecord()))) {
+    Check(frameDoc.RootElement.GetProperty("validatedOrthonormal").GetBoolean(),"Frame JSON status");
+    Check(frameDoc.RootElement.GetProperty("axisX").GetArrayLength()==3,"Frame JSON axes");
+}
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
