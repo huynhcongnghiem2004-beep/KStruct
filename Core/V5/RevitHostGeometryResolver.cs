@@ -78,7 +78,7 @@ namespace SDK_HD.KStruct.Core.V5
                     reason=null;
                     return true;
                 }
-                reason="Mirrored, scaled, skewed or degenerate Family basis; explicit mapping required.";
+                reason="Scaled, skewed or degenerate Family basis; explicit mapping required.";
                 return false;
             }
             catch(Exception ex)
