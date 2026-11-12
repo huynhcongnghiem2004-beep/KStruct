@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms;
+using WinForms = System.Windows.Forms;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -43,7 +43,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 return Result.Cancelled;
             }
             string outputPath;
-            using (var dialog = new SaveFileDialog())
+            using (var dialog = new WinForms.SaveFileDialog())
             {
                 dialog.Title = "KStruct - Lưu báo cáo kiểm tra mô hình (JSON + CSV)";
                 dialog.Filter = "JSON (*.json)|*.json";
@@ -51,7 +51,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 dialog.AddExtension = true;
                 dialog.OverwritePrompt = true;
                 dialog.FileName = SafeFilename(Path.GetFileNameWithoutExtension(document.Title)) + "_KStruct_Audit.json";
-                if (dialog.ShowDialog(new RevitOwner(data.Application.MainWindowHandle)) != DialogResult.OK)
+                if (dialog.ShowDialog(new RevitOwner(data.Application.MainWindowHandle)) != WinForms.DialogResult.OK)
                     return Result.Cancelled;
                 outputPath = dialog.FileName;
             }
@@ -184,7 +184,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     host = bar.GetHostId().Value.ToString(Invariant);
                     var barType = doc.GetElement(bar.GetTypeId()) as RebarBarType;
                     type = barType?.Name ?? "";
-                    diameter = barType != null ? Mm(barType.BarDiameter) : (double?)null;
+                    diameter = barType?.get_Parameter(BuiltInParameter.REBAR_BAR_DIAMETER) is Parameter diameterParameter && diameterParameter.HasValue
+                        ? Mm(diameterParameter.AsDouble()) : (double?)null;
                     rebarCount = bar.NumberOfBarPositions;
                     notes = "ShapeId=" + bar.GetShapeId().Value.ToString(Invariant);
                 }
@@ -330,7 +331,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             }
             writer.Write('"');
         }
-        private sealed class RevitOwner : IWin32Window
+        private sealed class RevitOwner : WinForms.IWin32Window
         {
             internal RevitOwner(IntPtr handle) { Handle = handle; }
             public IntPtr Handle { get; }
