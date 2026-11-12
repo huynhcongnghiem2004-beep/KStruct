@@ -20,7 +20,7 @@ internal static class Program
         var panels = Regex.Matches(source, @"app\.CreateRibbonPanel\(tab,\s*""(?<panel>[^""]+)""\)")
             .Cast<Match>().Select(match => match.Groups["panel"].Value).ToList();
 
-        Require(buttons.Count == 94, "Expected exactly 94 registered KStruct commands; found " + buttons.Count);
+        Require(buttons.Count == 95, "Expected exactly 94 registered KStruct commands; found " + buttons.Count);
         Require(buttons.Distinct(StringComparer.Ordinal).Count() == buttons.Count, "Duplicate Ribbon command IDs");
         Require(panels.Count == 7, "Expected exactly 7 registered panels; found " + panels.Count);
         Require(panels.Distinct(StringComparer.Ordinal).Count() == panels.Count, "Duplicate Ribbon panels");
@@ -66,6 +66,7 @@ internal static class Program
         Require(documentation.Contains("KStruct_TagElementAtPickedPoint"), "Missing element tagging command");
         Require(documentation.Contains("KStruct_AuditModel"), "Missing model audit command");
         Require(documentation.Contains("KStruct_AuditModelV2"), "Missing audit V2 command");
+        Require(documentation.Contains("KStruct_V5Workspace"), "Missing V5 workspace Ribbon command");
 
         // Every Ribbon path must use the shared flat, negative-space image renderer.
         string iconRenderer = File.ReadAllText(Path.Combine(directory.FullName, "Core", "FlatRibbonIcons.cs"));
@@ -83,7 +84,7 @@ internal static class Program
         Require(!source.Contains("data.Image = Icon(") &&
                 !source.Contains("data.LargeImage = Icon("),
                 "Old Ribbon PNG icon pipeline must be fully replaced");
-        Console.WriteLine("PASS: All 94 commands and both group images use the flat Navy/Earth icon system.");
+        Console.WriteLine("PASS: All 95 commands and both group images use the flat Navy/Earth icon system.");
     }
 
     private static void Require(bool condition, string message)
