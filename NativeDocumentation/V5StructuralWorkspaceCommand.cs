@@ -54,7 +54,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     .Select(x=>AuditV2Policy.Mm(x.BarModelDiameter))
                     .Where(AuditV2Policy.IsFinite).Distinct().OrderBy(x=>x).ToArray();
                 var inventory=V5HostSolidInspector.Inspect(selected);
-                var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters,inventory);
+                var cover=V5HostCoverInspector.Inspect(selected);
+                var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters,inventory,cover);
                 new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
                 window.ShowDialog();
                 return Result.Succeeded;
@@ -84,7 +85,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly Border shapePreview;
 
         internal V5StructuralWorkspaceWindow(string docTitle,Element host,double[] availableTypes,
-            V5HostSolidInventory inventory)
+            V5HostSolidInventory inventory,V5HostCoverSnapshot cover)
         {
             types=availableTypes??new double[0];
             hostId=host?.UniqueId;
@@ -135,7 +136,12 @@ namespace SDK_HD.KStruct.NativeDocumentation
             left.Children.Add(Label(inventory?.Warnings.FirstOrDefault() ??
                 "Không thể xác minh bê tông hay lớp bảo vệ chỉ bằng thống kê Solid.",
                 11,ColorBrush(164,81,30),false,new Thickness(0,0,0,11)));
-            left.Children.Add(Label("Module",12,Navy,true,new Thickness(0,0,0,5)));
+            left.Children.Add(Label("REBAR COVER TRONG REVIT (CHỈ ĐỌC): "+
+                (cover==null || cover.CoverByFaceMm.Count==0?"Chưa đọc được":
+                string.Join(" • ",cover.CoverByFaceMm.Select(p=>
+                    p.Key+" = "+p.Value.ToString("0.#",CultureInfo.InvariantCulture)+" mm"))),
+                11,Navy,false,new Thickness(0,0,0,8)));
+                        left.Children.Add(Label("Module",12,Navy,true,new Thickness(0,0,0,5)));
             module=new ComboBox{Height=36,FontSize=13,Margin=new Thickness(0,0,0,17)};
             module.Items.Add("Dầm / Beam");module.Items.Add("Cột / Column");
             module.Items.Add("Móng / Foundation");
