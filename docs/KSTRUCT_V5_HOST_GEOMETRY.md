@@ -42,3 +42,11 @@ Provide **local coordinate frames** for structural hosts before implementing Bea
 3. Resolve actual concrete faces and cover offsets, pile-versus-cap identity and nested geometry transforms.
 4. Resolve column stacks, structural joints, host ownership, hooks and lap lengths.
 5. Pass real-model sample checks and Revit API transaction rollback tests before activating any V5 write action.
+
+## Read-only Structural Joint Candidate Resolver
+- New `Core/V5/StructuralJointCandidatePolicy.cs`: finite/degenerate-safe 3D line-vs-AABB segment clipping with normalized [0..1] entry/exit fractions and optional explicitly provided padding.
+- New column-stack candidate check: vertical interface separation within 20 mm, XY projections touch/overlap within 10 mm; returns *actual* XY overlap area in mm².
+- Audit V2 pre-indexes structural columns and foundations by world bounding boxes, then emits per-beam `jointCandidates` with `otherHostId`, `otherHostCategory`, `entryFraction`, `exitFraction`. For columns, emits possible adjacent columns with relative direction and XY overlap area.
+- At most 100 candidates per host are exported; `jointCandidateLimitReached` signals traversal truncation. All records use classifications `unverified-bbox-joint-candidate` / `unverified-column-stack-candidate`.
+- **Critical limitations:** Bounding-box intersection does not prove concrete solids intersect or transfer load. Nested geometry, offset axes, rotated column cross sections, beams near columns, linked structures and physical load paths require stronger checks. Column extension/overlap is not a substitute for splice or confinement calculations. No candidate is approved for Rebar creation.
+- The new diagnostic output is not yet verified on a new Mr.Khoa RVT export. Validate candidate pairs against Revit visual inspection before using these results downstream.
