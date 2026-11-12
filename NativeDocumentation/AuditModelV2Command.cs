@@ -285,19 +285,46 @@ namespace SDK_HD.KStruct.NativeDocumentation
             record["centerlinePositionsInspected"]=inspected;
             record["centerlineSegmentsCaptured"]=segmentCount;
             record["centerlineTruncated"]=record.ContainsKey("centerlineTruncated");
-            // Full layout state is model-specific; expose available shape-driven fields
-            // but avoid calling unsupported setter APIs in the read-only audit.
+            // Read layout rule independently from the accessor. Revit 2024 throws
+            // when ArrayLength is requested on a Single bar, which is expected.
+            // Only distributed sets have a meaningful distribution array length.
             if(rebar.IsRebarShapeDriven())
             {
+                string rule="unavailable";
                 try
                 {
-                    var accessor=rebar.GetShapeDrivenAccessor();
                     Parameter layout=rebar.get_Parameter(BuiltInParameter.REBAR_ELEM_LAYOUT_RULE);
-                    record["layoutRule"]=layout!=null && layout.HasValue
-                        ? ((RebarLayoutRule)layout.AsInteger()).ToString() : "unavailable";
-                    record["arrayLengthMm"]=AuditV2Policy.Mm(accessor.ArrayLength);
+                    if(layout!=null && layout.HasValue)
+                        rule=((RebarLayoutRule)layout.AsInteger()).ToString();
                 }
-                catch(Exception ex) {Warn(issues,rebar.Id.Value,"LAYOUT_UNAVAILABLE",ex.Message);}
+                catch(Exception ex)
+                {
+                    Warn(issues,rebar.Id.Value,"LAYOUT_RULE_UNAVAILABLE",ex.Message);
+                }
+                record["layoutRule"]=rule;
+                record["arrayLengthMm"]=null;
+                if(string.Equals(rule,"Single",StringComparison.Ordinal))
+                {
+                    // ArrayLength does not apply to Single. Do not report false errors.
+                    if(!AuditRebarLayoutPolicy.IsConsistentSingle(rule,rebar.NumberOfBarPositions,positions.Count))
+                        Warn(issues,rebar.Id.Value,"SINGLE_POSITION_MISMATCH",
+                            "Layout Single does not match the reported existing positions.");
+                }
+                else if(AuditRebarLayoutPolicy.HasArrayLength(rule))
+                {
+                    try
+                    {
+                        double length=rebar.GetShapeDrivenAccessor().ArrayLength;
+                        if(!AuditRebarLayoutPolicy.IsValidArrayLength(length))
+                            Warn(issues,rebar.Id.Value,"LAYOUT_INVALID_LENGTH",
+                                "Distributed Rebar array length is invalid.");
+                        else record["arrayLengthMm"]=AuditV2Policy.Mm(length);
+                    }
+                    catch(Exception ex)
+                    {
+                        Warn(issues,rebar.Id.Value,"LAYOUT_UNAVAILABLE",ex.Message);
+                    }
+                }
             }
         }
 
