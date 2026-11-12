@@ -51,4 +51,35 @@ using(var parsed=JsonDocument.Parse(json)) {
 }
 Check(AuditV2Policy.SafeSegment(new[]{0.0,0.0,0.0},new[]{10.0,20.0,30.0}),"valid segment");
 Check(!AuditV2Policy.SafeSegment(new[]{0.0,double.NaN,0.0},new[]{10.0,20.0,30.0}),"nonfinite segment");
+// Verify successful two-file promotion, failed staging and preservation of prior reports.
+var testDir=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"kstruct-v5-audit-"+Guid.NewGuid().ToString("N"));
+System.IO.Directory.CreateDirectory(testDir);
+try
+{
+    var outJson=System.IO.Path.Combine(testDir,"model.json");
+    var outCsv=System.IO.Path.Combine(testDir,"model.csv");
+    System.IO.File.WriteAllText(outJson,"OLD-JSON");
+    System.IO.File.WriteAllText(outCsv,"OLD-CSV");
+    bool failed=false;
+    try
+    {
+        AuditPairPublisher.Write(outJson,outCsv,(j,c)=>{
+            j.Write("{\\"schema\\":\\"test\\"}");
+            throw new System.IO.IOException("Injected failure before CSV");
+        });
+    }
+    catch(System.IO.IOException){failed=true;}
+    Check(failed,"injected output failure");
+    Check(System.IO.File.ReadAllText(outJson)=="OLD-JSON","preserve old JSON on staging failure");
+    Check(System.IO.File.ReadAllText(outCsv)=="OLD-CSV","preserve old CSV on staging failure");
+    AuditPairPublisher.Write(outJson,outCsv,(j,c)=>{
+        j.Write("{\\"count\\":1}");
+        c.Write("id\\n1\\n");
+    });
+    Check(System.IO.File.ReadAllText(outJson)=="{\\"count\\":1}","publish JSON successfully");
+    Check(System.IO.File.ReadAllText(outCsv).TrimStart('\uFEFF')=="id\\n1\\n","publish CSV successfully");
+    Check(System.IO.Directory.GetFiles(testDir,"*.tmp").Length==0,"no leftover staged files");
+    Check(System.IO.Directory.GetFiles(testDir,"*.bak").Length==0,"no leftover backup files");
+}
+finally {System.IO.Directory.Delete(testDir,true);}
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
