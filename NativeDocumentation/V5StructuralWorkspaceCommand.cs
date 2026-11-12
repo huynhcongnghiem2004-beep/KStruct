@@ -185,7 +185,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var gateReview=V5ExecutionGatePolicy.Review(new V5ExecutionEvidence());
             right.Children.Add(Label("04  /  ĐIỀU KIỆN CHƯA ĐẠT",15,Navy,true,
                 new Thickness(0,18,0,8)));
-            right.Children.Add(Label(string.Join("\\n",gateReview.Blockers.Select(x=>"• "+x)),
+            right.Children.Add(Label(string.Join("\n",gateReview.Blockers.Select(x=>"• "+x)),
                 12,ColorBrush(164,81,30),false,new Thickness(0,0,0,14)));
 
             var bottom=new Grid{Background=Brushes.White,Height=65};
