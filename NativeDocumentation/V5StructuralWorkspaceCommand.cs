@@ -32,12 +32,21 @@ namespace SDK_HD.KStruct.NativeDocumentation
             try
             {
                 Document doc=ui.Document;
-                Element selected=ui.Selection.GetElementIds()
+                var selectedHosts=ui.Selection.GetElementIds()
                     .Select(id=>doc.GetElement(id))
-                    .FirstOrDefault(e=>e is FamilyInstance &&
+                    .Where(e=>e is FamilyInstance &&
                         (e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFraming ||
                          e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralColumns ||
-                         e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFoundation));
+                         e.Category?.Id.Value==(long)BuiltInCategory.OST_StructuralFoundation))
+                    .Take(2).ToList();
+                // Never silently choose an arbitrary Host from a multi-selection.
+                if(selectedHosts.Count>1)
+                {
+                    TaskDialog.Show("KStruct V5",
+                        "Có nhiều cấu kiện kết cấu đang được chọn. Hãy chỉ chọn một dầm, cột hoặc móng rồi mở lại Workspace.");
+                    return Result.Cancelled;
+                }
+                Element selected=selectedHosts.FirstOrDefault();
                 double[] barDiameters=new FilteredElementCollector(doc)
                     .OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
                     .Select(x=>AuditV2Policy.Mm(x.BarDiameter))
@@ -126,6 +135,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
             module.SelectionChanged+=(sender,e)=>Validate();
             left.Children.Add(module);
             left.Children.Add(Label("02  /  CẤU HÌNH SƠ BỘ (mm)",15,Navy,true,new Thickness(0,0,0,11)));
+            left.Children.Add(Label("Giá trị khởi tạo chỉ là ví dụ, KHÔNG lấy từ kích thước Host thực tế.",
+                12,ColorBrush(164,81,30),false,new Thickness(0,0,0,10)));
             AddField(left,"width","Chiều rộng cấu kiện","200");
             AddField(left,"height","Chiều cao cấu kiện","350");
             AddField(left,"cover","Lớp bảo vệ nhập","25");
