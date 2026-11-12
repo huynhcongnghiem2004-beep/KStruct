@@ -11,9 +11,9 @@ namespace SDK_HD.KStruct.Core.V5
         internal HostVector3(double x,double y,double z) {X=x;Y=y;Z=z;}
         internal double Magnitude => Math.Sqrt(X*X+Y*Y+Z*Z);
         internal double[] Components => new[]{X,Y,Z};
-        internal static HostVector3 operator+(HostVector3 a,HostVector3 b)=>new HostVector3(a.X+b.X,a.Y+b.Y,a.Z+b.Z);
-        internal static HostVector3 operator-(HostVector3 a,HostVector3 b)=>new HostVector3(a.X-b.X,a.Y-b.Y,a.Z-b.Z);
-        internal static HostVector3 operator*(HostVector3 a,double scalar)=>new HostVector3(a.X*scalar,a.Y*scalar,a.Z*scalar);
+        public static HostVector3 operator+(HostVector3 a,HostVector3 b)=>new HostVector3(a.X+b.X,a.Y+b.Y,a.Z+b.Z);
+        public static HostVector3 operator-(HostVector3 a,HostVector3 b)=>new HostVector3(a.X-b.X,a.Y-b.Y,a.Z-b.Z);
+        public static HostVector3 operator*(HostVector3 a,double scalar)=>new HostVector3(a.X*scalar,a.Y*scalar,a.Z*scalar);
         internal static double Dot(HostVector3 a,HostVector3 b)=>a.X*b.X+a.Y*b.Y+a.Z*b.Z;
         internal static HostVector3 Cross(HostVector3 a,HostVector3 b)=>
             new HostVector3(a.Y*b.Z-a.Z*b.Y,a.Z*b.X-a.X*b.Z,a.X*b.Y-a.Y*b.X);
