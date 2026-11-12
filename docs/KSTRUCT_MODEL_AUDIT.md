@@ -15,7 +15,8 @@ Export data from an opened Revit project to JSON and CSV without modifying the m
 - Structural foundation, column, framing, floor, wall, stair instances.
 - Rebar records: host ID, type, diameter, shape ID and number of positions (not necessarily physical bar count).
 - Detail Component instances, non-template Views, Viewports, RevitLinkInstance and CAD ImportInstance.
-- ElementId, UniqueId, Family, Type, Level, world BoundingBox in mm (not actual solid geometry), notes.
+- ElementId, UniqueId, Family, Type, Level, LocationPoint coordinates (mm), world BoundingBox in mm (not actual solid geometry), notes.
+- Selected Family/Rebar parameters (e.g. D Coc, L/W, L1/L2, X1/X2/Y1/Y2, Mark, 2D-Top/2D-Bot) appear in JSON for diagnosis. This is not a complete parameter dump.
 - JSON schema kstruct.model-audit.v1; UTF-8; CSV includes BOM for Excel.
 - If individual elements are inaccessible, audit records warnings and a failed record count.
 
