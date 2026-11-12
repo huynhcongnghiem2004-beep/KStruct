@@ -44,3 +44,10 @@ Revit project is not modified, but the command writes/overwrites JSON/CSV on dis
 - Rebar centerlines are read for each existing position up to explicit caps, with per-position errors visible.
 - Nested footing Solid bounds now compose transforms for world-coordinate diagnostics. Concrete-versus-pile classification remains unverified.
 - Revit runtime validation is still outstanding; keep PR Draft and do not merge into main.
+
+## Revit 2024 Audit V2: single Rebar fix (Mr.Khoa runtime feedback)
+- Initial Mr.Khoa V2 export had 2,687 JSON/CSV rows, 528 Rebar elements, and 49 `LAYOUT_UNAVAILABLE` warnings. All 49 corresponded to actual `LayoutRule=Single` bars with exactly one existing position.
+- For `Single`, record `layoutRule=Single` and `arrayLengthMm=null` without querying `RebarShapeDrivenAccessor.ArrayLength`; missing array length is correct rather than a warning.
+- For distributed rules `FixedNumber`, `MaximumSpacing`, and `NumberWithSpacing`, read length from accessor with guarded error/warning handling.
+- A `SINGLE_POSITION_MISMATCH` warning is still emitted if the physical bar positions are inconsistent with Single.
+- A later export on the same Mr.Khoa RVT must confirm 49 false warnings are gone, while other warnings remain reportable. Do not infer that all Rebar geometry is structurally correct from zero warnings.
