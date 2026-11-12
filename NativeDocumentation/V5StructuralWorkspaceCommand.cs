@@ -161,7 +161,9 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 11,Muted,false,new Thickness(0,8,0,0)));
 
             var right=new StackPanel{Margin=new Thickness(12,0,0,0)};
-            columns.Children.Add(right);Grid.SetColumn(right,1);
+            var rightScroll=new ScrollViewer{
+                VerticalScrollBarVisibility=ScrollBarVisibility.Auto,Content=right};
+            columns.Children.Add(rightScroll);Grid.SetColumn(rightScroll,1);
             right.Children.Add(Label("03  /  KIỂM TRA VÀ XEM TRƯỚC",15,Navy,true,new Thickness(0,0,0,12)));
             var previewPanel=new StackPanel{Background=Brushes.White,Margin=new Thickness(0,0,0,12)};
             shapePreview=new Border{Width=230,Height=155,Margin=new Thickness(10),
@@ -180,6 +182,11 @@ namespace SDK_HD.KStruct.NativeDocumentation
             right.Children.Add(Label("Chú ý: Chưa kiểm chứng Solid, lớp bảo vệ thực, nút khung, neo và nối chồng. "+
                 "Tính năng tạo/cập nhật Rebar V5 đang khóa. V4 không bị thay đổi.",
                 12,ColorBrush(164,81,30),false,new Thickness(0,22,0,0)));
+            var gateReview=V5ExecutionGatePolicy.Review(new V5ExecutionEvidence());
+            right.Children.Add(Label("04  /  ĐIỀU KIỆN CHƯA ĐẠT",15,Navy,true,
+                new Thickness(0,18,0,8)));
+            right.Children.Add(Label(string.Join("\\n",gateReview.Blockers.Select(x=>"• "+x)),
+                12,ColorBrush(164,81,30),false,new Thickness(0,0,0,14)));
 
             var bottom=new Grid{Background=Brushes.White,Height=65};
             bottom.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
