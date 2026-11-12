@@ -149,4 +149,39 @@ using(var frameDoc=JsonDocument.Parse(AuditV2Policy.Json(horizontal.AsRecord()))
     Check(frameDoc.RootElement.GetProperty("validatedOrthonormal").GetBoolean(),"Frame JSON status");
     Check(frameDoc.RootElement.GetProperty("axisX").GetArrayLength()==3,"Frame JSON axes");
 }
+
+Check(HostCoordinateFrame.TryCanonicalLine(
+    new HostVector3(5000,0,0),new HostVector3(0,0,0),
+    new HostVector3(0,0,1),out var canonicalReverse,out bool reversed),
+    "Canonical reversed location line");
+Check(reversed,"Reversed line detected");
+Check(HostCoordinateFrame.TryCanonicalLine(
+    new HostVector3(0,0,0),new HostVector3(5000,0,0),
+    new HostVector3(0,0,1),out var canonicalForward,out bool notReversed),
+    "Canonical forward location line");
+Check(!notReversed,"Forward line not reversed");
+Near(canonicalForward.Origin.X,canonicalReverse.Origin.X,"Canonical stable origin");
+Near(canonicalForward.X.X,canonicalReverse.X.X,"Canonical stable tangent");
+Near(canonicalForward.Y.Z,canonicalReverse.Y.Z,"Canonical stable section axis");
+Check(HostCoordinateFrame.TryLineWithReference(
+    new HostVector3(0,0,0),new HostVector3(1000,0,0),
+    new HostVector3(0,1,1),"section-roll",out var rolled),
+    "Rolled beam section reference");
+Near(rolled.Y.Y,Math.Sqrt(0.5),"Rolled Y direction");
+Near(rolled.Y.Z,Math.Sqrt(0.5),"Rolled Z direction");
+Check(!HostCoordinateFrame.TryLineWithReference(
+    new HostVector3(0,0,0),new HostVector3(1000,0,0),
+    new HostVector3(1,0,0),"parallel",out _),
+    "Parallel section reference must fail closed");
+Check(!HostCoordinateFrame.TryLineWithReference(
+    new HostVector3(0,0,0),new HostVector3(1000,0,0),
+    new HostVector3(double.NaN,0,0),"invalid",out _),
+    "Nonfinite section reference fails");
+Check(HostCoordinateFrame.TryLine(new HostVector3(0,0,0),
+    new HostVector3(1,0,1000),out var almostVertical),"Near-vertical line");
+Near(HostVector3.Dot(HostVector3.Cross(almostVertical.X,almostVertical.Y),almostVertical.Z),
+    1,"Near-vertical frame handedness");
+using(var status=JsonDocument.Parse(AuditV2Policy.Json(rolled.AsRecord())))
+    Check(!status.RootElement.GetProperty("placementApproved").GetBoolean(),
+        "Host diagnostics must not authorize Rebar creation");
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
