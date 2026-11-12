@@ -53,7 +53,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     .OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
                     .Select(x=>AuditV2Policy.Mm(x.BarModelDiameter))
                     .Where(AuditV2Policy.IsFinite).Distinct().OrderBy(x=>x).ToArray();
-                var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters);
+                var inventory=V5HostSolidInspector.Inspect(selected);
+                var window=new V5StructuralWorkspaceWindow(doc.Title,selected,barDiameters,inventory);
                 new WindowInteropHelper(window).Owner=data.Application.MainWindowHandle;
                 window.ShowDialog();
                 return Result.Succeeded;
@@ -82,7 +83,8 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly TextBlock status;
         private readonly Border shapePreview;
 
-        internal V5StructuralWorkspaceWindow(string docTitle,Element host,double[] availableTypes)
+        internal V5StructuralWorkspaceWindow(string docTitle,Element host,double[] availableTypes,
+            V5HostSolidInventory inventory)
         {
             types=availableTypes??new double[0];
             hostId=host?.UniqueId;
@@ -124,6 +126,14 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 ?"Host đã chọn: "+host.Id.Value+"  ·  "+SafeName(host)
                 :"Chưa chọn Host. Chọn dầm/cột/móng trong Revit rồi mở lại Workspace.",
                 12,host==null?ColorBrush(164,81,30):Accent,false,new Thickness(0,0,0,14)));
+            left.Children.Add(Label("SOLID THỰC TẾ (CHỈ ĐỌC): "+
+                (inventory==null?"Không có kết quả":
+                    inventory.SolidCount+" Solid, "+inventory.PlanarFaceCount+
+                    " mặt phẳng, "+inventory.NonPlanarFaceCount+" mặt cong."),
+                12,Navy,true,new Thickness(0,0,0,6)));
+            left.Children.Add(Label(inventory?.Warnings.FirstOrDefault() ??
+                "Không thể xác minh bê tông hay lớp bảo vệ chỉ bằng thống kê Solid.",
+                11,ColorBrush(164,81,30),false,new Thickness(0,0,0,11)));
             left.Children.Add(Label("Module",12,Navy,true,new Thickness(0,0,0,5)));
             module=new ComboBox{Height=36,FontSize=13,Margin=new Thickness(0,0,0,17)};
             module.Items.Add("Dầm / Beam");module.Items.Add("Cột / Column");
