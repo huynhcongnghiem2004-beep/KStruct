@@ -10,6 +10,9 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using Panel = System.Windows.Controls.Panel;
+using TextBox = System.Windows.Controls.TextBox;
+using ComboBox = System.Windows.Controls.ComboBox;
 using SDK_HD.KStruct.Core.V5;
 
 namespace SDK_HD.KStruct.NativeDocumentation
