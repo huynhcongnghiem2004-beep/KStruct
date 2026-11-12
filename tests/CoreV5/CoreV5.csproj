@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Core/V5/AuditV2Policy.cs" Link="AuditV2Policy.cs" />
+    <Compile Include="../../Core/V5/AuditOwnershipPolicy.cs" Link="AuditOwnershipPolicy.cs" />
+    <Compile Include="../../Core/V5/AuditPairPublisher.cs" Link="AuditPairPublisher.cs" />
+    <Compile Include="../../Core/V5/AuditRebarLayoutPolicy.cs" Link="AuditRebarLayoutPolicy.cs" />
+    <Compile Include="../../Core/V5/HostCoordinateFrame.cs" Link="HostCoordinateFrame.cs" />
+    <Compile Include="../../Core/V5/HostFaceCandidatePolicy.cs" Link="HostFaceCandidatePolicy.cs" />
+    <Compile Include="../../Core/V5/StructuralJointCandidatePolicy.cs" Link="StructuralJointCandidatePolicy.cs" />
+    <Compile Include="../../Core/V5/V5RebarInputPolicy.cs" Link="V5RebarInputPolicy.cs" />
+    <Compile Include="../../Core/V5/V5ExecutionGatePolicy.cs" Link="V5ExecutionGatePolicy.cs" />
+  </ItemGroup>
+</Project>
