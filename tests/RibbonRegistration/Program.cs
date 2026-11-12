@@ -84,6 +84,18 @@ internal static class Program
         Require(!source.Contains("data.Image = Icon(") &&
                 !source.Contains("data.LargeImage = Icon("),
                 "Old Ribbon PNG icon pipeline must be fully replaced");
+        string workspace=File.ReadAllText(Path.Combine(directory.FullName,
+            "NativeDocumentation","V5StructuralWorkspaceCommand.cs"));
+        Require(workspace.Contains("internal const bool Enabled=false;"),
+            "Unified release must keep unverified V5 Rebar Pilot disabled");
+        Require(workspace.Contains("pilot.IsEnabled=V5PilotReleaseGate.Enabled;"),
+            "V5 Pilot must stay disabled in Workspace");
+        Require(workspace.Contains("if(!V5PilotReleaseGate.Enabled)"),
+            "V5 Pilot command must fail closed even if invoked programmatically");
+        Require(source.Contains("typeof(global::ColumnRebarPro.V3.ColumnRebarV3Command)") &&
+            source.Contains("typeof(global::SDK_HD.KStruct.NativeRebar.ReinforceStraightBeamsCommand)") &&
+            source.Contains("typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand)"),
+            "Unified release must retain V4 column, beam and footing engines");
         Console.WriteLine("PASS: All 95 commands and both group images use the flat Navy/Earth icon system.");
     }
 
