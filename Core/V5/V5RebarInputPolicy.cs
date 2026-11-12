@@ -35,8 +35,20 @@ namespace SDK_HD.KStruct.Core.V5
             value=0;
             if(string.IsNullOrWhiteSpace(text))return false;
             // No grouping separators: "1,500" could ambiguously mean 1.5 or 1500.
-            string normalized=text.Trim().Replace(',', '.');
+            string raw=text.Trim();
+            string normalized=raw.Replace(',', '.');
             if(normalized.Count(c=>c=='.')>1)return false;
+            // A single three-digit suffix may be a thousands separator in a
+            // construction dimension (1,500 => 1500) or a decimal (1.500).
+            // Reject that ambiguous form instead of silently changing scale.
+            int point=normalized.IndexOf('.');
+            if(point>0 && normalized.Length-point-1==3)
+            {
+                string whole=normalized.Substring(0,point).TrimStart('+','-');
+                if(whole.Length>=1 && whole.Length<=3 &&
+                   whole.All(char.IsDigit) && whole.Any(c=>c!='0'))
+                    return false;
+            }
             if(!double.TryParse(normalized,NumberStyles.AllowLeadingSign|
                 NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out value))return false;
             return AuditV2Policy.IsFinite(value);
