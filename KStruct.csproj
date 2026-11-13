@@ -49,6 +49,7 @@
   <!-- Icon nhúng vào KStruct.dll -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\*.png" />
+    <EmbeddedResource Include="Resources\Ribbon\*.png" />
     <Content Include="Resources\SlabModules\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

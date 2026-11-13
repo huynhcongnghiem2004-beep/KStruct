@@ -45,35 +45,30 @@ internal static class Render
             }).ToList();
         if (buttons.Count != 95)
             throw new InvalidOperationException("Expected 95 configured KStruct commands, got " + buttons.Count);
-        const int cols = 10, cellW = 140, cellH = 66;
+        const int cols = 10, cellW = 140, cellH = 58;
         int rows = (buttons.Count + cols - 1) / cols;
         var visual = new DrawingVisual();
-        var navy = (Brush)new BrushConverter().ConvertFromString("#183248");
-        var ivory = (Brush)new BrushConverter().ConvertFromString("#F8F2E7");
-        var earth = (Brush)new BrushConverter().ConvertFromString("#B57B56");
+        var canvas = (Brush)new BrushConverter().ConvertFromString("#F8F4EB");
+        var textBrush = (Brush)new BrushConverter().ConvertFromString("#173047");
         using (DrawingContext dc = visual.RenderOpen())
         {
-            dc.DrawRectangle((Brush)new BrushConverter().ConvertFromString("#EFEDE9"), null,
+            dc.DrawRectangle(canvas, null,
                 new Rect(0, 0, cols * cellW, rows * cellH));
             for (int i = 0; i < buttons.Count; i++)
             {
                 int x = i % cols * cellW, y = i / cols * cellH;
-                dc.DrawRoundedRectangle(navy, null,
-                    new Rect(x + 3, y + 3, cellW - 6, cellH - 6), 7, 7);
-                dc.DrawRoundedRectangle(earth, null,
-                    new Rect(x + 10, y + 12, 3, 42), 1.5, 1.5);
                 var large = (BitmapSource)FlatRibbonIcons.Create(buttons[i].Id, buttons[i].Family, 32);
                 var small = (BitmapSource)FlatRibbonIcons.Create(buttons[i].Id, buttons[i].Family, 16);
                 if (large.PixelWidth != 32 || large.PixelHeight != 32 ||
                     small.PixelWidth != 16 || small.PixelHeight != 16)
                     throw new InvalidOperationException("Unexpected native size: " + buttons[i].Id);
-                dc.DrawImage(large, new Rect(x + 19, y + 13, 32, 32));
-                dc.DrawImage(small, new Rect(x + 52, y + 27, 16, 16));
+                dc.DrawImage(large, new Rect(x + 8, y + 8, 32, 32));
+                dc.DrawImage(small, new Rect(x + 44, y + 16, 16, 16));
                 string name = buttons[i].Id.Replace("KStruct_", "");
                 if (name.Length > 17) name = name.Substring(0, 16) + "…";
                 var text = new FormattedText(name, CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight, new Typeface("Segoe UI"), 9.2, ivory, 1.0);
-                dc.DrawText(text, new Point(x + 19, y + 49));
+                    FlowDirection.LeftToRight, new Typeface("Segoe UI"), 9.2, textBrush, 1.0);
+                dc.DrawText(text, new Point(x + 67, y + 22));
             }
         }
         var render = new RenderTargetBitmap(cols * cellW, rows * cellH,
@@ -84,8 +79,8 @@ internal static class Render
         using (var stream = File.Create(Path.Combine(output, "kstruct-flat-icons-atlas.png")))
             image.Save(stream);
         File.WriteAllText(Path.Combine(output, "kstruct-flat-icons-design.txt"),
-            "95 live-rendered Ribbon commands, 16px and 32px native raster from WPF vectors.\\r\\n" +
-            "Inverse palette: Navy #183248, earth #B57B56, ivory #F8F2E7.\\r\\n" +
+            "95 live-rendered Ribbon commands using embedded 16px and 32px PNG resources.\\r\\n" +
+            "Palette: Navy #173047, earth #B06F4C, ivory #F8F4EB.\\r\\n" +
             "Each command retains its existing ID, tool handler and Ribbon panel.\\r\\n");
     }
 
