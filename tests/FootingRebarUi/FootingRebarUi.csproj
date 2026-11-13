@@ -15,6 +15,8 @@
     <Compile Include="../../thepmong/BottomLayerBuilder.cs" Link="BottomLayerBuilder.cs" />
     <Compile Include="../../thepmong/SpacingCalculator.cs" Link="SpacingCalculator.cs" />
     <Compile Include="../../Core/FlatRibbonIcons.cs" Link="FlatRibbonIcons.cs" />
+    <EmbeddedResource Include="../../Resources/*.png" Link="Resources/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../Resources/Ribbon/*.png" Link="Resources/Ribbon/%(Filename)%(Extension)" />
     <Compile Include="Render.cs.txt" />
   </ItemGroup>
 </Project>
