@@ -819,7 +819,8 @@ namespace ColumnRebarPro.V3
                 {
                     var inventory = SDK_HD.KStruct.Core.V5.V5HostSolidInspector.Inspect(host);
                     messages.Add("  Solid: " + inventory.SolidCount
-                        + " | ứng viên bê tông: " + inventory.ConcreteMaterialCandidateSolids
+                        + " | ứng viên bê tông trực tiếp: " + inventory.DirectConcreteCandidateSolids
+                        + " | ứng viên bê tông nested: " + inventory.NestedConcreteCandidateSolids
                         + " | hình học bị cắt ngắn: " + (inventory.Truncated ? "có" : "không"));
                     foreach (var warning in inventory.Warnings)
                         messages.Add("  • " + warning);
