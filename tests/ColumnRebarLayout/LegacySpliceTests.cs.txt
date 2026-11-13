@@ -51,8 +51,8 @@ static class LegacySpliceTests
         lower=Work(0,3000);upper=Work(3400,6400);upper.Config.StarterBars=false;
         lower.Config.Splice=V3SpliceStyle.AtStoreyJoint;lower.Config.StaggerSplices=true;
         rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
-        catch(InvalidOperationException ex){rejected=ex.Message.Contains("so le");}
-        Check(rejected,"Migration does not silently enable unsupported staggered connections");
+        catch(InvalidOperationException ex){rejected=ex.Message.Contains("không đủ vừa nối tối thiểu");}
+        Check(rejected,"Migration must reject staggered splices when the explicit starter length cannot provide the minimum lap and stagger offset");
         lower.Config.StaggerSplices=false;lower.Config.StarterLength=600;
         rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
         catch(InvalidOperationException ex){rejected=ex.Message.Contains("chưa đủ");}
