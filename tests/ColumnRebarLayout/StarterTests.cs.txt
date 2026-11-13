@@ -76,7 +76,7 @@ static class StarterTests
         var wideGap=Pair(gap:1500,length:2600);wideGap[0].Config.JointBeamHeight=1500;V3StarterConnection.Resolve(wideGap);
         V3StarterConnection.Resolve(Pair(length:1400,upperHeight:1800));
         Reject(()=>V3StarterConnection.Resolve(Pair(length:1400,upperHeight:900)),"chiều cao");
-        Reject(()=>V3StarterConnection.Resolve(Pair(length:840)),"nối so le"); // minimum lap alone is insufficient for 50% stagger
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:840)),"không đủ vừa nối tối thiểu"); // minimum lap alone is insufficient for 50% stagger
         Reject(()=>V3StarterConnection.Resolve(Pair(length:839.9)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:400)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:600)),"840");
