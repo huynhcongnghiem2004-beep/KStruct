@@ -54,7 +54,7 @@ static class StarterTests
     }
     static V3SegmentWork Work(string name, double bottom, double top, bool starter=false, double length=1000) => new V3SegmentWork
     {
-        Config = new V3RebarConfig { Cx=4,Cy=4,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=starter,StarterLength=length },
+        Config = new V3RebarConfig { Cx=4,Cy=4,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=starter,StarterLength=length,BottleneckSlope=6 },
         Geometry = new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
         Segment = new ColumnSegment {LevelName=name}
     };
