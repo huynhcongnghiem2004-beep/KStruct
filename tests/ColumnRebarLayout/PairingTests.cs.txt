@@ -54,7 +54,13 @@ static class PairingTests
         Plan(Profile(),Profile(angle:.1)); // physical rotation, not just axis relabelling
         var foot=Profile();foot.HasFoot=true;foot.FootDirection=V3AnchorDirection.PositiveY;
         Plan(foot,Profile(350,450));
-        Reject(()=>V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6),"Khác số thanh");
+        // More upper bars are permitted as unmatched supplemental starters; they must never be silently paired twice.
+        var extraUpper=V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6);
+        Check(extraUpper.Bars.Count==14 && extraUpper.UnmatchedUpperPositions.Count==2,
+            "Two extra upper bars must be reported for supplemental anchorage");
+        Check(extraUpper.Bars.All(bar=>!bar.Terminated) &&
+            extraUpper.Bars.Select(bar=>bar.UpperIndex).Distinct().Count()==14,
+            "Existing lower bars must map uniquely without fabricating supplemental anchors");
         Reject(()=>V3ColumnPairing.Create(Profile(cx:4,cy:5),Profile(cx:3,cy:6),2,6),"các cạnh");
         Reject(()=>V3ColumnPairing.Create(Profile(width:0),Profile(),2,6),"không hợp lệ");
         var bad=Profile();bad.AxisX=new V3Point2(2,0);
