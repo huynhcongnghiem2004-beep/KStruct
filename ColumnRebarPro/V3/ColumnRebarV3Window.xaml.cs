@@ -661,8 +661,8 @@ namespace ColumnRebarPro.V3
             // Always allow opening Advanced to fix an incomplete design profile.
             SaveActive(false);
             string caption = (sender as Button)?.Content?.ToString() ?? "";
-            MainTabs.SelectedIndex = caption.Contains("Hook") ? 2 :
-                caption.Contains("Neo") ? 1 : 0;
+            MainTabs.SelectedIndex = caption.Contains("Hook") ? 1 :
+                caption.Contains("Neo") ? 2 : 0;
             ShowAdvanced(true);
         }
         private void QuickAdvanced_Changed(object sender, RoutedEventArgs e)
@@ -837,7 +837,7 @@ namespace ColumnRebarPro.V3
             catch (Exception ex)
             {
                 MainTabs.SelectedIndex = ex.Message.IndexOf("móc",StringComparison.OrdinalIgnoreCase)>=0 ||
-                    ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 2 : 1;
+                    ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 1 : 2;
                 ShowAdvanced(true);
                 MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
