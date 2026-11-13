@@ -84,7 +84,7 @@ namespace ColumnRebarPro.V3
                 {
                     if (work.Config == null)
                         throw new InvalidOperationException("Thiếu cấu hình thép cột để triển khai bản vẽ.");
-                    if (work.Config.Splice != V3SpliceStyle.None || work.Config.StaggerSplices ||
+                    if (work.Config.Splice != V3SpliceStyle.None ||
                         work.TransitionUp != null || work.TransitionDown != null ||
                         (work.BottleneckToUpper && work.ConnectionPlan == null))
                         throw new InvalidOperationException("Không đủ dữ liệu nối/chuyển tiếp đã kiểm tra để triển khai bản vẽ.");

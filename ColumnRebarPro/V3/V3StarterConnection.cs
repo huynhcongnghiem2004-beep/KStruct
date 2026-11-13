@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ColumnRebarPro.V3
 {
@@ -11,14 +12,14 @@ namespace ColumnRebarPro.V3
             {
                 w.HasPrevious = false; w.HasNext = false; w.BottleneckToUpper = false; w.BottleneckUpperBarStart = 0; w.ConnectionPlan = null;
                 w.IncomingStarterLength = 0; w.IncomingJoint = 0;
+                w.IncomingSupplementalAnchorLengthMm = 0; w.IncomingSupplementalPositions.Clear();
+                w.IncomingSpliceOffsets.Clear();
                 w.IncomingStagger = false; w.StarterWarning = null;
                 w.TransitionUp = null; w.TransitionDown = null;
             }
             foreach (var work in works)
             {
                 var c = work.Config;
-                if (c.StaggerSplices)
-                    throw new InvalidOperationException("Cấu hình so le mối nối chưa được hỗ trợ; nhập cấu tạo được duyệt và tắt tùy chọn so le.");
                 V3LegacySplice.ValidateForCreation(c);
                 if (c.StarterBars && (!Finite(c.StarterLength) || c.StarterLength <= 0))
                     throw new InvalidOperationException("Nhập chiều dài thép chờ hữu hạn, lớn hơn 0 mm.");
@@ -50,6 +51,61 @@ namespace ColumnRebarPro.V3
                         " mm; để có đoạn nối tối thiểu max(20d, 250 mm), chiều dài chờ từ đỉnh cột dưới phải ít nhất " +
                         Math.Round(gapMm + upperEndInsetMm + minimumLap, 1) + " mm. Chiều dài tính toán theo TCVN 5574 có thể lớn hơn.");
                 var plan = V3ConnectionAdapter.Plan(lower, upper);
+                int splicedBars = plan.Bars.Count(bar => !bar.Terminated);
+                int barsAtLargerSection = Math.Max(a.BarCount, b.BarCount);
+                bool staggerRequired=splicedBars>barsAtLargerSection/2;
+                if (a.BarCount != b.BarCount || staggerRequired)
+                {
+                    if (!Finite(a.JointBeamHeight) || a.JointBeamHeight <= 0)
+                        throw new InvalidOperationException("Nút " + lower.Segment.LevelName + " → " + upper.Segment.LevelName +
+                            " cần chiều cao dầm nhập theo bản vẽ để xử lý thanh dư hoặc nối so le.");
+                    if (Math.Abs(gapMm - a.JointBeamHeight) > 10)
+                        throw new InvalidOperationException("Chiều cao dầm nhập " + Math.Round(a.JointBeamHeight, 1) +
+                            " mm không khớp khoảng cách hình học giữa hai cột " + Math.Round(gapMm, 1) + " mm.");
+                }
+                foreach (var bar in plan.Bars.Where(candidate => !candidate.Terminated))
+                    bar.SpliceUpperStartZMm=V3Units.Mm(h.Bottom)+upperEndInsetMm;
+                if(staggerRequired)
+                {
+                    double availableLap=incomingMm-upperEndInsetMm;
+                    double stagger=(availableLap+Math.Max(a.MainDiameter,b.MainDiameter))/3;
+                    double staggeredLap=availableLap-stagger;
+                    if(staggeredLap<minimumLap-1e-6)
+                        throw new InvalidOperationException("Chiều dài chờ " + Math.Round(a.StarterLength,1) +
+                            " mm không đủ vừa nối tối thiểu và tách hai nhóm so le 50%. Tăng chiều dài theo chi tiết được duyệt; add-in không tự dùng 800 mm/40d.");
+                    if(stagger<=0 || stagger>a.JointBeamHeight || a.StarterLength-2*stagger<=0 ||
+                        V3Units.Mm(h.Height)-upperEndInsetMm<=stagger)
+                        throw new InvalidOperationException("Không đủ chiều cao dầm/cột để bố trí hai nhóm nối so le 50%.");
+                    int rank=0;
+                    foreach(var bar in plan.Bars.Where(candidate=>!candidate.Terminated).OrderBy(candidate=>candidate.LowerIndex))
+                    {
+                        double offset=(rank++%2==0)?stagger:-stagger;
+                        bar.SpliceUpperStartZMm=V3Units.Mm(h.Bottom)+upperEndInsetMm+offset;
+                        bar.SpliceEndOffsetMm=offset<0?-2*stagger:0;
+                        upper.IncomingSpliceOffsets.Add(new V3PositionOffset {Position=bar.Upper,OffsetMm=offset});
+                    }
+                    plan.StaggerDistanceMm=stagger;
+                    plan.StaggeredBarCount=splicedBars;
+                }
+                if (plan.UnmatchedUpperPositions.Count > 0)
+                {
+                    double anchorLength = b.SupplementalAnchorLengthMm;
+                    if (!Finite(anchorLength) || anchorLength <= 0)
+                        throw new InvalidOperationException("Tầng " + upper.Segment.LevelName + " nhiều hơn " +
+                            plan.UnmatchedUpperPositions.Count + " thanh. Nhập chiều dài neo thẳng trong dầm theo chi tiết đã duyệt để tạo thép chờ bổ sung.");
+                    if (a.JointBeamHeight <= 0 || anchorLength > a.JointBeamHeight + 1e-6)
+                        throw new InvalidOperationException("Chiều dài neo bổ sung " + Math.Round(anchorLength, 1) +
+                            " mm không nằm gọn trong chiều cao dầm đã nhập (" + Math.Round(a.JointBeamHeight, 1) + " mm).");
+                    var lowerProfile = V3ConnectionAdapter.Profile(lower);
+                    var lowerBars = V3ColumnPairing.Points(lowerProfile);
+                    double minimumCenterDistance = (a.MainDiameter + b.MainDiameter) / 2 + a.BottleneckClearanceMm;
+                    foreach (var extra in plan.UnmatchedUpperPositions)
+                        if (lowerBars.Any(existing => (existing.Point - extra).Length < minimumCenterDistance - 1e-5))
+                            throw new InvalidOperationException("Thép chờ bổ sung tầng " + upper.Segment.LevelName +
+                                " bị xung đột với thép cột dưới trong vùng dầm; cần bố trí lại mặt cắt theo chi tiết được duyệt.");
+                    upper.IncomingSupplementalAnchorLengthMm = anchorLength;
+                    upper.IncomingSupplementalPositions.AddRange(plan.UnmatchedUpperPositions);
+                }
                 double bendHeight = plan.MaximumHeight;
                 if (bendHeight >= V3Units.Mm(g.Height) - a.Cover - a.MainDiameter / 2)
                     throw new InvalidOperationException("Cột tầng " + lower.Segment.LevelName + " không đủ chiều cao để nhấn cổ chai.");

@@ -22,6 +22,8 @@ namespace ColumnRebarPro.V3
         internal List<V3Point3> Points;
         internal int BarIndex;
         internal double Shift,Height;
+        internal bool Terminated;
+        internal double SpliceEndOffsetMm,SpliceUpperStartZMm;
         internal V3Point3 Normal;
         internal bool Planar;
         internal void Inspect()

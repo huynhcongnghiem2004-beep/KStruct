@@ -121,6 +121,13 @@
                             <Border DockPanel.Dock="Top" Background="#FFF0F3F8" Padding="12,11">
                                 <TextBlock Text="03. Cấu hình thép" FontSize="18" FontWeight="Bold" Foreground="#FF123A79"/>
                             </Border>
+                            <Border DockPanel.Dock="Top" Background="#FFF8FAFC" BorderBrush="#FFDCE2EB" BorderThickness="0,0,0,1" Padding="5,5">
+                                <UniformGrid Columns="3">
+                                    <Button Content="Neo / chuyển tiếp" Background="#FFF1F5FB" BorderBrush="#FFCAD7E7" BorderThickness="1,1,1,3" Foreground="#FF173F82" FontSize="10" FontWeight="SemiBold" MinHeight="36" Padding="3,6" Margin="2,0" ToolTip="Mở thiết lập nâng cao cho neo và chuyển tiếp" Click="QuickAdvanced_Click"/>
+                                    <Button Content="Hook / RebarShape" Background="#FFF1F5FB" BorderBrush="#FFCAD7E7" BorderThickness="1,1,1,3" Foreground="#FF173F82" FontSize="10" FontWeight="SemiBold" MinHeight="36" Padding="3,6" Margin="2,0" ToolTip="Mở thiết lập nâng cao cho Hook và RebarShape" Click="QuickAdvanced_Click"/>
+                                    <Button Content="Thông số kiểm tra" Background="#FFF1F5FB" BorderBrush="#FFCAD7E7" BorderThickness="1,1,1,3" Foreground="#FF173F82" FontSize="10" FontWeight="SemiBold" MinHeight="36" Padding="3,6" Margin="2,0" ToolTip="Mở thiết lập nâng cao để kiểm tra thông số" Click="QuickAdvanced_Click"/>
+                                </UniformGrid>
+                            </Border>
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel Margin="18,17,16,12">
                                     <TextBlock Text="1. TIẾT DIỆN &amp; VẬT LIỆU" FontWeight="SemiBold" Foreground="#FF183B66" Margin="0,12,0,8"/><Border Height="1" Background="#FFD6DCE6" Margin="0,0,0,7"/>
@@ -140,19 +147,8 @@
                                     <CheckBox x:Name="QuickJointTiesCheck" Content="Đai nút khung" IsChecked="True"
                                               Margin="2,2,0,20" Checked="QuickInput_Changed" Unchecked="QuickInput_Changed"
                                               ToolTip="Bật: giữ đai tại vùng giao dầm/sàn. Tắt: loại vị trí đai ở vùng giao được phát hiện. Chỉ sử dụng khi cấu tạo đã được kỹ sư duyệt."/>
-                                    <Border BorderBrush="#FFD5DBE6" BorderThickness="1" CornerRadius="7" Background="#FFF5F7FA">
-                                        <StackPanel>
-                                            <TextBlock Text="⌄   Thiết lập nâng cao" FontWeight="Bold" FontSize="15" Padding="12,9"
-                                                       Foreground="#FF1B2F4B"/>
-                                            <Button Content="Neo / chuyển tiếp                                 ›" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="17,9" Click="QuickAdvanced_Click"/>
-                                            <Border Height="1" Background="#FFDCE2EB" Margin="16,0"/>
-                                            <Button Content="Hook / RebarShape                                 ›" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="17,9" Click="QuickAdvanced_Click"/>
-                                            <Border Height="1" Background="#FFDCE2EB" Margin="16,0"/>
-                                            <Button Content="Thông số kiểm tra                                 ›" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="17,9" Click="QuickAdvanced_Click"/>
-                                        </StackPanel>
-                                    </Border>
                                     <TextBlock Margin="3,20,0,0" Foreground="#FF235FBA" FontSize="11" TextWrapping="Wrap"
-                                               Text="Chỉ hiển thị thông số thường dùng. Cx/Cy, Hook, neo móng và thiết lập Sheet vẫn có trong Thiết lập nâng cao."/>
+                                               Text="Dùng các thẻ Neo, Hook / RebarShape hoặc Thông số kiểm tra phía trên để mở thiết lập nâng cao."/>
                                 </StackPanel>
                             </ScrollViewer>
                         </DockPanel>
@@ -185,16 +181,24 @@
                                     </Border>
                                     <Canvas Grid.Row="1" x:Name="SectionCanvas" Margin="8" ClipToBounds="True" Background="White" SizeChanged="SectionCanvas_SizeChanged"/>
                                     <Border Grid.Row="2" Background="#FFF8FAFC" Padding="9,5" BorderBrush="#FFE2E8F0" BorderThickness="0,1,0,0">
-                                        <TextBlock Text="Preview mặt cắt theo tầng đang chọn · Chỉ minh họa hình học" FontSize="11" Foreground="#FF64748B" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="Preview mặt cắt · Bấm thanh dọc để bật / tắt đai phụ" ToolTip="Click lên một thanh thép dọc để bật hoặc tắt đai phụ trong cấu hình và preview." FontSize="11" Foreground="#FF64748B" HorizontalAlignment="Right"/>
                                     </Border>
                                 </Grid>
                             </TabItem>
                             <TabItem Header="Mặt đứng cột (minh họa)">
-                                <Grid Background="White">
+                                <Grid Background="White" ClipToBounds="True">
                                     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Canvas Grid.Row="0" x:Name="LongSectionCanvas" MinWidth="420" MinHeight="400" Margin="8" ClipToBounds="True" Background="White" SizeChanged="LongSectionCanvas_SizeChanged"/>
+                                    <Canvas Grid.Row="0" x:Name="LongSectionCanvas" MinWidth="420" MinHeight="400" Margin="8" ClipToBounds="True" Background="White" SizeChanged="LongSectionCanvas_SizeChanged" PreviewMouseLeftButtonDown="LongSectionCanvas_MouseLeftButtonDown" MouseLeftButtonUp="LongSectionCanvas_MouseLeftButtonUp" MouseMove="LongSectionCanvas_MouseMove" MouseWheel="LongSectionCanvas_MouseWheel" LostMouseCapture="LongSectionCanvas_LostMouseCapture"/>
+                                    <Border Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" Background="#F8FFFFFF" BorderBrush="#FFD2D8E0" BorderThickness="1" CornerRadius="4" Padding="4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Style="{StaticResource FlatButton}" Content="+" Width="34" MinHeight="30" Click="LongSectionZoomIn_Click" ToolTip="Phóng to"/>
+                                            <Button Style="{StaticResource FlatButton}" Content="−" Width="34" MinHeight="30" Click="LongSectionZoomOut_Click" ToolTip="Thu nhỏ"/>
+                                            <Button Style="{StaticResource FlatButton}" Content="Vừa khung" MinHeight="30" Click="LongSectionZoomFit_Click" ToolTip="Đưa hình về vừa khung"/>
+                                            <TextBlock x:Name="LongSectionZoomLabel" Text="100%" VerticalAlignment="Center" Margin="8,0,6,0" Foreground="#FF475569"/>
+                                        </StackPanel>
+                                    </Border>
                                     <Border Grid.Row="1" Background="#FFF1F5F9" Padding="8,5" BorderBrush="#FFE2E8F0" BorderThickness="0,1,0,0">
-                                        <TextBlock Text="Mặt đứng minh họa theo tầng đang chọn; kiểm tra cấu tạo theo hồ sơ được duyệt." FontSize="11" Foreground="#FF64748B" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Con lăn: zoom · Kéo chuột trái: pan · Kiểm tra cấu tạo theo hồ sơ được duyệt." FontSize="11" Foreground="#FF64748B" TextWrapping="Wrap" HorizontalAlignment="Center"/>
                                     </Border>
                                 </Grid>
                             </TabItem>
@@ -299,6 +303,18 @@
                         <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Width="280" VerticalAlignment="Center"/>
                         <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"/>
                     </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
+                        <TextBlock Text="Neo thẳng thanh bổ sung trong dầm (mm)" Width="280" VerticalAlignment="Center"
+                                   ToolTip="Chỉ dùng khi thép tầng trên nhiều hơn; nhập chiều dài neo theo chi tiết được duyệt. Để trống nếu không dùng."/>
+                        <TextBox x:Name="SupplementalAnchorLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"
+                                 ToolTip="Chỉ dùng khi thép tầng trên nhiều hơn; nhập chiều dài neo theo chi tiết được duyệt. Để trống nếu không dùng."/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
+                        <TextBlock Text="Lớp bảo vệ phía trên dầm (mm)" Width="280" VerticalAlignment="Center"
+                                   ToolTip="Chỉ dùng để xác định đầu thanh dư; nhập lớp bảo vệ trên dầm theo bản vẽ."/>
+                        <TextBox x:Name="BeamTopCoverBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"
+                                 ToolTip="Chỉ dùng để xác định đầu thanh dư; nhập lớp bảo vệ trên dầm theo bản vẽ."/>
+                    </StackPanel>
                     <GroupBox Header="Ghép thanh và nhấn cổ chai giữa hai tầng" Padding="10" Margin="0,0,0,12">
                         <StackPanel>
                             <TextBlock Text="Thanh dưới nhấn vào trong, thanh trên giữ thẳng. Chiều dài chờ gồm khoảng hở dầm/sàn và đoạn nối; không tự tăng chiều dài đã nhập." TextWrapping="Wrap"/>
@@ -309,7 +325,7 @@
                             <TextBlock TextWrapping="Wrap" Foreground="#FF9C3D26" Margin="22,0,0,8"
                                        Text="Chỉ đánh dấu khi kỹ sư kết cấu đã duyệt bán kính uốn nhỏ hơn ngưỡng kiểm tra. KStruct vẫn kiểm tra hình học; không xác nhận đạt TCVN."/>
                             <StackPanel Orientation="Horizontal"><TextBlock Text="Khe hở giữa hai thanh nối (mm)" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckClearanceBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Tỷ lệ xiên dựng hình 1:n" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckSlopeBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" ToolTip="n là chiều cao đoạn nhấn / độ dịch ngang; mặc định hình học 6, không phải tỷ lệ được quy định trong TCVN 5574:2018."/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Tỷ lệ xiên dựng hình 1:n" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckSlopeBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" ToolTip="n là chiều cao đoạn nhấn / độ dịch ngang; nhập theo chi tiết được duyệt. Add-in không tự chọn tỷ lệ và không coi đây là giá trị TCVN."/></StackPanel>
                             <DataGrid x:Name="ConnectionComparisonGrid" Margin="0,8,0,4" MaxHeight="240" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Thông số" Binding="{Binding Parameter}" Width="160"/>

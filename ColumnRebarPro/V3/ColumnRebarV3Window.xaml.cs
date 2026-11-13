@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Input;
 using System.Windows.Shapes;
 
 namespace ColumnRebarPro.V3
@@ -59,11 +60,17 @@ namespace ColumnRebarPro.V3
         private V3ColumnConnectionPlan _previewConnectionPlan;
         private readonly Dictionary<long, V3Geometry> _geometry = new Dictionary<long, V3Geometry>();
         private readonly Dictionary<long, V3RebarConfig> _configs = new Dictionary<long, V3RebarConfig>();
+        private readonly Dictionary<long, Tuple<bool, V3BeamJointInfo, string>> _beamDetectionCache =
+            new Dictionary<long, Tuple<bool, V3BeamJointInfo, string>>();
         private readonly ObservableCollection<FloorRow> _rows = new ObservableCollection<FloorRow>();
         private readonly List<BarSizeChoice> _sizes;
         private long? _activeId;
         private bool _loading = true;
         private bool _compactSync;
+        private double _longSectionZoom = 1.0;
+        private double _longSectionPanX, _longSectionPanY;
+        private Point _longSectionLastPanPoint;
+        private bool _longSectionPanning;
         private V3DeploymentControl _deployment;
         private sealed class QuickBarChoice
         {
@@ -211,6 +218,10 @@ namespace ColumnRebarPro.V3
                 throw new InvalidOperationException("Giá trị '" + caption + "' không hợp lệ.");
             return value;
         }
+        private static double ReadOptionalPositive(TextBox box, string caption)
+        {
+            return string.IsNullOrWhiteSpace(box.Text) ? 0 : ReadPositive(box, caption);
+        }
         private static int ReadInteger(TextBox box, string caption)
         {
             int value;
@@ -343,8 +354,12 @@ namespace ColumnRebarPro.V3
             BottleneckRibbedCheck.IsChecked = c.BottleneckRibbed;
             AllowExistingBendCheck.IsChecked = c.AllowExistingUndersizeBend;
             BottleneckClearanceBox.Text = c.BottleneckClearanceMm.ToString(CultureInfo.InvariantCulture);
-            BottleneckSlopeBox.Text = c.BottleneckSlope.ToString(CultureInfo.InvariantCulture);
+            BottleneckSlopeBox.Text = c.BottleneckSlope > 0 ? c.BottleneckSlope.ToString(CultureInfo.InvariantCulture) : "";
             StarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
+            SupplementalAnchorLengthBox.Text = c.SupplementalAnchorLengthMm > 0
+                ? c.SupplementalAnchorLengthMm.ToString(CultureInfo.InvariantCulture) : "";
+            BeamTopCoverBox.Text = c.BeamTopCoverMm > 0
+                ? c.BeamTopCoverMm.ToString(CultureInfo.InvariantCulture) : "";
             CoverBox.Text = c.Cover > 0 ? c.Cover.ToString(CultureInfo.InvariantCulture) : "";
             ZoneBox.Text = c.EndZone.ToString(CultureInfo.InvariantCulture);
             EndStepBox.Text = c.EndSpacing > 0 ? c.EndSpacing.ToString(CultureInfo.InvariantCulture) : "";
@@ -395,6 +410,10 @@ namespace ColumnRebarPro.V3
                 if (c.EndSpacing <= 0) c.EndSpacing = 1;
                 if (c.MidSpacing <= 0) c.MidSpacing = 1;
                 c.StarterBars = (MainStarterCheck.IsChecked == true || StarterCheck.IsChecked == true);
+                c.SupplementalAnchorLengthMm = ReadOptionalPositive(SupplementalAnchorLengthBox,
+                    "Chiều dài neo thép bổ sung trong dầm");
+                c.BeamTopCoverMm = ReadOptionalPositive(BeamTopCoverBox,
+                    "Lớp bảo vệ phía trên dầm");
                 if (c.StarterBars)
                 {
                     c.StarterLength = ReadPositive(MainStarterLengthBox, "Chiều dài chờ từ đỉnh cột dưới");
@@ -424,6 +443,7 @@ namespace ColumnRebarPro.V3
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
                 c.ShowJointTies = QuickJointTiesCheck.IsChecked == true;
                 c.JointTies = false; // Legacy starter-zone setting remains disabled.
+                double beamHeight = ReadOptionalPositive(QuickBeamHeightBox, "Cao dầm sàn");
                 if (c.JointTies)
                 {
                     c.JointBeamHeight = ReadPositive(JointHeightBox, "Chiều cao nút dầm sàn");
@@ -431,7 +451,7 @@ namespace ColumnRebarPro.V3
                 }
                 else
                 {
-                    c.JointBeamHeight = 0;
+                    c.JointBeamHeight = beamHeight;
                     c.JointSpacing = 0;
                 }
                 BeamHeightBox.Text = c.JointBeamHeight > 0
@@ -794,6 +814,9 @@ namespace ColumnRebarPro.V3
                     var works = _segments.Select(s => s.Id.Value == segment.Id.Value ? work : new V3SegmentWork {
                         Column = _document.GetElement(s.Id) as Autodesk.Revit.DB.FamilyInstance,
                         Segment = s, Geometry = _geometry[s.Id.Value], Config = _configs[s.Id.Value].Copy() }).ToList();
+                    ApplyDetectedBeamInfo(works);
+                    foreach (var candidate in works)
+                        _configs[candidate.Segment.Id.Value] = candidate.Config.Copy();
                     V3StarterConnection.Resolve(works);
                     V3RebarValidator.Preflight(works);
                     // Report the exact floor if its project Hook remains ambiguous.
@@ -822,6 +845,72 @@ namespace ColumnRebarPro.V3
             Accepted = true;
             DialogResult = true;
         }
+
+        private string ApplyDetectedBeamInfo(V3SegmentWork lower, V3SegmentWork upper, bool updateControls)
+        {
+            if (_document == null || lower == null || upper == null || !lower.Config.StarterBars)
+                return null;
+            int lowerCount = lower.Config.BarCount, upperCount = upper.Config.BarCount;
+            bool needsJoint = lowerCount != upperCount ||
+                Math.Min(lowerCount, upperCount) > Math.Max(lowerCount, upperCount) / 2;
+            if (!needsJoint) return null;
+
+            Tuple<bool, V3BeamJointInfo, string> detection;
+            long cacheKey = lower.Segment.Id.Value;
+            if (!_beamDetectionCache.TryGetValue(cacheKey, out detection))
+            {
+                V3BeamJointInfo detected;
+                string detectionReason;
+                bool found = V3BeamJointDetector.TryDetect(_document, lower, upper,
+                    out detected, out detectionReason);
+                detection = Tuple.Create(found, detected, detectionReason);
+                _beamDetectionCache[cacheKey] = detection;
+            }
+            if (detection.Item1)
+            {
+                V3BeamJointInfo info = detection.Item2;
+                lower.Config.JointBeamHeight = info.HeightMm;
+                lower.Config.BeamTopCoverMm = info.TopCoverMm;
+                if (updateControls && _activeId.HasValue && _activeId.Value == lower.Segment.Id.Value)
+                {
+                    bool wasLoading = _loading;
+                    _loading = true;
+                    string value = info.HeightMm.ToString("0.##", CultureInfo.InvariantCulture);
+                    QuickBeamHeightBox.Text = value;
+                    BeamHeightBox.Text = value;
+                    JointHeightBox.Text = value;
+                    BeamTopCoverBox.Text = info.TopCoverMm.ToString("0.##", CultureInfo.InvariantCulture);
+                    _loading = wasLoading;
+                }
+                return "Tự nhận diện " + info.BeamName + (info.MatchingBeamCount > 1
+                    ? " (" + info.MatchingBeamCount + " dầm cùng cao độ)" : "") +
+                    ": cao " + Math.Round(info.HeightMm, 1) + " mm, cover mặt trên " +
+                    Math.Round(info.TopCoverMm, 1) + " mm.";
+            }
+
+            string reason = detection.Item3;
+            if (lower.Config.JointBeamHeight <= 0 || lower.Config.BeamTopCoverMm <= 0)
+                return reason;
+            return "Không tự nhận diện được dầm (" + reason + "); đang dùng chiều cao/cover nhập tay.";
+        }
+
+        private void ApplyDetectedBeamInfo(IList<V3SegmentWork> works)
+        {
+            for (int i = 0; i + 1 < works.Count; i++)
+            {
+                var lower = works[i];
+                var upper = works[i + 1];
+                string reason = ApplyDetectedBeamInfo(lower, upper, false);
+                bool mismatch = lower.Config.BarCount != upper.Config.BarCount;
+                bool moreThanHalf = Math.Min(lower.Config.BarCount, upper.Config.BarCount) >
+                    Math.Max(lower.Config.BarCount, upper.Config.BarCount) / 2;
+                if (lower.Config.StarterBars && (mismatch || moreThanHalf) &&
+                    (lower.Config.JointBeamHeight <= 0 || lower.Config.BeamTopCoverMm <= 0))
+                    throw new InvalidOperationException("Không thể tự nhận diện đủ chiều cao dầm và lớp bảo vệ mặt trên cho nút " +
+                        lower.Segment.LevelName + " → " + upper.Segment.LevelName + ". " + reason);
+            }
+        }
+
         private void SetFoundationControlState()
         {
             bool enabled = FoundationAnchorCheck.IsChecked == true;
@@ -1016,18 +1105,45 @@ namespace ColumnRebarPro.V3
             {
                 var lowerWork = new V3SegmentWork { Segment = row.Segment, Config = c, Geometry = _geometry[row.Segment.Id.Value] };
                 var upperWork = new V3SegmentWork { Segment = upper, Config = u, Geometry = _geometry[upper.Id.Value] };
+                string beamInfo = ApplyDetectedBeamInfo(lowerWork, upperWork, true);
                 var lowerProfile = V3ConnectionAdapter.Profile(lowerWork);
                 var upperProfile = V3ConnectionAdapter.Profile(upperWork);
                 lowerProfile.HasFoot = index == 0 && FoundationAnchorCheck.IsChecked == true;
                 if (lowerProfile.HasFoot && FoundationDirectionBox.SelectedIndex >= 0)
                     lowerProfile.FootDirection = (V3AnchorDirection)FoundationDirectionBox.SelectedIndex;
                 ConnectionComparisonGrid.ItemsSource = V3ColumnPairing.Compare(lowerProfile, upperProfile);
-                try
+                if (!string.IsNullOrWhiteSpace(beamInfo) &&
+                    (c.JointBeamHeight <= 0 || c.BeamTopCoverMm <= 0))
+                {
+                    ConnectionPairingStatus.Text = beamInfo;
+                }
+                else try
                 {
                     var plan = V3ColumnPairing.Create(lowerProfile, upperProfile, c.BottleneckClearanceMm, c.BottleneckSlope);
                     _previewConnectionPlan = plan;
-                    ConnectionPairingStatus.Text = "Ghép " + plan.Bars.Count + " cặp; dịch ngang lớn nhất " + Math.Round(plan.MaximumShift, 1) +
+                    int terminated = plan.Bars.Count(bar => bar.Terminated);
+                    int matched = plan.Bars.Count - terminated;
+                    string mismatch = terminated > 0
+                        ? "; dư dưới " + terminated + " thanh, kết thúc ở đỉnh dầm trừ cover"
+                        : plan.UnmatchedUpperPositions.Count > 0
+                            ? "; thiếu dưới " + plan.UnmatchedUpperPositions.Count + " thanh, cần thép chờ neo trong dầm"
+                            : "";
+                    ConnectionPairingStatus.Text = "Ghép " + matched + " cặp" + mismatch + "; dịch ngang lớn nhất " + Math.Round(plan.MaximumShift, 1) +
                         " mm; chiều cao nhấn lớn nhất " + Math.Round(plan.MaximumHeight, 1) + " mm. Nhóm chỉ khi cùng hình dạng và mặt phẳng.";
+                    if (!string.IsNullOrWhiteSpace(beamInfo))
+                        ConnectionPairingStatus.Text += " " + beamInfo;
+                    int largerCount = Math.Max(lowerProfile.Cx*2+lowerProfile.Cy*2-4,
+                        upperProfile.Cx*2+upperProfile.Cy*2-4);
+                    if (matched > largerCount / 2)
+                    {
+                        double gapMm = upper.BottomMm-row.Segment.TopMm;
+                        double availableLap = c.StarterLength-gapMm-u.Cover-u.MainDiameter/2;
+                        double stagger=(availableLap+Math.Max(c.MainDiameter,u.MainDiameter))/3;
+                        ConnectionPairingStatus.Text += " Nối so le 50%: dịch ±" +
+                            Math.Round(stagger,1) + " mm, tính từ chiều chờ và đường kính đã nhập; cần kiểm tra chiều dài nối còn lại.";
+                    }
+                    if (plan.UnmatchedUpperPositions.Count > 0 && u.SupplementalAnchorLengthMm <= 0)
+                        ConnectionPairingStatus.Text += " Chưa nhập chiều dài neo bổ sung theo chi tiết được duyệt.";
                 }
                 catch (InvalidOperationException ex) { ConnectionPairingStatus.Text = ex.Message; }
             }
@@ -1037,6 +1153,104 @@ namespace ColumnRebarPro.V3
             StarterConnectionSummary.Text = "Khoảng hở lên " + upper.LevelName + ": " + Math.Round(gap, 1) +
                 " mm. Phần nối thẳng còn lại: " + Math.Round(lap, 1) + " mm. Chiều dài chờ tối thiểu theo giới hạn 20d/250 mm: " +
                 Math.Round(minimum, 1) + " mm; chiều dài tính toán có thể lớn hơn.";
+            if (_previewConnectionPlan != null && _previewConnectionPlan.Bars.Any(bar => bar.Terminated))
+                StarterConnectionSummary.Text += " Có " + _previewConnectionPlan.Bars.Count(bar => bar.Terminated) +
+                    " thanh dư dưới; đầu thanh đặt tại cao độ đỉnh dầm trừ lớp bảo vệ trên đã nhập.";
+            if (_previewConnectionPlan != null && _previewConnectionPlan.UnmatchedUpperPositions.Count > 0)
+                StarterConnectionSummary.Text += " Có " + _previewConnectionPlan.UnmatchedUpperPositions.Count +
+                    " thanh tầng trên cần neo thẳng xuống dầm dài " +
+                    (u.SupplementalAnchorLengthMm > 0 ? u.SupplementalAnchorLengthMm.ToString("0.##", CultureInfo.InvariantCulture) : "(chưa nhập)") +
+                    " mm theo chi tiết đã duyệt.";
+        }
+        private Point LongSectionPointer(MouseEventArgs e)
+        {
+            var parent = LongSectionCanvas.Parent as IInputElement;
+            Point point = e.GetPosition(parent);
+            return new Point(point.X - LongSectionCanvas.Margin.Left,
+                point.Y - LongSectionCanvas.Margin.Top);
+        }
+
+        private void ApplyLongSectionTransform()
+        {
+            if (LongSectionCanvas == null) return;
+            var matrix = Matrix.Identity;
+            matrix.ScaleAt(_longSectionZoom, _longSectionZoom,
+                LongSectionCanvas.ActualWidth / 2, LongSectionCanvas.ActualHeight / 2);
+            matrix.Translate(_longSectionPanX, _longSectionPanY);
+            LongSectionCanvas.RenderTransform = new MatrixTransform(matrix);
+            if (LongSectionZoomLabel != null)
+                LongSectionZoomLabel.Text = Math.Round(_longSectionZoom * 100).ToString(CultureInfo.InvariantCulture) + "%";
+        }
+
+        private void ZoomLongSection(Point anchor, double factor)
+        {
+            if (LongSectionCanvas == null) return;
+            double nextZoom = Math.Max(0.5, Math.Min(5.0, _longSectionZoom * factor));
+            if (Math.Abs(nextZoom - _longSectionZoom) < 0.0001) return;
+            double ratio = nextZoom / _longSectionZoom;
+            double relativeX = anchor.X - LongSectionCanvas.ActualWidth / 2;
+            double relativeY = anchor.Y - LongSectionCanvas.ActualHeight / 2;
+            _longSectionPanX = relativeX - (relativeX - _longSectionPanX) * ratio;
+            _longSectionPanY = relativeY - (relativeY - _longSectionPanY) * ratio;
+            _longSectionZoom = nextZoom;
+            ApplyLongSectionTransform();
+        }
+
+        private void LongSectionCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            ZoomLongSection(LongSectionPointer(e), e.Delta > 0 ? 1.15 : 1 / 1.15);
+            e.Handled = true;
+        }
+
+        private void LongSectionCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _longSectionPanning = true;
+            _longSectionLastPanPoint = LongSectionPointer(e);
+            LongSectionCanvas.Cursor = Cursors.SizeAll;
+            LongSectionCanvas.CaptureMouse();
+            e.Handled = true;
+        }
+
+        private void LongSectionCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_longSectionPanning) return;
+            Point point = LongSectionPointer(e);
+            _longSectionPanX += point.X - _longSectionLastPanPoint.X;
+            _longSectionPanY += point.Y - _longSectionLastPanPoint.Y;
+            _longSectionLastPanPoint = point;
+            ApplyLongSectionTransform();
+        }
+
+        private void LongSectionCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            _longSectionPanning = false;
+            LongSectionCanvas.Cursor = Cursors.Arrow;
+            LongSectionCanvas.ReleaseMouseCapture();
+            e.Handled = true;
+        }
+
+        private void LongSectionCanvas_LostMouseCapture(object sender, MouseEventArgs e)
+        {
+            _longSectionPanning = false;
+            if (LongSectionCanvas != null) LongSectionCanvas.Cursor = Cursors.Arrow;
+        }
+
+        private void LongSectionZoomIn_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomLongSection(new Point(LongSectionCanvas.ActualWidth / 2, LongSectionCanvas.ActualHeight / 2), 1.2);
+        }
+
+        private void LongSectionZoomOut_Click(object sender, RoutedEventArgs e)
+        {
+            ZoomLongSection(new Point(LongSectionCanvas.ActualWidth / 2, LongSectionCanvas.ActualHeight / 2), 1 / 1.2);
+        }
+
+        private void LongSectionZoomFit_Click(object sender, RoutedEventArgs e)
+        {
+            _longSectionZoom = 1.0;
+            _longSectionPanX = 0;
+            _longSectionPanY = 0;
+            ApplyLongSectionTransform();
         }
         private void LongSectionCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
@@ -1119,10 +1333,27 @@ namespace ColumnRebarPro.V3
             SectionCanvas.Children.Add(new Line { X1 = x1, X2 = x2, Y1 = y1, Y2 = y2,
                 Stroke = brush, StrokeThickness = 2.1 });
         }
+        private void SectionBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_loading || ActiveConfig == null) return;
+            if (ActiveConfig.Cx <= 2 && ActiveConfig.Cy <= 2)
+            {
+                MessageBox.Show(this, "Đai phụ cần có ít nhất một thanh giữa cạnh (Cx hoặc Cy lớn hơn 2).",
+                    "KStruct - Đai phụ", MessageBoxButton.OK, MessageBoxImage.Information);
+                e.Handled = true;
+                return;
+            }
+
+            // The existing Revit builder creates the compatible cross-tie sets for
+            // every intermediate bar once this shared configuration option is enabled.
+            CrossCheck.IsChecked = CrossCheck.IsChecked != true;
+            e.Handled = true;
+        }
         private void AddBar(double x, double y, double radius)
         {
             var circle = new Ellipse { Width = radius * 2, Height = radius * 2, Stroke = Brushes.DarkRed,
-                StrokeThickness = 1.2, Fill = Brushes.Red };
+                StrokeThickness = 1.2, Fill = Brushes.Red, Cursor = Cursors.Hand, ToolTip = "Click để bật / tắt đai phụ cho các thanh giữa cạnh." };
+            circle.MouseLeftButtonDown += SectionBar_MouseLeftButtonDown;
             Canvas.SetLeft(circle, x - radius); Canvas.SetTop(circle, y - radius);
             SectionCanvas.Children.Add(circle);
         }
@@ -1318,6 +1549,7 @@ namespace ColumnRebarPro.V3
 
             addTxt(cLeft + 3, cBot + 2, row.Segment.LevelName, Brushes.DarkGreen, 9.5);
             addTxt(cLeft + 3, cTop - 15, Math.Round(widthMm) + "×" + Math.Round(row.Segment.DepthMm) + " | H=" + Math.Round(heightMm) + "mm", Brushes.DimGray, 8.5);
+            ApplyLongSectionTransform();
         }
     }
 }

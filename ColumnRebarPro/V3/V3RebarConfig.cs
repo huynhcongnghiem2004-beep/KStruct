@@ -35,14 +35,18 @@ namespace ColumnRebarPro.V3
         public string LegacyConnectionNotice;
         public bool StarterBars = false;
         public double StarterLength;
+        // Engineer-supplied straight embedment for supplemental upper-floor bars; zero disables it.
+        public double SupplementalAnchorLengthMm;
+        // Beam data are explicit inputs; they are never inferred from a column cover or defaulted.
+        public double BeamTopCoverMm;
         public bool StaggerSplices;
         public bool BottleneckRibbed = true;
         // Explicit engineering-review exception: use selected project's bend radius
         // despite falling below the configured TCVN minimum. Not compliant by default.
         public bool AllowExistingUndersizeBend;
         public double BottleneckClearanceMm = 2;
-        // Geometric detailing default, not a slope mandated by TCVN 5574.
-        public double BottleneckSlope = 6;
+        // Must be entered from the approved project detail; no assumed slope.
+        public double BottleneckSlope;
         // Legacy XML fields retained for compatibility; creation no longer requires approval/reference input.
         public string DesignReference = "";
         public bool DesignValuesConfirmed;

@@ -15,18 +15,23 @@ namespace ColumnRebarPro.V3
                 var c = item.Config;
                 if (g == null || c == null) throw new InvalidOperationException("Thiếu thông tin cột hoặc cấu hình thép.");
                 V3LegacySplice.ValidateForCreation(c);
-                if (c.StaggerSplices)
-                    throw new InvalidOperationException("Cấu hình so le mối nối chưa được hỗ trợ; tắt tùy chọn so le trước khi tạo.");
                 if (c.TieStyle == V3TieStyle.Unspecified || c.TieLayout == V3TieLayout.Unspecified)
                     throw new InvalidOperationException("Chọn hình dạng đai và quy tắc bố trí đai theo thiết kế đã duyệt.");
                 double[] values = { g.Width, g.Depth, g.Bottom, g.Top, c.MainDiameter,
-                    c.TieDiameter, c.Cover, c.EndZone, c.EndSpacing, c.MidSpacing, c.LapLength, c.StarterLength, c.JointBeamHeight, c.JointSpacing };
+                    c.TieDiameter, c.Cover, c.EndZone, c.EndSpacing, c.MidSpacing, c.LapLength,
+                    c.StarterLength, c.SupplementalAnchorLengthMm, c.JointBeamHeight, c.JointSpacing };
                 if (values.Any(v => double.IsNaN(v) || double.IsInfinity(v)))
                     throw new InvalidOperationException("Kích thước và cấu hình thép phải là số hữu hạn.");
                 if (V3Units.Mm(g.Height) <= 2 * (c.Cover + c.TieDiameter))
                     throw new InvalidOperationException("Chiều cao cột không đủ cho lớp bảo vệ và hai mặt đai.");
                 if (c.StarterBars && c.StarterLength <= 0)
                     throw new InvalidOperationException("Chiều dài thép chờ phải lớn hơn 0 mm.");
+                if (c.SupplementalAnchorLengthMm < 0 || c.BeamTopCoverMm < 0)
+                    throw new InvalidOperationException("Chiều dài neo bổ sung và cover trên dầm không được âm.");
+                if (item.IncomingSupplementalPositions.Count > 0 &&
+                    (c.SupplementalAnchorLengthMm <= 0 ||
+                     Math.Abs(c.SupplementalAnchorLengthMm-item.IncomingSupplementalAnchorLengthMm) > .01))
+                    throw new InvalidOperationException("Chiều dài neo thép chờ bổ sung trong dầm chưa hợp lệ.");
                 if (c.Cx < 2 || c.Cy < 2 || c.Cx > 20 || c.Cy > 20)
                     throw new InvalidOperationException("Số thanh mỗi cạnh phải từ 2 đến 20.");
                 if (c.MainDiameter <= 0 || c.TieDiameter <= 0 || c.Cover <= 0 ||

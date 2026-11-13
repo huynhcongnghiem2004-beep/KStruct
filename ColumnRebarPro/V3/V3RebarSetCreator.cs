@@ -14,7 +14,7 @@ namespace ColumnRebarPro.V3
             RebarBarType type, V3BuildReport report)
         {
             V3LegacySplice.ValidateForCreation(item.Config);
-            if (item.Config.Splice != V3SpliceStyle.None || item.Config.StaggerSplices ||
+            if (item.Config.Splice != V3SpliceStyle.None ||
                 item.HasNext || item.HasPrevious || item.TransitionUp != null ||
                 item.TransitionDown != null)
                 throw new InvalidOperationException("Không thể tạo nối chồng hoặc chuyển tiếp tự động. Cần chi tiết cấu tạo được thiết kế và duyệt.");
@@ -93,9 +93,11 @@ namespace ColumnRebarPro.V3
             {
                 var path=group.Bars[0];
                 var rounded=V3ProfileGeometry.Round(path.Points,radius,tolerance);
-                if(item.BottleneckToUpper)
+                if(item.BottleneckToUpper && !path.Terminated)
                 {
-                    double lapStart=Math.Max(V3Units.Mm(item.BottleneckUpperBarStart),rounded.Last().Start.Z);
+                    double configuredLapStart=path.SpliceUpperStartZMm>0
+                        ? path.SpliceUpperStartZMm : V3Units.Mm(item.BottleneckUpperBarStart);
+                    double lapStart=Math.Max(configuredLapStart,rounded.Last().Start.Z);
                     double minimum=V3BottleneckRules.MinimumLap(Math.Max(c.MainDiameter,item.ConnectionPlan.Upper.Diameter));
                     if(rounded.Last().End.Z-lapStart<minimum-.1)
                         throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": đoạn nối thẳng sau gối uốn không đủ chiều dài tối thiểu.");
@@ -158,21 +160,38 @@ namespace ColumnRebarPro.V3
                 XYZ model=g.At(V3Units.Ft(array.X+array.StepX*i),V3Units.Ft(array.Y+array.StepY*i),0);
                 var xy=new V3Point2(V3Units.Mm(model.X),V3Units.Mm(model.Y));
                 var path=new V3BarPath{BarIndex=result.Count,Points=new List<V3Point3>()};
+                bool supplemental=item.IncomingSupplementalPositions.Any(p=>(p-xy).Length<.05);
+                var spliceOffset=item.IncomingSpliceOffsets.FirstOrDefault(p=>(p.Position-xy).Length<.05);
+                double barLow=supplemental
+                    ? V3Units.Mm(g.Bottom)-item.IncomingSupplementalAnchorLengthMm
+                    : low;
+                if(spliceOffset!=null)barLow=low+spliceOffset.OffsetMm;
                 if(item.FoundationHost!=null)
                     path.Points.Add(new V3Point3(xy.X+(g.X.X*array.HookX+g.Y.X*array.HookY)*footLength,
-                        xy.Y+(g.X.Y*array.HookX+g.Y.Y*array.HookY)*footLength,low));
-                path.Points.Add(new V3Point3(xy.X,xy.Y,low));
+                        xy.Y+(g.X.Y*array.HookX+g.Y.Y*array.HookY)*footLength,barLow));
+                path.Points.Add(new V3Point3(xy.X,xy.Y,barLow));
                 if(item.BottleneckToUpper)
                 {
                     var connection=item.ConnectionPlan.Bars.SingleOrDefault(p=>(p.Lower-xy).Length<.05);
                     if(connection==null)throw new InvalidOperationException("Thiếu cặp ghép cho một thanh cột dưới.");
                     path.BarIndex=connection.LowerIndex;path.Shift=connection.Shift;path.Height=connection.Height;
-                    if(connection.Shift>.001)
+                    path.Terminated=connection.Terminated;
+                    path.SpliceEndOffsetMm=connection.SpliceEndOffsetMm;
+                    path.SpliceUpperStartZMm=connection.SpliceUpperStartZMm;
+                    if(connection.Terminated)
+                    {
+                        if(connection.EndZ<=barLow+.1)
+                            throw new InvalidOperationException("Thanh dư tầng "+item.Segment.LevelName+
+                                " không có chiều dài dương để kết thúc trong vùng dầm.");
+                        path.Points.Add(new V3Point3(xy.X,xy.Y,connection.EndZ));
+                    }
+                    else if(connection.Shift>.001)
                     {
                         path.Points.Add(new V3Point3(xy.X,xy.Y,V3Units.Mm(g.Top)-connection.Height));
                         path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,V3Units.Mm(g.Top)));
                     }
-                    path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high));
+                    if(!connection.Terminated)
+                        path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high+connection.SpliceEndOffsetMm));
                 }
                 else path.Points.Add(new V3Point3(xy.X,xy.Y,high));
                 result.Add(path);

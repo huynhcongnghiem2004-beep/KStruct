@@ -94,6 +94,9 @@ namespace ColumnRebarPro.V3
         public double BottleneckUpperBarStart;
         internal V3ColumnConnectionPlan ConnectionPlan;
         public double IncomingStarterLength, IncomingJoint;
+        public double IncomingSupplementalAnchorLengthMm;
+        internal readonly List<V3Point2> IncomingSupplementalPositions = new List<V3Point2>();
+        internal readonly List<V3PositionOffset> IncomingSpliceOffsets = new List<V3PositionOffset>();
         public bool IncomingStagger;
         public string StarterWarning;
         // Chuyển tiếp khi đổi tiết diện/đường kính: null nếu hai tầng cùng cấu tạo.

@@ -82,7 +82,7 @@ namespace ColumnRebarPro.V3
             var report = new V3BuildReport();
             if (works == null || works.Count == 0) return report;
             foreach (var work in works) V3LegacySplice.ValidateForCreation(work.Config);
-            if (works.Any(work => work.Config.Splice != V3SpliceStyle.None || work.Config.StaggerSplices ||
+            if (works.Any(work => work.Config.Splice != V3SpliceStyle.None ||
                 work.TransitionUp != null || work.TransitionDown != null ||
                 (work.BottleneckToUpper && work.ConnectionPlan == null)))
                 throw new InvalidOperationException("Thiếu cấu tạo chuyển tiếp hoặc nối không được hỗ trợ; cần chi tiết đã duyệt.");
@@ -120,7 +120,9 @@ namespace ColumnRebarPro.V3
                                 "thay thép cột " + work.Column.Id.Value);
                         }
 
-                        if (work.FoundationHost != null || work.BottleneckToUpper)
+                        if (work.FoundationHost != null || work.BottleneckToUpper ||
+                            work.IncomingSupplementalPositions.Count > 0 ||
+                            work.IncomingSpliceOffsets.Count > 0)
                             V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);
                         else if (work.Config.GroupLongBars)
                             V3RebarSetCreator.CreateLongitudinalSets(doc, work, mainType, report);
@@ -172,7 +174,9 @@ namespace ColumnRebarPro.V3
                     !type.GetHookPermission(hook90.Id))
                     throw new InvalidOperationException("RebarBarType đai không cho phép Hook 90° đã chọn ở cột "+work.Column.Id.Value+".");
                 if(mainType==null)throw new InvalidOperationException("Không tìm thấy loại thép dọc đúng đường kính cho cột "+work.Column.Id.Value+".");
-                if(work.FoundationHost!=null || work.BottleneckToUpper)
+                if(work.FoundationHost!=null || work.BottleneckToUpper ||
+                    work.IncomingSupplementalPositions.Count > 0 ||
+                    work.IncomingSpliceOffsets.Count > 0)
                     foreach(var path in V3RebarSetCreator.ConnectionPaths(work))
                     {
                         path.Inspect();

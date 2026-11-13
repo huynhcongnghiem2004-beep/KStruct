@@ -21,7 +21,7 @@ namespace ColumnRebarPro.V3
     internal sealed class V3ConnectionProfile
     {
         internal string Label;
-        internal double Width,Depth,Diameter,TieDiameter,Cover;
+        internal double Width,Depth,Diameter,TieDiameter,Cover,BottomZ,TopZ,JointBeamHeightMm,BeamTopCoverMm;
         internal int Cx,Cy;
         internal V3Point2 Center,AxisX=new V3Point2(1,0),AxisY=new V3Point2(0,1);
         internal bool HasFoot;
@@ -36,7 +36,8 @@ namespace ColumnRebarPro.V3
         }
         internal void Validate()
         {
-            double[] values={Width,Depth,Diameter,TieDiameter,Cover,Center.X,Center.Y,AxisX.X,AxisX.Y,AxisY.X,AxisY.Y};
+            double[] values={Width,Depth,Diameter,TieDiameter,Cover,BottomZ,TopZ,JointBeamHeightMm,BeamTopCoverMm,
+                Center.X,Center.Y,AxisX.X,AxisX.Y,AxisY.X,AxisY.Y};
             if(values.Any(v=>!V3BottleneckRules.Finite(v)) || Width<=0 || Depth<=0 || Diameter<=0 ||
                 TieDiameter<=0 || Cover<=0 || Cx<2 || Cy<2 || Cx>20 || Cy>20 ||
                 HalfX(Diameter)<=0 || HalfY(Diameter)<=0 || Math.Abs(AxisX.Length-1)>1e-5 ||
@@ -59,13 +60,24 @@ namespace ColumnRebarPro.V3
         internal int LowerIndex,UpperIndex;
         internal V3Point2 Lower,Upper,End;
         internal double Shift,Height;
+        internal bool Terminated;
+        internal double EndZ;
+        internal double SpliceEndOffsetMm,SpliceUpperStartZMm;
+    }
+    internal sealed class V3PositionOffset
+    {
+        internal V3Point2 Position;
+        internal double OffsetMm;
     }
     internal sealed class V3ColumnConnectionPlan
     {
         internal V3ConnectionProfile Lower,Upper;
         internal List<V3BarConnection> Bars=new List<V3BarConnection>();
+        internal List<V3Point2> UnmatchedUpperPositions=new List<V3Point2>();
+        internal double StaggerDistanceMm;
+        internal int StaggeredBarCount;
         internal double MaximumShift=>Bars.Count==0?0:Bars.Max(b=>b.Shift);
-        internal double MaximumHeight=>Bars.Count==0?0:Bars.Max(b=>b.Height);
+        internal double MaximumHeight=>Bars.Count==0?0:Bars.Where(b=>!b.Terminated).Select(b=>b.Height).DefaultIfEmpty(0).Max();
     }
     public sealed class V3ConnectionDifference
     {
@@ -109,6 +121,15 @@ namespace ColumnRebarPro.V3
             add("Tiết diện (mm)",n(a.Width)+" × "+n(a.Depth),n(b.Width)+" × "+n(b.Depth));
             add("Cx / Cy",a.Cx+" / "+a.Cy,b.Cx+" / "+b.Cy);
             add("Tổng thanh",(2*(a.Cx+a.Cy)-4).ToString(),(2*(b.Cx+b.Cy)-4).ToString());
+            int lowerCount=2*(a.Cx+a.Cy)-4,upperCount=2*(b.Cx+b.Cy)-4;
+            add("Chênh lệch thanh",(lowerCount-upperCount).ToString(),lowerCount==upperCount?"0":
+                (lowerCount>upperCount?"Dư dưới "+(lowerCount-upperCount):"Thiếu dưới "+(upperCount-lowerCount)));
+            int spliced=Math.Min(lowerCount,upperCount),sectionBars=Math.Max(lowerCount,upperCount);
+            int spliceLimit=sectionBars/2;
+            rows.Add(new V3ConnectionDifference {
+                Parameter="Nối tại cùng mặt cắt",Lower=spliced+" / "+sectionBars,
+                Upper="Tối đa 50% ("+spliceLimit+")",
+                Status=spliced<=spliceLimit?"Đạt giới hạn sơ bộ":"Vượt 50% — cần nối so le"});
             add("Thép chủ (mm)",n(a.Diameter),n(b.Diameter));add("Thép đai (mm)",n(a.TieDiameter),n(b.TieDiameter));
             add("Cover (mm)",n(a.Cover),n(b.Cover));add("Tâm XY (mm)",xy(a.Center),xy(b.Center));
             add("Trục X",xy(a.AxisX),xy(b.AxisX));add("Trục Y",xy(a.AxisY),xy(b.AxisY));
@@ -121,42 +142,27 @@ namespace ColumnRebarPro.V3
             if(!V3BottleneckRules.Finite(clearance)||clearance<0||!V3BottleneckRules.Finite(slope)||slope<=0)
                 throw new InvalidOperationException("Khe hở hoặc tỷ lệ nhấn cổ chai không hợp lệ.");
             var a=Points(lower);var b=Points(upper);int count=a.Count;
-            if(count!=b.Count)
-                throw new InvalidOperationException("Khác số thanh: dưới "+count+", trên "+b.Count+"; "+
-                    Math.Abs(count-b.Count)+" thanh cần "+(count>b.Count?"phương án kết thúc/neo":"phương án bổ sung/neo")+". Chưa tự ghép khi đổi số thanh.");
-            int best=-1;double bestCost=double.MaxValue,secondCost=double.MaxValue;
-            for(int offset=0;offset<count;offset++)
-            {
-                double cost=0;bool valid=true;
-                for(int i=0;i<count;i++)
-                {
-                    var target=b[(i+offset)%count];
-                    if(a[i].Corner!=target.Corner){valid=false;break;}
-                    var delta=target.Point-a[i].Point;cost+=delta.Dot(delta);
-                }
-                if(!valid)continue;
-                if(cost<bestCost){secondCost=bestCost;bestCost=cost;best=offset;}
-                else secondCost=Math.Min(secondCost,cost);
-            }
-            if(best<0)throw new InvalidOperationException("Tổng số thanh bằng nhau nhưng phân bố trên các cạnh khác nhau; không ghép góc cột với thanh giữa cạnh.");
-            if(secondCost-bestCost<=1e-7*Math.Max(1,bestCost))
-                throw new InvalidOperationException("Có nhiều phương án ghép thanh tương đương; kiểm tra hướng cột hoặc chỉ định lại vị trí thanh.");
+            var mapping=MatchBars(a,b);
             var plan=new V3ColumnConnectionPlan {Lower=lower,Upper=upper};
+            var matchedUpper=new HashSet<int>(mapping.Values);
+            for(int j=0;j<b.Count;j++)if(!matchedUpper.Contains(j))plan.UnmatchedUpperPositions.Add(b[j].Point);
             var choices=new List<V3Point2>[count];double separation=(lower.Diameter+upper.Diameter)/2+clearance;
-            for(int i=0;i<count;i++)
+            var active=new List<int>();
+            foreach(var pair in mapping.OrderBy(x=>x.Key))
             {
-                var target=b[(i+best)%count];
+                int i=pair.Key;var target=b[pair.Value];
                 choices[i]=Candidates(lower,upper,a[i],target,separation)
                     .Where(p=>lower.Contains(p,lower.Diameter)&&upper.Contains(p,lower.Diameter))
                     .Where(p=>b.All(other=>(p-other.Point).Length>=(lower.Diameter+upper.Diameter)/2-1e-5))
                     .OrderBy(p=>(p-a[i].Point).Length).ToList();
                 if(choices[i].Count==0)throw new InvalidOperationException("Thanh "+(i+1)+": không có vị trí cổ chai đủ cover và không giao thanh tầng trên.");
+                active.Add(i);
             }
-            var order=Enumerable.Range(0,count).OrderBy(i=>choices[i].Count).ThenBy(i=>i).ToArray();
+            var order=active.OrderBy(i=>choices[i].Count).ThenBy(i=>i).ToArray();
             var selected=new V3Point2[count];var assigned=new bool[count];int attempts=0;
             Func<int,bool> solve=null;
             solve=depth=>{
-                if(depth==count)return true;if(++attempts>50000)return false;int i=order[depth];
+                if(depth==order.Length)return true;if(++attempts>50000)return false;int i=order[depth];
                 foreach(var p in choices[i])
                 {
                     bool valid=true;
@@ -169,11 +175,88 @@ namespace ColumnRebarPro.V3
             if(!solve(0))throw new InvalidOperationException("Không tìm được bố trí cổ chai không giao nhau; kiểm tra mật độ thanh và khe hở nhấn.");
             for(int i=0;i<count;i++)
             {
+                if(!mapping.ContainsKey(i))
+                {
+                    if(lower.JointBeamHeightMm<=0||lower.BeamTopCoverMm<=0)
+                        throw new InvalidOperationException("Thanh dư cần chiều cao dầm và lớp bảo vệ phía trên dầm nhập theo bản vẽ.");
+                    double endZ=lower.TopZ+lower.JointBeamHeightMm-lower.BeamTopCoverMm;
+                    if(!V3BottleneckRules.Finite(endZ))throw new InvalidOperationException("Không xác định được cao độ kết thúc thanh dư trong dầm.");
+                    if(endZ<=lower.TopZ+.1||endZ>upper.BottomZ+.1)
+                        throw new InvalidOperationException("Cao độ kết thúc thanh dư không nằm trong vùng dầm giữa hai cột.");
+                    plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=-1,Lower=a[i].Point,
+                        Upper=new V3Point2(),End=a[i].Point,Terminated=true,EndZ=endZ});
+                    continue;
+                }
                 double shift=(selected[i]-a[i].Point).Length;
-                plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=(i+best)%count,
-                    Lower=a[i].Point,Upper=b[(i+best)%count].Point,End=selected[i],Shift=shift,Height=shift*slope});
+                int upperIndex=mapping[i];
+                plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=upperIndex,
+                    Lower=a[i].Point,Upper=b[upperIndex].Point,End=selected[i],Shift=shift,Height=shift*slope});
             }
             return plan;
+        }
+
+        private static Dictionary<int,int> MatchBars(List<V3PairPoint> lower,List<V3PairPoint> upper)
+        {
+            if(lower.Count==upper.Count)
+            {
+                int best=-1;double equalBestCost=double.MaxValue,equalSecondCost=double.MaxValue;
+                for(int offset=0;offset<lower.Count;offset++)
+                {
+                    double cost=0;bool valid=true;
+                    for(int i=0;i<lower.Count;i++)
+                    {
+                        var target=upper[(i+offset)%upper.Count];
+                        if(lower[i].Corner!=target.Corner){valid=false;break;}
+                        var delta=target.Point-lower[i].Point;cost+=delta.Dot(delta);
+                    }
+                    if(!valid)continue;
+                    if(cost<equalBestCost){equalSecondCost=equalBestCost;equalBestCost=cost;best=offset;}
+                    else equalSecondCost=Math.Min(equalSecondCost,cost);
+                }
+                if(best<0)throw new InvalidOperationException("Tổng số thanh bằng nhau nhưng phân bố trên các cạnh khác nhau; không ghép góc cột với thanh giữa cạnh.");
+                if(equalSecondCost-equalBestCost<=1e-7*Math.Max(1,equalBestCost))
+                    throw new InvalidOperationException("Có nhiều phương án ghép thanh tương đương; kiểm tra hướng cột hoặc chỉ định lại vị trí thanh.");
+                return Enumerable.Range(0,lower.Count).ToDictionary(i=>i,i=>(i+best)%upper.Count);
+            }
+
+            bool lowerIsSmaller=lower.Count<upper.Count;
+            var smaller=lowerIsSmaller?lower:upper;var larger=lowerIsSmaller?upper:lower;
+            double bestCost=double.MaxValue;Dictionary<int,int> bestResult=null;
+            for(int offset=0;offset<larger.Count;offset++)
+            {
+                int m=smaller.Count,n=larger.Count;
+                var cost=new double[m+1,n+1];var back=new byte[m+1,n+1];
+                for(int i=0;i<=m;i++)for(int j=0;j<=n;j++)cost[i,j]=double.PositiveInfinity;
+                cost[0,0]=0;
+                for(int j=0;j<n;j++)
+                {
+                    for(int i=0;i<=m;i++)
+                    {
+                        if(double.IsInfinity(cost[i,j]))continue;
+                        if(cost[i,j]<cost[i,j+1]){cost[i,j+1]=cost[i,j];back[i,j+1]=1;}
+                        if(i>=m)continue;
+                        var target=larger[(offset+j)%n];
+                        if(smaller[i].Corner!=target.Corner)continue;
+                        var delta=target.Point-smaller[i].Point;
+                        double next=cost[i,j]+delta.Dot(delta);
+                        if(next<cost[i+1,j+1]){cost[i+1,j+1]=next;back[i+1,j+1]=2;}
+                    }
+                }
+                if(cost[m,n]>=bestCost)continue;
+                var candidate=new Dictionary<int,int>();int row=m,column=n;
+                while(column>0)
+                {
+                    if(back[row,column]==1){column--;continue;}
+                    if(back[row,column]!=2||row<=0)break;
+                    int largeIndex=(offset+column-1)%n,smallIndex=row-1;
+                    if(lowerIsSmaller)candidate[smallIndex]=largeIndex;
+                    else candidate[largeIndex]=smallIndex;
+                    row--;column--;
+                }
+                if(candidate.Count==m&&row==0){bestCost=cost[m,n];bestResult=candidate;}
+            }
+            if(bestResult==null)throw new InvalidOperationException("Không thể ghép đủ thanh theo thứ tự quanh mặt cắt mà vẫn ghép góc với góc.");
+            return bestResult;
         }
 
         private static bool Separated(V3Point2 a,V3Point2 endA,V3Point2 b,V3Point2 endB,double slope,double diameter)
