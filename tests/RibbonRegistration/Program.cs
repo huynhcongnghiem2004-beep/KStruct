@@ -68,12 +68,24 @@ internal static class Program
         Require(documentation.Contains("KStruct_AuditModelV2"), "Missing audit V2 command");
         Require(documentation.Contains("KStruct_V5Workspace"), "Missing V5 workspace Ribbon command");
 
-        // Every Ribbon path must use the shared flat, negative-space image renderer.
+        // Every Ribbon path must load its lightweight embedded PNG, generated in the shared palette.
         string iconRenderer = File.ReadAllText(Path.Combine(directory.FullName, "Core", "FlatRibbonIcons.cs"));
-        Require(iconRenderer.Contains("#183248") && iconRenderer.Contains("#B57B56") &&
-                iconRenderer.Contains("#F8F2E7"), "Navy/Earth/ivory inverse palette is missing");
-        Require(iconRenderer.Contains("RenderTargetBitmap") &&
-                iconRenderer.Contains("DrawingVisual"), "Icons must render as sharp vector glyphs");
+        string iconGenerator = File.ReadAllText(Path.Combine(directory.FullName, "Resources", "Generate-KStructIcons.ps1"));
+        string project = File.ReadAllText(Path.Combine(directory.FullName, "KStruct.csproj"));
+        Require(iconRenderer.Contains("BitmapImage") && iconRenderer.Contains("GetManifestResourceNames"),
+            "Ribbon icons must load embedded PNG resources");
+        Require(iconGenerator.Contains("FromArgb(23, 48, 71)") &&
+                iconGenerator.Contains("FromArgb(176, 111, 76)") &&
+                iconGenerator.Contains("FromArgb(248, 244, 235)"), "Navy/Earth/ivory PNG palette is missing");
+        Require(project.Contains(@"Resources\Ribbon\*.png"), "Per-command Ribbon PNG resources must be embedded");
+        string ribbonDirectory = Path.Combine(directory.FullName, "Resources", "Ribbon");
+        string[] iconIds = buttons.Concat(new[] { "KStruct_FootingDropdown" }).Distinct(StringComparer.Ordinal).ToArray();
+        foreach (string id in iconIds)
+            foreach (int size in new[] { 16, 32 })
+                Require(File.Exists(Path.Combine(ribbonDirectory, id + "_" + size + ".png")),
+                    "Missing " + size + "px Ribbon PNG for " + id);
+        Require(Directory.GetFiles(ribbonDirectory, "*.png").Length == iconIds.Length * 2,
+            "Each KStruct Ribbon command and the footing dropdown must have exactly two PNG sizes");
         Require(source.Contains("footingDropdown.Image = FlatRibbonIcons.Create") &&
                 source.Contains("footingDropdown.LargeImage = FlatRibbonIcons.Create"),
                 "Footing group icon must be regenerated at both native sizes");
@@ -96,7 +108,7 @@ internal static class Program
             source.Contains("typeof(global::SDK_HD.KStruct.NativeRebar.ReinforceStraightBeamsCommand)") &&
             source.Contains("typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand)"),
             "Unified release must retain V4 column, beam and footing engines");
-        Console.WriteLine("PASS: All 95 commands and both group images use the flat Navy/Earth icon system.");
+        Console.WriteLine("PASS: All 95 commands and the footing dropdown use embedded Navy/Earth PNG icons at both sizes.");
     }
 
     private static void Require(bool condition, string message)
