@@ -55,6 +55,35 @@
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#FFB7BEC9"/>
         </Style>
+        <!-- Shared KStruct interior controls: navy text, earth-brown focus and light cream sections. -->
+        <Style TargetType="TextBox">
+            <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFBFA68D"/>
+            <Setter Property="MinHeight" Value="26"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFBFA68D"/>
+            <Setter Property="MinHeight" Value="26"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
+            <Setter Property="BorderBrush" Value="#FFD5C7B8"/>
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
+            <Setter Property="BorderBrush" Value="#FFD5C7B8"/>
+            <Setter Property="RowBackground" Value="White"/>
+            <Setter Property="AlternatingRowBackground" Value="#FFF5F7FA"/>
+        </Style>
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
+            <Setter Property="BorderBrush" Value="#FFD5C7B8"/>
+        </Style>
         <Style TargetType="GroupBox" x:Key="PanelGroup">
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
