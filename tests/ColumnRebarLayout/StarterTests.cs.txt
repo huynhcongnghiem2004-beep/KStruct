@@ -49,8 +49,9 @@ static class StarterTests
     static void Reject(Action action, string message)
     {
         bool rejected=false;
-        try { action(); } catch(InvalidOperationException ex) { rejected=ex.Message.Contains(message); }
-        Check(rejected,"Must reject with a useful message: "+message);
+        string actual="No exception";
+        try { action(); } catch(InvalidOperationException ex) { actual=ex.Message; rejected=actual.Contains(message); }
+        Check(rejected,"Must reject with a useful message: "+message+"; actual: "+actual);
     }
     static V3SegmentWork Work(string name, double bottom, double top, bool starter=false, double length=1400) => new V3SegmentWork
     {
