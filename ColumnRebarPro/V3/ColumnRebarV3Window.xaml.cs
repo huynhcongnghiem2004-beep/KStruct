@@ -814,6 +814,24 @@ namespace ColumnRebarPro.V3
                     : string.Join("; ", review.Errors)));
                 foreach (var warning in review.Warnings)
                     messages.Add("  • " + warning);
+                // V5 host geometry inventory is diagnostic evidence, never permission to write.
+                if (host != null)
+                {
+                    var inventory = SDK_HD.KStruct.Core.V5.V5HostSolidInspector.Inspect(host);
+                    messages.Add("  Solid: " + inventory.SolidCount
+                        + " | ứng viên bê tông: " + inventory.ConcreteMaterialCandidateSolids
+                        + " | hình học bị cắt ngắn: " + (inventory.Truncated ? "có" : "không"));
+                    foreach (var warning in inventory.Warnings)
+                        messages.Add("  • " + warning);
+                    var gate = SDK_HD.KStruct.Core.V5.V5ExecutionGatePolicy.Review(
+                        new SDK_HD.KStruct.Core.V5.V5ExecutionEvidence
+                        {
+                            HostSolidIsConcrete = inventory.ConcreteVerified,
+                            PhysicalCoverFacesVerified = inventory.CoverVerified
+                        });
+                    foreach (var blocker in gate.Blockers)
+                        messages.Add("  CHẶN V5: " + blocker);
+                }
             }
             messages.Add("");
             messages.Add("V5 chưa được cấp phép tạo thép: Solid, cover, nút giao, neo/nối và transaction chưa được xác minh. Nút này KHÔNG sửa mô hình.");
