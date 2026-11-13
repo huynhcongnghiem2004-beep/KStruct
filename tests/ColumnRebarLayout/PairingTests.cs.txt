@@ -72,7 +72,7 @@ static class PairingTests
         Check(rows.Single(r=>r.Parameter=="Cover (mm)").Status=="Khác","Expose actual cover difference");
         Check(rows.Single(r=>r.Parameter=="Thép chủ (mm)").Status=="Giống","Do not invent a diameter difference");
         // Run production adapter and resolver rather than a fake SameStructure boolean.
-        var lower=new V3SegmentWork {Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=true,StarterLength=1200},
+        var lower=new V3SegmentWork {Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=true,StarterLength=1400,BottleneckSlope=6,JointBeamHeight=400},
             Geometry=new V3Geometry {Bottom=0,Top=V3Units.Ft(3000)},Segment=new ColumnSegment {LevelName="Trệt"}};
         var upper=new V3SegmentWork {Config=lower.Config.Copy(),Geometry=new V3Geometry {Bottom=V3Units.Ft(3400),Top=V3Units.Ft(6400)},
             Segment=new ColumnSegment {LevelName="Lầu 1"}};
