@@ -59,7 +59,8 @@ namespace SDK_HD.KStruct.Core.V5
             }
             catch (Exception ex)
             {
-                result.Warnings.Add("Không đọc được Solid: " + ex.GetType().Name);
+                result.Truncated = true;
+                result.Warnings.Add("Không đọc được Solid: " + ex.GetType().Name + "; kết quả kiểm kê không đầy đủ.");
             }
             if (result.SolidCount == 0)
                 result.Warnings.Add("Chưa tìm thấy Solid có thể tích dương.");
@@ -99,7 +100,8 @@ namespace SDK_HD.KStruct.Core.V5
                     }
                     catch (Exception ex)
                     {
-                        result.Warnings.Add("Không đọc được nested Family: " + ex.GetType().Name);
+                        result.Truncated = true;
+                        result.Warnings.Add("Không đọc được nested Family: " + ex.GetType().Name + "; kết quả kiểm kê không đầy đủ.");
                     }
                 }
             }
