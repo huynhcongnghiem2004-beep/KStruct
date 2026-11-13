@@ -10,7 +10,7 @@ static class LegacySpliceTests
     static void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
     static V3SegmentWork Work(double bottom,double top)=>new V3SegmentWork {
         Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,
-            StarterBars=true,StarterLength=1200},Geometry=new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
+            StarterBars=true,StarterLength=1200,BottleneckSlope=6,JointBeamHeight=400},Geometry=new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
         Segment=new ColumnSegment {LevelName="Test"}};
     internal static void Run()
     {
