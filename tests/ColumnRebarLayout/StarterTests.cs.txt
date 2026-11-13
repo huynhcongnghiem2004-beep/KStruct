@@ -86,7 +86,9 @@ static class StarterTests
         pair=Pair();pair[1].Config.Cx=5;
         Reject(()=>V3StarterConnection.Resolve(pair),"chiều dài neo thẳng trong dầm"); // additional upper bars require approved supplemental anchorage
         pair=Pair();pair[0].Config.StaggerSplices=true;
-        Reject(()=>V3StarterConnection.Resolve(pair),"so le");
+        V3StarterConnection.Resolve(pair);
+        Check(pair[1].IncomingStagger && pair[1].IncomingSpliceOffsets.Count > 0,
+            "Explicit stagger setting must preserve a staggered connection plan");
         pair=Pair();pair[0].Config.BottleneckRibbed=false;
         Reject(()=>V3StarterConnection.Resolve(pair),"thép trơn");
         pair=Pair();pair[0].Config.BottleneckSlope=1000;
