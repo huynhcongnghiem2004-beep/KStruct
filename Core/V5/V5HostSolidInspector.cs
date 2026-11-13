@@ -14,6 +14,9 @@ namespace SDK_HD.KStruct.Core.V5
     {
         internal int SolidCount;
         internal int ConcreteMaterialCandidateSolids;
+        internal int DirectConcreteCandidateSolids;
+        internal int NestedConcreteCandidateSolids;
+        internal int NestedSolidCount;
         internal int UnknownOrMixedMaterialSolids;
         internal int PlanarFaceCount;
         internal int NonPlanarFaceCount;
@@ -62,7 +65,11 @@ namespace SDK_HD.KStruct.Core.V5
                 result.Warnings.Add("Chưa tìm thấy Solid có thể tích dương.");
             if (result.Truncated)
                 result.Warnings.Add("Danh sách Solid vượt giới hạn kiểm tra; phải xác minh thủ công.");
-            result.Warnings.Add("Các Solid được đếm CHƯA xác minh là bê tông; không dùng để đặt thép.");
+            if (result.NestedSolidCount > 0)
+                result.Warnings.Add("Có " + result.NestedSolidCount + " Solid qua GeometryInstance; không xác định được chủ sở hữu nested Family từ hình học đã flatten.");
+            if (result.DirectConcreteCandidateSolids > 1)
+                result.Warnings.Add("Nhiều Solid bê tông trực tiếp; chưa loại trừ chồng lắp, lỗ rỗng và các phần tử phụ.");
+            result.Warnings.Add("Vật liệu bê tông trên các mặt KHÔNG chứng minh Solid thuộc đúng Host; chưa được cấp quyền tạo thép.");
             return result;
         }
 
@@ -80,7 +87,7 @@ namespace SDK_HD.KStruct.Core.V5
                 if (result.Truncated) break;
                 if (item is Solid solid)
                 {
-                    InspectSolid(solid, doc, result);
+                    InspectSolid(solid, doc, result, depth);
                 }
                 else if (item is GeometryInstance instance)
                 {
@@ -99,7 +106,7 @@ namespace SDK_HD.KStruct.Core.V5
         }
 
         private static void InspectSolid(Solid solid, Document doc,
-            V5HostSolidInventory result)
+            V5HostSolidInventory result, int depth)
         {
             if (solid == null) return;
             double volume;
@@ -116,6 +123,7 @@ namespace SDK_HD.KStruct.Core.V5
                 return;
             }
             result.SolidCount++;
+            if (depth > 0) result.NestedSolidCount++;
             double volumeMm = volume * 304.8 * 304.8 * 304.8;
             if (AuditV2Policy.IsFinite(volumeMm) &&
                 AuditV2Policy.IsFinite(result.GrossSolidVolumeCubicMm+volumeMm))
@@ -176,7 +184,11 @@ namespace SDK_HD.KStruct.Core.V5
                 result.Warnings.Add("Không đọc được các mặt Solid: " + ex.GetType().Name);
             }
             if (allConcrete && recognizedFaces>0)
+            {
                 result.ConcreteMaterialCandidateSolids++;
+                if (depth == 0) result.DirectConcreteCandidateSolids++;
+                else result.NestedConcreteCandidateSolids++;
+            }
             else
                 result.UnknownOrMixedMaterialSolids++;
         }
