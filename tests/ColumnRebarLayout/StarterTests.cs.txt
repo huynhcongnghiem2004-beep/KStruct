@@ -84,7 +84,7 @@ static class StarterTests
         Reject(()=>V3StarterConnection.Resolve(Pair(length:double.NaN)),"hữu hạn");
         Reject(()=>V3StarterConnection.Resolve(Pair(gap:double.PositiveInfinity)),"không hợp lệ");
         pair=Pair();pair[1].Config.Cx=5;
-        Reject(()=>V3StarterConnection.Resolve(pair),"Khác số thanh");
+        Reject(()=>V3StarterConnection.Resolve(pair),"chiều dài neo thẳng trong dầm"); // additional upper bars require approved supplemental anchorage
         pair=Pair();pair[0].Config.StaggerSplices=true;
         Reject(()=>V3StarterConnection.Resolve(pair),"so le");
         pair=Pair();pair[0].Config.BottleneckRibbed=false;
