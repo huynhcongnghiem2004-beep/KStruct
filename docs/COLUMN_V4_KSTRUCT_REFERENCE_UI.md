@@ -3,6 +3,16 @@
 Status: implementation specification; UI and runtime acceptance **not yet complete**.
 Reference: four screenshots supplied in conversation on 2026-11-13. No BIMSpeed brand assets to be copied. Keep KStruct title, icon, navy/earth palette; reproduce functional layout and control placement inside the window.
 
+
+## Mandatory interior color system (approved 2026-11-13)
+The **entire interior**, not only title bar/logo, uses KStruct navy and earth brown. Screenshots govern exact control layout and function, **not** BIMSpeed's red/grey palette.
+- Primary navy: `#17365D` (group titles, main action); secondary blue `#254D78` (selected tabs and navigation).
+- Earth brown: `#986B48` (accents, selected diagram annotations, focus/secondary highlights); cream `#EDE5DA` (subtle secondary surfaces).
+- Main background: `#F5F7FA`; input surface white; high-contrast dark text and accessible focus/disabled states.
+- Centralize colors in reusable WPF ResourceDictionary styles; avoid hard-coded colors across four tabs.
+- All four tabs, side navigation, previews, input controls, radio/checkboxes, command bar and dialogs must follow the same theme.
+- No BIMSpeed logos, names, icons, or trademark graphics in the product.
+
 ## Window structure
 - Four tabs, in order: Hình học & bố trí thép; Thép đai; Thép móng; Cài đặt chung.
 - Persistent bottom command bar: Lưu cấu hình, Mở cấu hình, Chạy, Đóng.
