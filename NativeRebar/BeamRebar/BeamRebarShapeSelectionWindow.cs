@@ -189,6 +189,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 options.SideBarShape = Selected(rows[7]);
                 window.DialogResult = true;
             };
+            window.Content = root;
             return window.ShowDialog() == true ? options : null;
         }
 
