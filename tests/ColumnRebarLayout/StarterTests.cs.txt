@@ -25,6 +25,9 @@ namespace ColumnRebarPro.V3
         public ColumnSegment Segment;
         public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper;
         public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
+        public double IncomingSupplementalAnchorLengthMm;
+        internal readonly List<V3Point2> IncomingSupplementalPositions = new List<V3Point2>();
+        internal readonly List<V3PositionOffset> IncomingSpliceOffsets = new List<V3PositionOffset>();
         public string StarterWarning;
         public object TransitionUp, TransitionDown;
         public object FoundationHost;
