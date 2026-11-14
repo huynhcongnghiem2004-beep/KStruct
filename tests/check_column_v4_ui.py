@@ -44,10 +44,10 @@ def main():
     # WPF BrushConverter does not accept the SVG-style token "None".
     # It may compile into BAML but fail only when the window is opened.
     invalid_brushes = re.findall(
-        r'\\b(?:Fill|Stroke|Background|Foreground|BorderBrush)="None"', text)
+        r'\b(?:Fill|Stroke|Background|Foreground|BorderBrush)="None"', text)
     assert not invalid_brushes, "Invalid WPF Brush value None; use Transparent"
     for brush in re.findall(
-        r'\\b(?:Fill|Stroke|Background|Foreground|BorderBrush)="(#[^"]+)"', text):
+        r'\b(?:Fill|Stroke|Background|Foreground|BorderBrush)="(#[^"]+)"', text):
         assert re.fullmatch(r"#[0-9A-Fa-f]{3,4}|#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}", brush), (
             f"Invalid hexadecimal WPF brush: {brush}")
     handlers = set(re.findall(
