@@ -139,10 +139,7 @@ namespace ColumnRebarPro.V3
             if (result != null)
                 return true;
 
-            if (missingCover.Count > 0)
-                reason = "Tìm thấy dầm giao nút nhưng không đọc được Rebar Cover - Top Face: " +
-                    string.Join("; ", missingCover.Distinct().Take(3)) + ".";
-            else if (misaligned.Count > 0)
+            if (misaligned.Count > 0)
                 reason = "Có dầm chiếu qua tim cột nhưng mặt dầm không trùng đầu hai cột trong sai số " + FaceToleranceMm.ToString("0") + " mm: " +
                     string.Join("; ", misaligned.Distinct().Take(3)) + ".";
             else if (projected.Count == 0)
