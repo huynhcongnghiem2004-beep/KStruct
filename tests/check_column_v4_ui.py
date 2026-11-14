@@ -23,10 +23,10 @@ def main():
     main = next(t for t in root.iter(f"{{{ns['w']}}}TabControl") if t.get(xns) == "MainTabs")
     tabs = [t.attrib.get("Header", "") for t in main.findall("w:TabItem", ns)]
     expected = [
-        "1. Hình học & bố trí thép",
-        "2. Thép đai",
-        "3. Thép móng & nối tầng",
-        "4. Cài đặt chung & bản vẽ",
+        "▥  1. TẠO THÉP CỘT",
+        "▤  2. THÉP ĐAI",
+        "⌁  3. NEO & NỐI TẦNG",
+        "▧  4. TRIỂN KHAI BẢN VẼ",
     ]
     assert tabs == expected, f"Unexpected tab order: {tabs}"
     names = [e.attrib[xns] for e in root.iter() if xns in e.attrib]
