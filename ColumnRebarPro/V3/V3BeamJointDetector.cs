@@ -120,18 +120,24 @@ namespace ColumnRebarPro.V3
                 {
                     // When multiple beams intersect at the column joint (e.g., X and Y beams of different depths),
                     // the deeper beam governs the anchorage and termination height.
+                    int count = result.MatchingBeamCount + 1;
                     if (valid.HeightMm > result.HeightMm)
-                    {
                         result = valid;
-                    }
-                    result.MatchingBeamCount++;
+                    result.MatchingBeamCount = count;
                 }
             }
 
-            if (result != null)
+            // A valid candidate cannot mask another intersecting beam with unknown cover.
+            // Reject the entire joint rather than using incomplete cover evidence.
+            if (missingCover.Count > 0)
             {
-                return true;
+                result = null;
+                reason = "Tìm thấy dầm giao nút nhưng không đọc được Rebar Cover - Top Face: " +
+                    string.Join("; ", missingCover.Distinct().Take(3)) + ".";
+                return false;
             }
+            if (result != null)
+                return true;
 
             if (missingCover.Count > 0)
                 reason = "Tìm thấy dầm giao nút nhưng không đọc được Rebar Cover - Top Face: " +
