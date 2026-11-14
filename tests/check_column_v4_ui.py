@@ -34,7 +34,9 @@ def main():
     assert "DeploymentHost" in names, "Existing drawing deployment host lost"
     assert "ColumnModeTabs" in names, "Nested quick/detail tabs missing"
     assert "Tạo thép nhanh" in text and "Thiết lập chi tiết" in text
-    assert "ColumnModeTabs.SelectedIndex = show ? 1 : 0;" in code
+    assert "ColumnModeTabs.SelectedIndex = 0;" in code
+    assert 'Header="Thiết lập chi tiết" Visibility="Collapsed" IsEnabled="False"' in text
+    assert 'x:Name="QuickAdvancedCheck" Visibility="Collapsed"' in text
     assert 'if (caption.Contains("Hook")) MainTabs.SelectedIndex = 1;' in code
     assert 'else if (caption.Contains("Neo")) MainTabs.SelectedIndex = 2;' in code
     for key in ("KStructNavy", "KStructEarth", "KStructCream"):
