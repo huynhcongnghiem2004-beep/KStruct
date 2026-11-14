@@ -1238,6 +1238,29 @@ namespace ColumnRebarPro.V3
             DrawAnchorageElevation();
         }
 
+        private void FoundationDiagramChoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (FoundationDirectionBox == null) return;
+            var button = sender as Button;
+            int index;
+            if (button == null || !int.TryParse(button.Tag as string, out index)) return;
+            FoundationDirectionBox.SelectedIndex = index;
+            if (FoundationAnchorCheck != null && FoundationAnchorCheck.IsChecked != true)
+                FoundationAnchorCheck.IsChecked = true;
+            UpdateFoundationAnchorSummary();
+        }
+
+        private void SpliceDiagramChoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (SpliceLengthSelector == null) return;
+            var button = sender as Button;
+            int index;
+            if (button == null || !int.TryParse(button.Tag as string, out index)) return;
+            SpliceLengthSelector.SelectedIndex = index;
+            if (SplicePanelToggle != null && SplicePanelToggle.IsChecked != true)
+                SplicePanelToggle.IsChecked = true;
+        }
+
         private void SplicePanel_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading || SpliceLengthSelector == null || SpliceLengthHint == null ||
