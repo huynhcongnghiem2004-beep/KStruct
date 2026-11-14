@@ -85,6 +85,17 @@
                 <Setter Property="Opacity" Value="1"/>
             </Trigger></Style.Triggers>
         </Style>
+        <Style x:Key="DiagramChoice" TargetType="Button" BasedOn="{StaticResource FlatButton}">
+            <Setter Property="MinHeight" Value="58"/>
+            <Setter Property="MinWidth" Value="75"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Background" Value="#FFF8FAFC"/>
+            <Setter Property="BorderBrush" Value="#FFC9D6E4"/>
+            <Setter Property="BorderThickness" Value="1,1,1,3"/>
+            <Setter Property="Foreground" Value="#FF173657"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
         <Style TargetType="TextBox">
             <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
             <Setter Property="Background" Value="White"/>
@@ -401,6 +412,29 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="235"/></Grid.ColumnDefinitions>
                             <CheckBox Grid.ColumnSpan="2" x:Name="FoundationAnchorCheck" Content="Neo chân L xuống móng tại chân tuyến" Foreground="#FF173657" IsChecked="False" FontWeight="SemiBold" Margin="0,0,0,10" Checked="FoundationAnchor_Changed" Unchecked="FoundationAnchor_Changed"/>
                             <StackPanel Grid.Row="1" Margin="0,0,12,0">
+                                <TextBlock Text="Chọn chi tiết neo" Foreground="#FF52647A" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                    <Button Style="{StaticResource DiagramChoice}" Tag="0" Click="FoundationDiagramChoice_Click" ToolTip="Chân L hướng vào tâm">
+                                        <StackPanel>
+                                            <Canvas Width="66" Height="42">
+                                                <Path Data="M 15,3 L 15,33 L 50,33" Stroke="#FFE53935" StrokeThickness="4" StrokeLineJoin="Round"/>
+                                                <Path Data="M 9,4 L 9,38 M 8,38 L 55,38" Stroke="#FF94A3B8" StrokeThickness="1.2"/>
+                                                <Path Data="M 49,29 L 55,33 L 49,37" Fill="None" Stroke="#FFE67E22" StrokeThickness="1.5"/>
+                                            </Canvas>
+                                            <TextBlock Text="Vào tâm" TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource DiagramChoice}" Tag="1" Click="FoundationDiagramChoice_Click" ToolTip="Chân L hướng ra ngoài">
+                                        <StackPanel>
+                                            <Canvas Width="66" Height="42">
+                                                <Path Data="M 50,3 L 50,33 L 15,33" Stroke="#FFE53935" StrokeThickness="4" StrokeLineJoin="Round"/>
+                                                <Path Data="M 55,4 L 55,38 M 10,38 L 56,38" Stroke="#FF94A3B8" StrokeThickness="1.2"/>
+                                                <Path Data="M 19,29 L 13,33 L 19,37" Fill="None" Stroke="#FFE67E22" StrokeThickness="1.5"/>
+                                            </Canvas>
+                                            <TextBlock Text="Ra ngoài" TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
                                 <TextBlock Text="Chiều dài neo L (Lₙ)" FontWeight="SemiBold" Foreground="#FF173657"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,5,0,2">
                                     <ComboBox x:Name="FoundationLengthPreset" Width="105" SelectedIndex="0"
@@ -424,6 +458,7 @@
                                     <ComboBoxItem Content="Theo trục +X cột"/><ComboBoxItem Content="Theo trục -X cột"/>
                                     <ComboBoxItem Content="Theo trục +Y cột"/><ComboBoxItem Content="Theo trục -Y cột"/>
                                 </ComboBox>
+                                <Button Style="{StaticResource DiagramChoice}" Width="93" Height="42" HorizontalAlignment="Left" Content="90°" ToolTip="Góc bẻ 90°, hiện chỉ hỗ trợ cấu hình này"/>
                                 <TextBlock Text="Góc bẻ" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,0"/>
                                 <TextBlock Text="90° (cấu hình hiện hỗ trợ)" Foreground="#FF52647A" Margin="0,3,0,7"/>
                                 <TextBlock Text="Cover móng đáy và bên (mm)" Foreground="#FF173657"/>
@@ -461,6 +496,21 @@
                                             <ComboBoxItem Content="Nối chồng"/>
                                         </ComboBox>
                                     </StackPanel>
+                                    <TextBlock Text="Chọn kiểu nối theo hình" FontWeight="SemiBold" Foreground="#FF52647A" Margin="0,2,0,4"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <Button Style="{StaticResource DiagramChoice}" Tag="0" Click="SpliceDiagramChoice_Click" ToolTip="Nối chồng - 50d">
+                                            <StackPanel>
+                                                <Canvas Width="54" Height="42">
+                                                    <Line X1="19" Y1="2" X2="19" Y2="37" Stroke="#FFE53935" StrokeThickness="4"/>
+                                                    <Line X1="32" Y1="7" X2="32" Y2="41" Stroke="#FFE53935" StrokeThickness="4"/>
+                                                    <Rectangle Canvas.Left="13" Canvas.Top="13" Width="25" Height="18" Stroke="#FFE67E22" StrokeDashArray="3,2"/>
+                                                </Canvas>
+                                                <TextBlock Text="50d" TextAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource DiagramChoice}" Tag="1" Click="SpliceDiagramChoice_Click" Content="55d"/>
+                                        <Button Style="{StaticResource DiagramChoice}" Tag="2" Click="SpliceDiagramChoice_Click" Content="60d"/>
+                                    </StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
                                         <TextBlock Text="Chiều dài nối (Lₛ)" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
                                         <ComboBox x:Name="SpliceLengthSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
@@ -497,6 +547,8 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
+                            <TextBlock Text="Vùng nối" Foreground="#FF52647A" FontWeight="SemiBold"/>
+                            <TextBlock Text="Chỉ xem trước · chưa bật nối giữa tầng / so le" FontSize="11" Foreground="#FF986B48" Margin="0,4,0,0"/>
                             <TextBlock x:Name="SpliceDesignStatus" Foreground="#FF986B48" TextWrapping="Wrap"
                                        Text="Chiều dài Lₛ là giá trị tham khảo theo cấu hình thiết kế. Vị trí giữa tầng và so le đang khóa cho đến khi được kiểm thử trong Revit."/>
                         </StackPanel>
