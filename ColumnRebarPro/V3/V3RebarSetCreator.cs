@@ -155,8 +155,9 @@ namespace ColumnRebarPro.V3
             var g=item.Geometry;var c=item.Config;var result=new List<V3BarPath>();
             double low=item.FoundationHost==null?V3Units.Mm(g.Bottom)+c.Cover+c.MainDiameter/2:V3Units.Mm(item.FoundationBendZ);
             double high=c.StarterBars?V3Units.Mm(g.Top)+c.StarterLength:V3Units.Mm(g.Top)-c.Cover-c.MainDiameter/2;
-            double footLength=item.FoundationHost==null?0:V3AnchorLayoutPlan.HorizontalLength(item.FoundationAnchorLengthMm,
-                V3Units.Mm(g.Bottom-item.FoundationBendZ));
+            // Ln is the horizontal L-leg dimension measured from the bend tangent
+            // to the end, not the sum of vertical embedment and horizontal leg.
+            double footLength=item.FoundationHost==null?0:item.FoundationAnchorLengthMm;
             foreach(var array in AnchorPlan(item))for(int i=0;i<array.Count;i++)
             {
                 XYZ model=g.At(V3Units.Ft(array.X+array.StepX*i),V3Units.Ft(array.Y+array.StepY*i),0);
