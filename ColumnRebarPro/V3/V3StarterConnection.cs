@@ -117,7 +117,7 @@ namespace ColumnRebarPro.V3
                         " không đủ chiều cao hình học cho phần thép chờ đi vào cột (" + Math.Round(incomingMm, 1) + " mm).");
                 upper.IncomingStarterLength = incomingMm;
                 upper.IncomingJoint = h.Bottom;
-                upper.IncomingStagger = a.StaggerSplices;
+                upper.IncomingStagger = staggerRequired; // Reflect the actual planned splice offsets, not an unused UI preference.
             }
             for (int i = 1; i < works.Count; i++)
             {
