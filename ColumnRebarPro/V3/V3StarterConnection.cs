@@ -43,9 +43,9 @@ namespace ColumnRebarPro.V3
                 // A zero or slightly negative gap cannot represent the entered beam zone.
                 // Small overlaps are not duplicate-column overlaps, but still require a
                 // matching positive beam/slab separation for a starter connection.
-                if (gapMm <= 1e-6)
-                    throw new InvalidOperationException("Chiều cao dầm nhập không khớp khoảng cách hình học giữa hai cột (" +
-                        Math.Round(gapMm, 1) + " mm). Kiểm tra cao độ và offset cột.");
+                if (gapMm <= 1e-6 && !lower.VerifiedBeamJoint)
+                    throw new InvalidOperationException("Hai cột tiếp giáp tại 0 mm nhưng chưa xác minh được dầm giao tại nút. " +
+                        "Kiểm tra cao độ, offset và hình học dầm; không dùng chiều cao dầm nhập tay để bỏ qua xác minh.");
                 if (!a.BottleneckRibbed || !b.BottleneckRibbed)
                     throw new InvalidOperationException("Nối cổ chai đầu thẳng hiện áp dụng thép có gân; thép trơn cần chi tiết móc/U phù hợp theo TCVN 5574:2018.");
                 double incomingMm = a.StarterLength - gapMm;

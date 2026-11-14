@@ -35,6 +35,10 @@ namespace ColumnRebarPro.V3
         public string LegacyConnectionNotice;
         public bool StarterBars = false;
         public double StarterLength;
+        // Terminal roof-column main bars: 90-degree inward bend, enabled only with
+        // engineer-approved horizontal leg length and geometric clearance.
+        public bool TerminalInwardHook90;
+        public double TerminalHookLegMm;
         // Engineer-supplied straight embedment for supplemental upper-floor bars; zero disables it.
         public double SupplementalAnchorLengthMm;
         // Beam data are explicit inputs; they are never inferred from a column cover or defaulted.

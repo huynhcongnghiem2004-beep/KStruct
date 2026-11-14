@@ -940,6 +940,7 @@ namespace ColumnRebarPro.V3
             }
             if (detection.Item1)
             {
+                lower.VerifiedBeamJoint = true;
                 V3BeamJointInfo info = detection.Item2;
                 lower.Config.JointBeamHeight = info.HeightMm;
                 lower.Config.BeamTopCoverMm = info.TopCoverMm;

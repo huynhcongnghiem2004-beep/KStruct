@@ -90,6 +90,8 @@ namespace ColumnRebarPro.V3
         public V3Geometry Geometry;
         public V3RebarConfig Config;
         public bool HasPrevious, HasNext;
+        // True only when Revit beam geometry was verified at this column pair's joint.
+        public bool VerifiedBeamJoint;
         public bool BottleneckToUpper;
         public double BottleneckUpperBarStart;
         internal V3ColumnConnectionPlan ConnectionPlan;

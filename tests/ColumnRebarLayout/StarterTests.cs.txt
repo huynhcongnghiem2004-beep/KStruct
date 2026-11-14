@@ -23,7 +23,7 @@ namespace ColumnRebarPro.V3
         public V3RebarConfig Config;
         public V3Geometry Geometry;
         public ColumnSegment Segment;
-        public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper;
+        public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper, VerifiedBeamJoint;
         public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
         public double IncomingSupplementalAnchorLengthMm;
         internal readonly List<V3Point2> IncomingSupplementalPositions = new List<V3Point2>();
@@ -63,6 +63,10 @@ static class StarterTests
         { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
     internal static void Run()
     {
+        var roofOnly=new List<V3SegmentWork>{Work("Mái",0,2500,true)};
+        V3StarterConnection.Resolve(roofOnly);
+        Check(!roofOnly[0].BottleneckToUpper && roofOnly[0].IncomingStarterLength==0,
+            "2500 mm roof terminal column has no upper joint and must not require beam detection");
         var pair=Pair();V3StarterConnection.Resolve(pair);
         Near(pair[1].IncomingStarterLength,1000,"400 mm beam/slab gap must be deducted from entered extension");
         Near(pair[0].Config.StarterLength,1400,"Never silently change the user's length");
@@ -70,9 +74,12 @@ static class StarterTests
         Check(pair[0].BottleneckToUpper && !pair[1].BottleneckToUpper,"Neck the lower bar only for an actual pair");
         pair[0].Config.StarterLength=1600;V3StarterConnection.Resolve(pair);
         Near(pair[1].IncomingStarterLength,1200,"Repeated resolution must not accumulate the gap");
-        Reject(()=>V3StarterConnection.Resolve(Pair(gap:0,length:1400)),"không khớp");
-        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-1,length:1400)),"không khớp");
-        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-2,length:1400)),"không khớp");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:0,length:1400)),"chưa xác minh");
+        var touching=Pair(gap:0,length:1400);touching[0].VerifiedBeamJoint=true;
+        V3StarterConnection.Resolve(touching);
+        Near(touching[1].IncomingStarterLength,1400,"Verified beam joint permits touching columns without deducting a fictional gap");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-1,length:1400)),"chưa xác minh");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-2,length:1400)),"chưa xác minh");
         Reject(()=>V3StarterConnection.Resolve(Pair(gap:-3)),"chồng lấn");
         var wideGap=Pair(gap:1500,length:2600);wideGap[0].Config.JointBeamHeight=1500;V3StarterConnection.Resolve(wideGap);
         V3StarterConnection.Resolve(Pair(length:1400,upperHeight:1800));
