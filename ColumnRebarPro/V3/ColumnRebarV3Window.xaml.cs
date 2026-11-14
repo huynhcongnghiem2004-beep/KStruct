@@ -353,8 +353,8 @@ namespace ColumnRebarPro.V3
             StarterCheck.IsChecked = c.StarterBars;
             BottleneckRibbedCheck.IsChecked = c.BottleneckRibbed;
             AllowExistingBendCheck.IsChecked = c.AllowExistingUndersizeBend;
-            BottleneckClearanceBox.Text = c.BottleneckClearanceMm.ToString(CultureInfo.InvariantCulture);
-            BottleneckSlopeBox.Text = c.BottleneckSlope > 0 ? c.BottleneckSlope.ToString(CultureInfo.InvariantCulture) : "";
+            BottleneckClearanceBox.Text = (c.BottleneckClearanceMm >= 0 ? c.BottleneckClearanceMm : 2).ToString(CultureInfo.InvariantCulture);
+            BottleneckSlopeBox.Text = (c.BottleneckSlope > 0 ? c.BottleneckSlope : 6).ToString(CultureInfo.InvariantCulture);
             StarterLengthBox.Text = c.StarterLength > 0 ? c.StarterLength.ToString(CultureInfo.InvariantCulture) : "";
             SupplementalAnchorLengthBox.Text = c.SupplementalAnchorLengthMm > 0
                 ? c.SupplementalAnchorLengthMm.ToString(CultureInfo.InvariantCulture) : "";
@@ -417,8 +417,12 @@ namespace ColumnRebarPro.V3
                 if (c.StarterBars)
                 {
                     c.StarterLength = ReadPositive(MainStarterLengthBox, "Chiều dài chờ từ đỉnh cột dưới");
-                    c.BottleneckClearanceMm = ReadPositive(BottleneckClearanceBox, "Khe hở cổ chai", true);
-                    c.BottleneckSlope = ReadPositive(BottleneckSlopeBox, "Tỷ lệ xiên 1:n");
+                    c.BottleneckClearanceMm = string.IsNullOrWhiteSpace(BottleneckClearanceBox.Text)
+                        ? 2
+                        : ReadPositive(BottleneckClearanceBox, "Khe hở cổ chai", true);
+                    c.BottleneckSlope = string.IsNullOrWhiteSpace(BottleneckSlopeBox.Text)
+                        ? 6
+                        : ReadPositive(BottleneckSlopeBox, "Tỷ lệ xiên 1:n");
                     c.BottleneckRibbed = BottleneckRibbedCheck.IsChecked == true;
                     c.AllowExistingUndersizeBend = AllowExistingBendCheck.IsChecked == true;
                     StarterLengthBox.Text = c.StarterLength.ToString(CultureInfo.InvariantCulture);

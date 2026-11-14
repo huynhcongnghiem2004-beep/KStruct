@@ -45,8 +45,8 @@ namespace ColumnRebarPro.V3
         // despite falling below the configured TCVN minimum. Not compliant by default.
         public bool AllowExistingUndersizeBend;
         public double BottleneckClearanceMm = 2;
-        // Must be entered from the approved project detail; no assumed slope.
-        public double BottleneckSlope;
+        // Default 6 corresponds to canonical 1:6 maximum slope under TCVN 5574:2018.
+        public double BottleneckSlope = 6;
         // Legacy XML fields retained for compatibility; creation no longer requires approval/reference input.
         public string DesignReference = "";
         public bool DesignValuesConfirmed;
