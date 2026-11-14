@@ -15,6 +15,10 @@ namespace ColumnRebarPro.V3
                 var c = item.Config;
                 if (g == null || c == null) throw new InvalidOperationException("Thiếu thông tin cột hoặc cấu hình thép.");
                 V3LegacySplice.ValidateForCreation(c);
+                // Fail closed until the production path builder can create and
+                // validate distinct staggered lap groups at >= 1.3 Ls.
+                if (c.StaggerSplices)
+                    throw new InvalidOperationException("Nối so le chưa có bộ tạo đường tâm và kiểm tra 1.3Ls. Không cho phép tạo thép giả nối so le.");
                 if (c.TieStyle == V3TieStyle.Unspecified || c.TieLayout == V3TieLayout.Unspecified)
                     throw new InvalidOperationException("Chọn hình dạng đai và quy tắc bố trí đai theo thiết kế đã duyệt.");
                 double[] values = { g.Width, g.Depth, g.Bottom, g.Top, c.MainDiameter,
