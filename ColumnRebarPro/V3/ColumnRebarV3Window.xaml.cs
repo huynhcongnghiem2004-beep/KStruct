@@ -647,8 +647,9 @@ namespace ColumnRebarPro.V3
 
         private void ShowAdvanced(bool show)
         {
-            CompactSurface.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
-            AdvancedSurface.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            // Both editors now live inside Tab 1; switch its nested view, not the entire window.
+            MainTabs.SelectedIndex = 0;
+            ColumnModeTabs.SelectedIndex = show ? 1 : 0;
             if (QuickAdvancedCheck.IsChecked != show)
             {
                 _compactSync = true;
@@ -661,9 +662,9 @@ namespace ColumnRebarPro.V3
             // Always allow opening Advanced to fix an incomplete design profile.
             SaveActive(false);
             string caption = (sender as Button)?.Content?.ToString() ?? "";
-            MainTabs.SelectedIndex = caption.Contains("Hook") ? 1 :
-                caption.Contains("Neo") ? 2 : 0;
             ShowAdvanced(true);
+            if (caption.Contains("Hook")) MainTabs.SelectedIndex = 1;
+            else if (caption.Contains("Neo")) MainTabs.SelectedIndex = 2;
         }
         private void QuickAdvanced_Changed(object sender, RoutedEventArgs e)
         {
