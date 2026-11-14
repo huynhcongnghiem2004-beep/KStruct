@@ -398,6 +398,18 @@ namespace ColumnRebarPro.V3
             CrossAlternateCheck.IsChecked = c.CrossTiesAlternating;
             JointTiesCheck.IsChecked = c.JointTies;
             QuickJointTiesCheck.IsChecked = c.ShowJointTies;
+            if (JointOmitTiesCheck != null) JointOmitTiesCheck.IsChecked = !c.ShowJointTies;
+            if (RoofHookCheck != null)
+            {
+                bool terminal = _segments.Count > 0 && _activeId.Value == _segments[_segments.Count - 1].Id.Value;
+                RoofHookCheck.IsEnabled = terminal;
+                RoofHookCheck.IsChecked = terminal && c.TerminalInwardHook90;
+                if (RoofHookPreset != null)
+                {
+                    double ratio = c.MainDiameter > 0 ? c.TerminalHookLegMm / c.MainDiameter : 12;
+                    RoofHookPreset.SelectedIndex = ratio >= 15 ? 2 : ratio >= 13 ? 1 : 0;
+                }
+            }
             JointHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             BeamHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             JointStepBox.Text = c.JointSpacing > 0 ? c.JointSpacing.ToString(CultureInfo.InvariantCulture) : "";
@@ -472,6 +484,16 @@ namespace ColumnRebarPro.V3
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
                 c.ShowJointTies = QuickJointTiesCheck.IsChecked == true;
+                if (JointOmitTiesCheck != null)
+                    c.ShowJointTies = JointOmitTiesCheck.IsChecked != true;
+                if (RoofHookCheck != null && RoofHookPreset != null &&
+                    _activeId.Value == _segments[_segments.Count - 1].Id.Value)
+                {
+                    double factor = RoofHookPreset.SelectedIndex == 2 ? 16 :
+                        RoofHookPreset.SelectedIndex == 1 ? 14 : 12;
+                    c.TerminalInwardHook90 = RoofHookCheck.IsChecked == true;
+                    c.TerminalHookLegMm = Math.Max(factor * c.MainDiameter, 200);
+                }
                 c.JointTies = false; // Legacy starter-zone setting remains disabled.
                 double beamHeight = ReadOptionalPositive(QuickBeamHeightBox, "Cao dầm sàn");
                 if (c.JointTies)
@@ -1170,6 +1192,34 @@ namespace ColumnRebarPro.V3
                     throw new InvalidOperationException("Không thể tự nhận diện đủ chiều cao dầm và lớp bảo vệ mặt trên cho nút " +
                         lower.Segment.LevelName + " → " + upper.Segment.LevelName + ". " + reason);
             }
+        }
+
+        private void JointOmitTies_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || JointOmitTiesCheck == null || ActiveConfig == null) return;
+            ActiveConfig.ShowJointTies = JointOmitTiesCheck.IsChecked != true;
+            QuickJointTiesCheck.IsChecked = ActiveConfig.ShowJointTies;
+            SaveActive(false);
+            DrawAnchorageElevation();
+        }
+
+        private void RoofHook_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || RoofHookCheck == null || RoofHookPreset == null ||
+                ActiveConfig == null || _segments == null || _segments.Count == 0) return;
+            bool terminal = _activeId.Value == _segments[_segments.Count - 1].Id.Value;
+            if (!terminal) return;
+            var c = ActiveConfig;
+            double factor = RoofHookPreset.SelectedIndex == 2 ? 16 :
+                RoofHookPreset.SelectedIndex == 1 ? 14 : 12;
+            double leg = Math.Max(factor * c.MainDiameter, 200);
+            c.TerminalInwardHook90 = RoofHookCheck.IsChecked == true;
+            c.TerminalHookLegMm = leg;
+            if (RoofHookHint != null)
+                RoofHookHint.Text = "Lₘ = max(" + factor.ToString("0") + "d, 200 mm) = " +
+                    leg.ToString("0.##", CultureInfo.InvariantCulture) +
+                    " mm · chỉ tạo khi hình học đủ và thiết kế đã duyệt";
+            DrawAnchorageElevation();
         }
 
         private void SplicePanel_Changed(object sender, RoutedEventArgs e)
