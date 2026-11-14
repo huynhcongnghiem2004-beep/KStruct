@@ -222,10 +222,11 @@ namespace ColumnRebarPro.V3
                         }
                         else
                         {
-                            // Geometric fallback only: the straight bar must not be
-                            // reported as having a verified anchorage at the roof.
-                            item.StarterWarning = "Cột cuối tuyến: không đủ không gian hoặc chưa xác nhận chiều dài neo móc 90°; " +
-                                "đã bỏ móc, thanh dọc kết thúc thẳng. Cần kỹ sư kiểm tra phương án neo.";
+                            // Never silently replace a requested roof hook with a straight bar.
+                            throw new InvalidOperationException(
+                                "Móc mái 90°: không đủ khoảng trống trong tiết diện hoặc chưa duyệt chiều dài Lm = " +
+                                c.TerminalHookLegMm.ToString("0.##") +
+                                " mm. Điều chỉnh thiết kế hoặc tắt tùy chọn; không tự rút ngắn móc.");
                         }
                     }
                 }
