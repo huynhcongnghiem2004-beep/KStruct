@@ -1,26 +1,39 @@
 <Window x:Class="ColumnRebarPro.V3.ColumnRebarV3Window"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KStruct | Column Rebar Pro V4" Width="1500" Height="850"
-        MinWidth="1200" MinHeight="670" WindowStartupLocation="CenterScreen"
-        Background="#FFF5F7FA" FontFamily="Segoe UI" FontSize="12"
+        Title="KStruct V4.0 – Tạo thép cột | Revit 2024" Width="1648" Height="930"
+        MinWidth="1360" MinHeight="740" WindowStartupLocation="CenterScreen"
+        Background="#FFEAF0F7" FontFamily="Segoe UI" FontSize="12"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <!-- KStruct palette is applied to the entire Column V4 interior, not only the window chrome. -->
-        <SolidColorBrush x:Key="KStructNavy" Color="#FF17365D"/>
-        <SolidColorBrush x:Key="KStructBlue" Color="#FF254D78"/>
-        <SolidColorBrush x:Key="KStructEarth" Color="#FF986B48"/>
-        <SolidColorBrush x:Key="KStructCream" Color="#FFEDE5DA"/>
+        <SolidColorBrush x:Key="KStructNavy" Color="#FF172F4C"/>
+        <SolidColorBrush x:Key="KStructBlue" Color="#FF254C76"/>
+        <SolidColorBrush x:Key="KStructEarth" Color="#FFE58A21"/>
+        <SolidColorBrush x:Key="KStructCream" Color="#FFF0F4FA"/>
         <SolidColorBrush x:Key="KStructSurface" Color="#FFF5F7FA"/>
+        <!-- Four primary WPF tabs share the navy/orange mockup visual language. -->
         <Style TargetType="TabItem">
-            <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
-            <Setter Property="Padding" Value="13,7"/>
+            <Setter Property="Foreground" Value="#FF294565"/>
+            <Setter Property="Background" Value="#FFF1F5FA"/>
+            <Setter Property="BorderBrush" Value="#FFCED8E5"/>
+            <Setter Property="Padding" Value="18,11"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="2,0,2,0"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource KStructEarth}"/>
+                    <Setter Property="Foreground" Value="#FFFFFFFF"/>
+                    <Setter Property="Background" Value="#FF183755"/>
+                    <Setter Property="BorderBrush" Value="#FFE58A21"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+        <Style x:Key="MockupSectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#FF173654"/>
+            <Setter Property="Margin" Value="4,8,4,8"/>
         </Style>
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
@@ -94,7 +107,7 @@
 
     <DockPanel LastChildFill="True">
         <!-- Persistent command bar matches mockup; legacy controls are retained inside advanced tabs. -->
-        <Border DockPanel.Dock="Bottom" Background="#FFEDE5DA" BorderBrush="#FFD2D8E0" BorderThickness="0,1,0,0" Padding="14,9">
+        <Border DockPanel.Dock="Bottom" Background="#FFF0F4FA" BorderBrush="#FFD2D8E0" BorderThickness="0,1,0,0" Padding="14,9">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <CheckBox Grid.Column="0" Content="Tạo thép 3D" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,22,0" ToolTip="Chế độ KStruct V4 hiện tạo Rebar 3D trước khi triển khai bản vẽ."/>
@@ -102,7 +115,7 @@
                 <CheckBox Grid.Column="2" x:Name="QuickAdvancedCheck" Visibility="Collapsed" Content="Mở thiết lập chi tiết" VerticalAlignment="Center" Checked="QuickAdvanced_Changed" Unchecked="QuickAdvanced_Changed"/>
                 <Button Grid.Column="4" Style="{StaticResource FlatButton}" Content="Kiểm tra V5" Width="110" Click="V5Review_Click" Margin="0,0,5,0"/>
                 <Button Grid.Column="5" Style="{StaticResource FlatButton}" Content="Xem trước dữ liệu" Width="155" Click="QuickPreview_Click"/>
-                <Button Grid.Column="6" x:Name="RunButton" Content="KIỂM TRA &amp; TẠO THÉP" FontWeight="SemiBold" Foreground="White" Background="#FF17365D" BorderBrush="#FF17365D" Padding="21,9" Margin="8,0,4,0" IsDefault="True" Click="Run_Click"/>
+                <Button Grid.Column="6" x:Name="RunButton" Content="⚙  KIỂM TRA &amp; TẠO THÉP" FontWeight="SemiBold" Foreground="White" Background="#FFE58A21" BorderBrush="#FFD97816" Padding="21,9" Margin="8,0,4,0" IsDefault="True" Click="Run_Click"/>
                 <Button Grid.Column="7" Style="{StaticResource FlatButton}" Content="Hủy" IsCancel="True" Click="Cancel_Click"/>
             </Grid>
         </Border>
@@ -110,7 +123,7 @@
             <!-- Legacy controls are retained so V4 configurations, hookups and deployment keep working. -->
             <Grid x:Name="AdvancedSurface">
                 <TabControl x:Name="MainTabs" BorderBrush="{StaticResource LineBrush}">
-                    <TabItem Header="1. Hình học &amp; bố trí thép">
+                    <TabItem Header="▥  1. TẠO THÉP CỘT">
                         <TabControl x:Name="ColumnModeTabs" BorderThickness="0" Background="Transparent">
                             <TabItem Header="Tạo thép nhanh">
             <Grid x:Name="CompactSurface">
@@ -346,7 +359,7 @@
                             </TabItem>
                         </TabControl>
                     </TabItem>
-            <TabItem Header="2. Thép đai">
+            <TabItem Header="▤  2. THÉP ĐAI">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20" Width="600" HorizontalAlignment="Left">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Đai toàn tuyến — Maximum Spacing" Margin="0,0,0,12"/>
                     <TextBlock Text="Chọn kiểu đai một lần cho toàn tuyến. Không bố trí đai tại vùng giao thực tế với dầm hoặc sàn." TextWrapping="Wrap" Foreground="#FF20665C" Margin="0,0,0,6"/>
@@ -374,7 +387,7 @@
                     <TextBlock TextWrapping="Wrap" Foreground="#FF986B48" Margin="0,8,0,0" Text="Revit tự khớp Shape có sẵn; nếu project không có hình tương ứng với đường thanh + Hook đã chọn, KStruct sẽ báo lỗi và rollback tuyến, không tạo Shape mới."/>
                 </StackPanel></ScrollViewer>
             </TabItem>
-            <TabItem Header="3. Thép móng &amp; nối tầng">
+            <TabItem Header="⌁  3. NEO &amp; NỐI TẦNG">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="18">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Thép chờ và neo chân L" Margin="0,0,0,10"/>
@@ -456,7 +469,7 @@
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
-            <TabItem Header="4. Cài đặt chung &amp; bản vẽ">
+            <TabItem Header="▧  4. TRIỂN KHAI BẢN VẼ">
                 <Grid Background="White">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Background="{StaticResource KStructCream}" BorderBrush="#FFD5C7B8" BorderThickness="0,0,0,1" Padding="15,12">
