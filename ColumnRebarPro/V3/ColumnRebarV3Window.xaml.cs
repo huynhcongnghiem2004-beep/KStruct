@@ -653,11 +653,11 @@ namespace ColumnRebarPro.V3
         {
             // Both editors now live inside Tab 1; switch its nested view, not the entire window.
             MainTabs.SelectedIndex = 0;
-            ColumnModeTabs.SelectedIndex = show ? 1 : 0;
-            if (QuickAdvancedCheck.IsChecked != show)
+            ColumnModeTabs.SelectedIndex = 0;
+            if (QuickAdvancedCheck.IsChecked != false)
             {
                 _compactSync = true;
-                QuickAdvancedCheck.IsChecked = show;
+                QuickAdvancedCheck.IsChecked = false;
                 _compactSync = false;
             }
         }
@@ -666,9 +666,10 @@ namespace ColumnRebarPro.V3
             // Always allow opening Advanced to fix an incomplete design profile.
             SaveActive(false);
             string caption = (sender as Button)?.Content?.ToString() ?? "";
-            ShowAdvanced(true);
+            ShowAdvanced(false);
             if (caption.Contains("Hook")) MainTabs.SelectedIndex = 1;
             else if (caption.Contains("Neo")) MainTabs.SelectedIndex = 2;
+            else MainTabs.SelectedIndex = 3;
         }
         private void QuickAdvanced_Changed(object sender, RoutedEventArgs e)
         {
@@ -906,7 +907,8 @@ namespace ColumnRebarPro.V3
             {
                 MainTabs.SelectedIndex = ex.Message.IndexOf("móc",StringComparison.OrdinalIgnoreCase)>=0 ||
                     ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 1 : 2;
-                ShowAdvanced(true);
+                // Keep the quick editor active; route to the relevant main tab.
+                ColumnModeTabs.SelectedIndex = 0;
                 MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

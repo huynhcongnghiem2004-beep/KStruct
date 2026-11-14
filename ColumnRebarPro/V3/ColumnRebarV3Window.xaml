@@ -99,7 +99,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <CheckBox Grid.Column="0" Content="Tạo thép 3D" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,22,0" ToolTip="Chế độ KStruct V4 hiện tạo Rebar 3D trước khi triển khai bản vẽ."/>
                 <CheckBox Grid.Column="1" x:Name="QuickDrawingCheck" Content="Tạo bản vẽ triển khai" VerticalAlignment="Center" Margin="0,0,22,0" Checked="QuickDrawing_Changed" Unchecked="QuickDrawing_Changed"/>
-                <CheckBox Grid.Column="2" x:Name="QuickAdvancedCheck" Content="Mở thiết lập chi tiết" VerticalAlignment="Center" Checked="QuickAdvanced_Changed" Unchecked="QuickAdvanced_Changed"/>
+                <CheckBox Grid.Column="2" x:Name="QuickAdvancedCheck" Visibility="Collapsed" Content="Mở thiết lập chi tiết" VerticalAlignment="Center" Checked="QuickAdvanced_Changed" Unchecked="QuickAdvanced_Changed"/>
                 <Button Grid.Column="4" Style="{StaticResource FlatButton}" Content="Kiểm tra V5" Width="110" Click="V5Review_Click" Margin="0,0,5,0"/>
                 <Button Grid.Column="5" Style="{StaticResource FlatButton}" Content="Xem trước dữ liệu" Width="155" Click="QuickPreview_Click"/>
                 <Button Grid.Column="6" x:Name="RunButton" Content="KIỂM TRA &amp; TẠO THÉP" FontWeight="SemiBold" Foreground="White" Background="#FF17365D" BorderBrush="#FF17365D" Padding="21,9" Margin="8,0,4,0" IsDefault="True" Click="Run_Click"/>
@@ -266,7 +266,7 @@
             </Grid>
 
                             </TabItem>
-                            <TabItem Header="Thiết lập chi tiết">
+                            <TabItem Header="Thiết lập chi tiết" Visibility="Collapsed" IsEnabled="False">
                         <Grid Background="White">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="12"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="400"/></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="140"/></Grid.RowDefinitions>
