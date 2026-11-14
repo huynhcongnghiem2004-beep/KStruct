@@ -404,7 +404,7 @@
                     </Grid.ColumnDefinitions>
                     <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="12" TextBlock.Foreground="#FF173657">
-                    <Border Background="#FF173657" CornerRadius="7" Padding="14" Margin="0,0,0,12"><StackPanel><TextBlock Text="03  |  NEO THÉP &amp; NỐI TẦNG" Foreground="White" FontSize="18" FontWeight="Bold"/><TextBlock Text="Thiết lập theo thiết kế được duyệt • Xác minh hình học trên mô hình Revit trước khi tạo thép" Foreground="#FFDCE7F2" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Border>
+                    <Border Background="#FF173657" CornerRadius="7" Padding="14" Margin="0,0,0,12"><StackPanel><TextBlock Text="03  |  NEO THÉP &amp; NỐI TẦNG" Foreground="White" FontSize="18" FontWeight="Bold"/><TextBlock Text="Chọn kiểu bằng hình · Rebar theo hình học Revit" Foreground="#FFDCE7F2" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Border>
                     <!-- Foundation L anchorage is the first section in the anchorage/splice tab. -->
                     <Border BorderBrush="#FFB9C9DC" BorderThickness="1" Padding="12" CornerRadius="7" Background="#FFF8FAFD" Margin="0,0,0,12">
                         <Grid>
@@ -458,7 +458,7 @@
                                     <ComboBoxItem Content="Theo trục +X cột"/><ComboBoxItem Content="Theo trục -X cột"/>
                                     <ComboBoxItem Content="Theo trục +Y cột"/><ComboBoxItem Content="Theo trục -Y cột"/>
                                 </ComboBox>
-                                <Button Style="{StaticResource DiagramChoice}" Width="93" Height="42" HorizontalAlignment="Left" Content="90°" ToolTip="Góc bẻ 90°, hiện chỉ hỗ trợ cấu hình này"/>
+                                <Border Background="#FFEAF0F7" BorderBrush="#FFC9D6E4" BorderThickness="1" CornerRadius="4" Width="93" Height="38" HorizontalAlignment="Left"><TextBlock Text="90°" FontSize="15" FontWeight="Bold" Foreground="#FF173657" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border>
                                 <TextBlock Text="Góc bẻ" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,0"/>
                                 <TextBlock Text="90° (cấu hình hiện hỗ trợ)" Foreground="#FF52647A" Margin="0,3,0,7"/>
                                 <TextBlock Text="Cover móng đáy và bên (mm)" Foreground="#FF173657"/>
@@ -472,7 +472,7 @@
                                 <Border Background="#FFF4F7FA" BorderBrush="#FFD8DFEA" BorderThickness="1">
                                     <Canvas x:Name="FoundationCanvas" Height="180" ClipToBounds="True" SizeChanged="FoundationCanvas_SizeChanged"/>
                                 </Border>
-                                <TextBlock Text="Sơ đồ hướng bẻ theo trục cột; chiều dài Lₙ lấy theo đường tâm chân ngang và phải kiểm tra trong Solid móng." FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                <TextBlock Text="Hướng theo trục cột · kiểm tra Solid móng" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
                             </StackPanel>
                             <TextBlock Grid.Row="2" Grid.ColumnSpan="2" x:Name="FoundationAnchorSummary" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="#FF315889"/>
                         </Grid>
@@ -604,6 +604,27 @@
                     <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,12" Background="#FFF8FAFC">
                         <StackPanel>
                             <TextBlock Text="③  NÚT GIAO DẦM – CỘT" FontWeight="Bold" FontSize="16" Foreground="#FF173657" Margin="0,0,0,8"/>
+                            <Border Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="5" Padding="5" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <Canvas Width="184" Height="100">
+                                        <Rectangle Canvas.Left="73" Canvas.Top="2" Width="38" Height="96" Fill="#FFE3EAF1" Stroke="#FF8396AA"/>
+                                        <Rectangle Canvas.Left="5" Canvas.Top="30" Width="174" Height="40" Fill="#FFEEF2F6" Stroke="#FF8396AA"/>
+                                        <Rectangle Canvas.Left="77" Canvas.Top="2" Width="30" Height="96" Fill="#FFE3EAF1"/>
+                                        <Line X1="82" Y1="5" X2="82" Y2="95" Stroke="#FFE53935" StrokeThickness="2.5"/>
+                                        <Line X1="101" Y1="5" X2="101" Y2="95" Stroke="#FFE53935" StrokeThickness="2.5"/>
+                                        <Rectangle Canvas.Left="79" Canvas.Top="33" Width="25" Height="34" Stroke="#FFE53935" StrokeThickness="2" Fill="Transparent"/>
+                                        <Line X1="9" Y1="50" X2="65" Y2="50" Stroke="#FF1E88E5" StrokeDashArray="4,3"/>
+                                        <Line X1="118" Y1="50" X2="175" Y2="50" Stroke="#FF1E88E5" StrokeDashArray="4,3"/>
+                                        <TextBlock Canvas.Left="17" Canvas.Top="33" Text="DẦM" FontSize="10" Foreground="#FF52647A"/>
+                                        <TextBlock Canvas.Left="129" Canvas.Top="33" Text="DẦM" FontSize="10" Foreground="#FF52647A"/>
+                                    </Canvas>
+                                    <StackPanel Margin="8,8,5,0">
+                                        <TextBlock Text="Tự nhận diện" FontWeight="SemiBold" Foreground="#FF173657"/>
+                                        <TextBlock Text="Solid Revit" Foreground="#FF986B48" Margin="0,6,0,0"/>
+                                        <TextBlock Text="Đai tại nút" Foreground="#FF52647A" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                             <CheckBox x:Name="JointAutoDetectCheck" IsChecked="True" IsEnabled="False"
                                       Content="Tự nhận diện dầm trong mô hình Revit (bắt buộc)" Foreground="#FF173657"/>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
@@ -614,13 +635,30 @@
                             <TextBlock Text="Khoảng hở mép dầm ≥ 0 mm · kiểm tra từ Solid thật" Foreground="#FF173657" Margin="0,4,0,8"/>
                             <CheckBox x:Name="JointOmitTiesCheck" Content="Bỏ bố trí đai trong nút"
                                       Foreground="#FF173657" Checked="JointOmitTies_Changed" Unchecked="JointOmitTies_Changed"/>
-                            <TextBlock Text="Khi bỏ chọn: giữ đai qua nút; khi chọn: loại bỏ theo vùng giao thực tế mà bộ tạo đai xác định."
+                            <TextBlock Text="Giữ đai / bỏ đai theo vùng giao đã xác minh"
                                        TextWrapping="Wrap" Foreground="#FF986B48" Margin="0,6,0,0"/>
                         </StackPanel>
                     </Border>
                     <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,12" Background="#FFF8FAFC">
                         <StackPanel>
                             <TextBlock Text="④  KẾT THÚC THÉP CỘT MÁI" FontWeight="Bold" FontSize="16" Foreground="#FF173657" Margin="0,0,0,8"/>
+                            <Border Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="5" Padding="5" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <Canvas Width="155" Height="98">
+                                        <Rectangle Canvas.Left="39" Canvas.Top="9" Width="75" Height="86" Fill="#FFE8EDF3" Stroke="#FF8296AA"/>
+                                        <Path Data="M 52,93 L 52,26 Q 52,18 60,18 L 94,18" Stroke="#FFE53935" StrokeThickness="4" Fill="None"/>
+                                        <Path Data="M 101,93 L 101,26 Q 101,18 93,18 L 65,18" Stroke="#FFE53935" StrokeThickness="4" Fill="None"/>
+                                        <Line X1="63" Y1="32" X2="95" Y2="32" Stroke="#FF1E88E5" StrokeThickness="1" StrokeDashArray="3,2"/>
+                                        <TextBlock Canvas.Left="116" Canvas.Top="21" Text="Lm" Foreground="#FF1E88E5" FontWeight="Bold"/>
+                                        <TextBlock Canvas.Left="8" Canvas.Top="4" Text="90°" Foreground="#FFE67E22" FontWeight="SemiBold"/>
+                                    </Canvas>
+                                    <StackPanel Margin="7,9,4,0">
+                                        <TextBlock Text="Móc 90°" FontWeight="SemiBold" Foreground="#FF173657"/>
+                                        <TextBlock Text="12d • ≥ 200" Foreground="#FF986B48" Margin="0,6,0,0"/>
+                                        <TextBlock Text="Kiểm tra cover" Foreground="#FF52647A" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                             <CheckBox x:Name="RoofHookCheck" Content="Móc 90° hướng vào tâm cột (tầng cuối)"
                                       Foreground="#FF173657" Checked="RoofHook_Changed" Unchecked="RoofHook_Changed"/>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
@@ -632,7 +670,7 @@
                             </StackPanel>
                             <TextBlock x:Name="RoofHookHint" Text="Lₘ = max(12d, 200 mm) · kiểm tra không gian bẻ"
                                        Foreground="#FF986B48" TextWrapping="Wrap"/>
-                            <TextBlock Text="Không đủ khoảng trống hoặc chưa phê duyệt: chặn tạo Rebar, không tự rút ngắn móc."
+                            <TextBlock Text="Không đủ khoảng trống: chặn tạo Rebar"
                                        Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/>
                         </StackPanel>
                     </Border>
