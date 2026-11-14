@@ -1238,6 +1238,33 @@ namespace ColumnRebarPro.V3
             DrawAnchorageElevation();
         }
 
+        private static void HighlightDiagramChoice(Button choice, bool selected)
+        {
+            if (choice == null) return;
+            choice.Background = selected
+                ? new SolidColorBrush(Color.FromRgb(255, 241, 219))
+                : new SolidColorBrush(Color.FromRgb(248, 250, 252));
+            choice.BorderBrush = selected
+                ? new SolidColorBrush(Color.FromRgb(230, 126, 34))
+                : new SolidColorBrush(Color.FromRgb(201, 214, 228));
+            choice.BorderThickness = selected ? new Thickness(2, 2, 2, 3) : new Thickness(1, 1, 1, 3);
+        }
+
+        private void RefreshDiagramSelections()
+        {
+            if (FoundationDirectionBox != null)
+            {
+                HighlightDiagramChoice(FoundationInwardVisual, FoundationDirectionBox.SelectedIndex == 0);
+                HighlightDiagramChoice(FoundationOutwardVisual, FoundationDirectionBox.SelectedIndex == 1);
+            }
+            if (SpliceLengthSelector != null)
+            {
+                HighlightDiagramChoice(Splice50Visual, SpliceLengthSelector.SelectedIndex == 0);
+                HighlightDiagramChoice(Splice55Visual, SpliceLengthSelector.SelectedIndex == 1);
+                HighlightDiagramChoice(Splice60Visual, SpliceLengthSelector.SelectedIndex == 2);
+            }
+        }
+
         private void FoundationDiagramChoice_Click(object sender, RoutedEventArgs e)
         {
             if (FoundationDirectionBox == null) return;
@@ -1248,6 +1275,7 @@ namespace ColumnRebarPro.V3
             if (FoundationAnchorCheck != null && FoundationAnchorCheck.IsChecked != true)
                 FoundationAnchorCheck.IsChecked = true;
             UpdateFoundationAnchorSummary();
+            RefreshDiagramSelections();
         }
 
         private void SpliceDiagramChoice_Click(object sender, RoutedEventArgs e)
@@ -1257,6 +1285,7 @@ namespace ColumnRebarPro.V3
             int index;
             if (button == null || !int.TryParse(button.Tag as string, out index)) return;
             SpliceLengthSelector.SelectedIndex = index;
+            RefreshDiagramSelections();
             if (SplicePanelToggle != null && SplicePanelToggle.IsChecked != true)
                 SplicePanelToggle.IsChecked = true;
         }
@@ -1269,6 +1298,7 @@ namespace ColumnRebarPro.V3
             double factor = index == 0 ? 50 : index == 1 ? 55 : 60;
             double diameter = _configs[_segments[0].Id.Value].MainDiameter;
             double lap = Math.Max(600, factor * diameter);
+            RefreshDiagramSelections();
             SpliceLengthHint.Text = "Lₛ = max(" + factor.ToString("0") + "d, 600 mm) = " +
                 lap.ToString("0.##", CultureInfo.InvariantCulture) + " mm · cần thiết kế duyệt";
             if (SpliceDesignStatus != null)
@@ -1296,6 +1326,7 @@ namespace ColumnRebarPro.V3
             }
             else FoundationLengthHint.Text = "Nhập Lₙ (mm), tối thiểu 400 mm; cần thiết kế duyệt";
             SetFoundationControlState();
+            RefreshDiagramSelections();
             UpdateFoundationAnchorSummary();
         }
 
