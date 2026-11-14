@@ -342,4 +342,31 @@ Check(V5ExecutionGatePolicy.Review(executionEvidence).IsReady,
     "All six independent evidence flags must be provided for hypothetical readiness");
 Check(!v5Ready.CanCreateRebar,
     "Even validated evidence does not bypass the V5 hard Rebar write lock");
+// Every V5 structural gate must independently block release, even if all others pass.
+var allEvidence=new V5ExecutionEvidence {
+    HostSolidIsConcrete=true,
+    PhysicalCoverFacesVerified=true,
+    JointsAndSupportsVerified=true,
+    AnchorsAndLapsApproved=true,
+    OwnershipAndRollbackVerified=true,
+    ViewsTagsDimensionsVerified=true
+};
+allEvidence.HostSolidIsConcrete=false;
+Check(V5ExecutionGatePolicy.Review(allEvidence).Blockers.Count==1,"Host concrete gate independent");
+allEvidence.HostSolidIsConcrete=true;
+allEvidence.PhysicalCoverFacesVerified=false;
+Check(V5ExecutionGatePolicy.Review(allEvidence).Blockers.Count==1,"Physical cover gate independent");
+allEvidence.PhysicalCoverFacesVerified=true;
+allEvidence.JointsAndSupportsVerified=false;
+Check(V5ExecutionGatePolicy.Review(allEvidence).Blockers.Count==1,"Joint and support gate independent");
+allEvidence.JointsAndSupportsVerified=true;
+allEvidence.AnchorsAndLapsApproved=false;
+Check(V5ExecutionGatePolicy.Review(allEvidence).Blockers.Count==1,"Anchorage and lap gate independent");
+allEvidence.AnchorsAndLapsApproved=true;
+allEvidence.OwnershipAndRollbackVerified=false;
+Check(V5ExecutionGatePolicy.Review(allEvidence).Blockers.Count==1,"Ownership and rollback gate independent");
+allEvidence.OwnershipAndRollbackVerified=true;
+allEvidence.ViewsTagsDimensionsVerified=false;
+Check(V5ExecutionGatePolicy.Review(allEvidence).Blockers.Count==1,"Drawing gate independent");
+Check(!v5Ready.CanCreateRebar,"V5 writer remains disabled even after input validation");
 Console.WriteLine("PASS: "+checks+" V5 audit JSON, geometry, Rebar classification and ownership policy checks.");
