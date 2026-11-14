@@ -26,6 +26,8 @@ namespace ColumnRebarPro.V3
             double high = g.Top - V3Units.Ft(c.Cover + c.MainDiameter / 2);
 
             if (c.StarterBars) high = Math.Max(high, g.Top + V3Units.Ft(c.StarterLength));
+            if (c.TerminalInwardHook90)
+                throw new InvalidOperationException("Móc 90° cột cuối tuyến phải tạo bằng đường thép định hình, không được dùng thép thẳng.");
             // V4: create from actual design curves using project Shapes. No manual selection.
 
             CreateStraightArray(doc, item, type, g.At(-hx, -hy, 0), g.X,
@@ -193,7 +195,27 @@ namespace ColumnRebarPro.V3
                     if(!connection.Terminated)
                         path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high+connection.SpliceEndOffsetMm));
                 }
-                else path.Points.Add(new V3Point3(xy.X,xy.Y,high));
+                else
+                {
+                    path.Points.Add(new V3Point3(xy.X,xy.Y,high));
+                    if (c.TerminalInwardHook90)
+                    {
+                        if (item.HasNext || item.BottleneckToUpper || c.StarterBars)
+                            throw new InvalidOperationException("Móc 90° hướng tâm chỉ áp dụng cho cột cuối tuyến, không có thép chờ lên tầng trên.");
+                        if (!c.DesignValuesConfirmed || c.TerminalHookLegMm <= 0 ||
+                            double.IsNaN(c.TerminalHookLegMm) || double.IsInfinity(c.TerminalHookLegMm))
+                            throw new InvalidOperationException("Móc 90° đỉnh cột cần chiều dài đoạn ngang được kỹ sư xác nhận trước khi tạo thép.");
+                        XYZ center = g.At(0, 0, 0);
+                        double dx = V3Units.Mm(center.X) - xy.X;
+                        double dy = V3Units.Mm(center.Y) - xy.Y;
+                        double distance = Math.Sqrt(dx * dx + dy * dy);
+                        double radius = (c.MainDiameter + c.TieDiameter) / 2;
+                        if (distance <= radius || c.TerminalHookLegMm > distance - radius)
+                            throw new InvalidOperationException("Chiều dài móc 90° không nằm gọn trong tiết diện cột; cần chi tiết neo khác được duyệt.");
+                        double scale = c.TerminalHookLegMm / distance;
+                        path.Points.Add(new V3Point3(xy.X + dx * scale, xy.Y + dy * scale, high));
+                    }
+                }
                 result.Add(path);
             }
             return result;
