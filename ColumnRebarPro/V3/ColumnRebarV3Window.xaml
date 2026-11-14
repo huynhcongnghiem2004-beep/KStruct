@@ -465,6 +465,11 @@
                             </Border>
                             <TextBlock DockPanel.Dock="Bottom" Text="Sơ đồ theo cao độ mô hình; vị trí dầm chưa xác minh không phải cấu kiện thật." FontSize="11" TextWrapping="Wrap" Foreground="#FF986B48" Margin="3,8,3,0"/>
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Border Background="#FFF7F9FC" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="5" Padding="5" Margin="0,0,0,9">
+                                        <Canvas x:Name="AnchorageElevationCanvas" Height="340" SizeChanged="AnchorageElevationCanvas_SizeChanged" ClipToBounds="True"/>
+                                    </Border>
+                                    <TextBlock Text="CHỌN TẦNG ĐỂ CHỈNH THÔNG SỐ" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,0,0,7"/>
                                 <ItemsControl x:Name="AnchorageRouteList">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -485,6 +490,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                </StackPanel>
                             </ScrollViewer>
                         </DockPanel>
                     </Border>
