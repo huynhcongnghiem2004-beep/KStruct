@@ -193,6 +193,7 @@ namespace ColumnRebarPro.V3
             FloorList.ItemsSource = _rows;
             AnchorageRouteList.ItemsSource = _rows;
             AnchorageSectionList.ItemsSource = _rows;
+            AnchorageElevationCanvas.Dispatcher.BeginInvoke(new Action(DrawAnchorageElevation));
             CountLabel.Text = "Số lượng: " + _rows.Count;
             _loading = false;
             FloorList.SelectedIndex = Math.Max(0, _rows.Count - 1);
@@ -488,6 +489,7 @@ namespace ColumnRebarPro.V3
                 _configs[_activeId.Value] = c;
                 var row = ActiveRow;
                 if (row != null) RefreshFloorPreview(row, c);
+                DrawAnchorageElevation();
                 TieLayoutControlState();
                 UpdateSummary();
                 return true;
@@ -721,6 +723,63 @@ namespace ColumnRebarPro.V3
                 config.EndSpacing + " / a" + config.MidSpacing +
                 "\nĐây là bản xem trước hình học; không thay thế kiểm tra kết cấu và bản vẽ thi công.",
                 "KStruct - Xem trước dữ liệu", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void AnchorageElevationCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            DrawAnchorageElevation();
+        }
+
+        // Read-only elevation based on selected host levels and configured bars.
+        // It deliberately does not assert verified beam geometry, lap length or hook shape.
+        private void DrawAnchorageElevation()
+        {
+            var canvas = AnchorageElevationCanvas;
+            if (canvas == null || _segments == null || _segments.Count == 0) return;
+            canvas.Children.Clear();
+            double w = canvas.ActualWidth, h = canvas.ActualHeight;
+            if (w < 110 || h < 110) return;
+            double bottom = _segments.Min(v => v.BottomMm);
+            double top = _segments.Max(v => v.TopMm);
+            double scale = (h - 55) / Math.Max(1, top - bottom);
+            double center = w * 0.49;
+            Func<double, double> yy = z => h - 26 - (z - bottom) * scale;
+            Action<double, double, string, Brush> label = (x, y, value, brush) =>
+            {
+                var t = new TextBlock { Text = value, FontSize = 10, Foreground = brush,
+                    TextWrapping = TextWrapping.Wrap, MaxWidth = Math.Max(60, w * .42) };
+                Canvas.SetLeft(t, x); Canvas.SetTop(t, y);
+                canvas.Children.Add(t);
+            };
+            label(5, 2, "CAO ĐỘ MÔ HÌNH · " + _segments.Count + " TẦNG", Brushes.DarkSlateBlue);
+            foreach (var seg in _segments)
+            {
+                V3RebarConfig cfg;
+                if (!_configs.TryGetValue(seg.Id.Value, out cfg)) continue;
+                double half = Math.Max(10, Math.Min(30, seg.WidthMm * .09));
+                double yTop = yy(seg.TopMm), yBottom = yy(seg.BottomMm);
+                var host = new Rectangle { Width = half * 2, Height = Math.Max(1, yBottom - yTop),
+                    Stroke = Brushes.SlateGray, StrokeThickness = 1.2,
+                    Fill = new SolidColorBrush(Color.FromArgb(30, 80, 116, 153)) };
+                Canvas.SetLeft(host, center - half); Canvas.SetTop(host, yTop);
+                canvas.Children.Add(host);
+                double inset = Math.Min(half * .35, 7);
+                foreach (double xx in new[] { center - half + inset, center + half - inset })
+                    canvas.Children.Add(new Line { X1 = xx, X2 = xx, Y1 = yTop + 2,
+                        Y2 = yBottom - 2, Stroke = Brushes.Firebrick, StrokeThickness = 2 });
+                canvas.Children.Add(new Line { X1 = 5, X2 = w - 5, Y1 = yBottom, Y2 = yBottom,
+                    Stroke = Brushes.LightSlateGray, StrokeThickness = .7,
+                    StrokeDashArray = new DoubleCollection { 4, 3 } });
+                label(5, Math.Max(18, yBottom - 15), seg.LevelName, Brushes.DarkSlateGray);
+                label(center + half + 5, (yTop + yBottom) / 2,
+                    FormatBars(cfg), Brushes.Firebrick);
+            }
+            for (int i = 0; i < _segments.Count - 1; i++)
+            {
+                double z = _segments[i].TopMm;
+                label(center + 30, yy(z) - 11, "Nút: chưa xác minh dầm", Brushes.DarkOrange);
+            }
+            label(5, h - 14, "Đường đỏ: thép chủ minh họa; chưa thể hiện neo/nối/uốn thực.", Brushes.Gray);
         }
 
         private void AnchorageReviewFloor_Click(object sender, RoutedEventArgs e)
