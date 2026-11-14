@@ -752,6 +752,28 @@ namespace ColumnRebarPro.V3
                 canvas.Children.Add(t);
             };
             label(5, 2, "CAO ĐỘ MÔ HÌNH · " + _segments.Count + " TẦNG", Brushes.DarkSlateBlue);
+            V3VerifiedPathSnapshot snapshot = null;
+            string verificationWarning = null;
+            if (_document != null)
+            {
+                try
+                {
+                    var works = _segments.Select(seg => new V3SegmentWork {
+                        Column = _document.GetElement(seg.Id) as Autodesk.Revit.DB.FamilyInstance,
+                        Segment = seg, Geometry = _geometry[seg.Id.Value],
+                        Config = _configs[seg.Id.Value].Copy()
+                    }).ToList();
+                    var anchor = CaptureFoundationAnchorSettings();
+                    snapshot = V3VerifiedPathSnapshot.Prepare(_document, works, anchor, true);
+                }
+                catch (Exception ex)
+                {
+                    verificationWarning = ex.Message;
+                }
+            }
+            if (verificationWarning != null)
+                label(5, 18, "CHƯA XÁC MINH: " + verificationWarning, Brushes.DarkOrange);
+
             foreach (var seg in _segments)
             {
                 V3RebarConfig cfg;
@@ -767,42 +789,25 @@ namespace ColumnRebarPro.V3
                 // Project the SAME path generator used by the shaped-Rebar builder.
                 // Only the unconnected, non-foundation path is valid without resolving
                 // beam joints, splice pairing and foundation-host geometry first.
-                bool complex = cfg.FoundationAnchorEnabled || (cfg.StarterBars) ||
-                    _segments.Count > 1 && _segments.Any(v => v.Id.Value != seg.Id.Value);
-                if (!complex && _geometry.ContainsKey(seg.Id.Value))
+                List<V3BarPath> verifiedPaths;
+                if (snapshot != null && snapshot.Paths.TryGetValue(seg.Id.Value, out verifiedPaths))
                 {
-                    try
-                    {
-                        var work = new V3SegmentWork {
-                            Geometry = _geometry[seg.Id.Value], Config = cfg,
-                            Segment = seg, HasNext = false, HasPrevious = false
-                        };
-                        var paths = V3RebarSetCreator.ConnectionPaths(work);
-                        foreach (var path in paths)
+                    var g = _geometry[seg.Id.Value];
+                    foreach (var path in verifiedPaths)
+                        for (int j = 1; j < path.Points.Count; j++)
                         {
-                            for (int j = 1; j < path.Points.Count; j++)
-                            {
-                                var a = path.Points[j - 1]; var b = path.Points[j];
-                                // Projection along the column's local X axis.
-                                var g = work.Geometry;
-                                double ax = (V3Units.Ft(a.X) - g.Center.X) * g.X.X +
-                                    (V3Units.Ft(a.Y) - g.Center.Y) * g.X.Y;
-                                double bx = (V3Units.Ft(b.X) - g.Center.X) * g.X.X +
-                                    (V3Units.Ft(b.Y) - g.Center.Y) * g.X.Y;
-                                canvas.Children.Add(new Line {
-                                    X1 = center + ax / Math.Max(.001, g.Width / 2) * half,
-                                    X2 = center + bx / Math.Max(.001, g.Width / 2) * half,
-                                    Y1 = yy(a.Z), Y2 = yy(b.Z),
-                                    Stroke = Brushes.Firebrick, StrokeThickness = 1.3
-                                });
-                            }
+                            var a = path.Points[j - 1]; var b = path.Points[j];
+                            double ax = (V3Units.Ft(a.X) - g.Center.X) * g.X.X +
+                                (V3Units.Ft(a.Y) - g.Center.Y) * g.X.Y;
+                            double bx = (V3Units.Ft(b.X) - g.Center.X) * g.X.X +
+                                (V3Units.Ft(b.Y) - g.Center.Y) * g.X.Y;
+                            canvas.Children.Add(new Line {
+                                X1 = center + ax / Math.Max(.001, g.Width / 2) * half,
+                                X2 = center + bx / Math.Max(.001, g.Width / 2) * half,
+                                Y1 = yy(a.Z), Y2 = yy(b.Z),
+                                Stroke = Brushes.Firebrick, StrokeThickness = 1.3
+                            });
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        label(center + half + 5, yTop + 3,
-                            "Chưa dựng được đường thép: " + ex.Message, Brushes.DarkOrange);
-                    }
                 }
                 else
                 {
@@ -821,7 +826,8 @@ namespace ColumnRebarPro.V3
             for (int i = 0; i < _segments.Count - 1; i++)
             {
                 double z = _segments[i].TopMm;
-                label(center + 30, yy(z) - 11, "Nút: chưa xác minh dầm", Brushes.DarkOrange);
+                if (snapshot == null)
+                    label(center + 30, yy(z) - 11, "Nút: chưa xác minh dầm", Brushes.DarkOrange);
             }
             label(5, h - 14, "Đỏ: đường tâm từ builder khi đủ dữ liệu; nét đứt: chưa xác minh.", Brushes.Gray);
         }
