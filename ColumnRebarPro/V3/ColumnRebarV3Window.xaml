@@ -471,7 +471,10 @@
                                             <Border Background="#FFF4F7FA" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="5" Padding="9" Margin="0,0,0,7">
                                                 <StackPanel>
                                                     <Button Content="{Binding Segment.LevelName}" Tag="{Binding Segment.Id}" Click="AnchorageReviewFloor_Click" Background="#FFEAF0F7" Foreground="#FF173657" FontWeight="SemiBold" Padding="6" HorizontalContentAlignment="Left" ToolTip="Chọn tầng này để chỉnh thông số"/>
+                                                    <TextBlock Text="{Binding HeightText}" Foreground="#FF556A80" FontSize="11" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding SizeText}" Foreground="#FF556A80" FontSize="11"/>
                                                     <TextBlock Text="{Binding BarText}" Foreground="#FF986B48" FontSize="11" Margin="0,3,0,0"/>
+                                                    <TextBlock Text="{Binding TieTag}" Foreground="#FF556A80" FontSize="11" TextWrapping="Wrap"/>
                                                     <Grid Height="34" Margin="0,6,0,0">
                                                         <Rectangle Width="34" HorizontalAlignment="Center" Fill="#FFE5EAF0" Stroke="#FF778A9D"/>
                                                         <Rectangle Width="22" HorizontalAlignment="Center" Fill="Transparent" Stroke="#FFD34835" StrokeThickness="2"/>
