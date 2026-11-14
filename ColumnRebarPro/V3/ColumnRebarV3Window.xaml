@@ -439,6 +439,67 @@
                         </Grid>
                     </Border>
 
+                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Background="#FFF8FAFD" Padding="10" Margin="0,0,0,12">
+                        <StackPanel>
+                            <DockPanel Background="#FFE7EDF5" Margin="0,0,0,10">
+                                <CheckBox x:Name="SplicePanelToggle" DockPanel.Dock="Right" Content="Bật nối" IsChecked="True"
+                                          Checked="SplicePanel_Changed" Unchecked="SplicePanel_Changed"
+                                          Foreground="#FF173657" Margin="8" VerticalAlignment="Center"/>
+                                <TextBlock Text="②  Nối thép giữa các tầng" FontWeight="Bold" FontSize="16"
+                                           Foreground="#FF173657" Margin="8"/>
+                            </DockPanel>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="225"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                        <TextBlock Text="Kiểu nối" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
+                                        <ComboBox x:Name="SpliceMethodSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
+                                            <ComboBoxItem Content="Nối chồng"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                        <TextBlock Text="Chiều dài nối (Lₛ)" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
+                                        <ComboBox x:Name="SpliceLengthSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
+                                            <ComboBoxItem Content="50d"/><ComboBoxItem Content="55d"/><ComboBoxItem Content="60d"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <TextBlock x:Name="SpliceLengthHint" Text="Lₛ = max(50d, 600 mm); cần thiết kế phê duyệt"
+                                               Foreground="#FF986B48" TextWrapping="Wrap" Margin="132,0,0,7"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                        <TextBlock Text="Vị trí nối" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
+                                        <ComboBox x:Name="SplicePositionSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
+                                            <ComboBoxItem Content="Giữa chiều cao tầng"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox x:Name="SpliceStaggerCheck" Content="Bố trí so le" IsChecked="False"
+                                                  Checked="SplicePanel_Changed" Unchecked="SplicePanel_Changed"
+                                                  Foreground="#FF173657" Margin="0,0,10,0"/>
+                                        <TextBlock Text="≥ 1.3Lₛ" Foreground="#FF986B48" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Border Grid.Column="1" Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1" Padding="5">
+                                    <StackPanel>
+                                        <Canvas Height="128" Width="200">
+                                            <Rectangle Canvas.Left="65" Canvas.Top="4" Width="70" Height="120" Stroke="#FF8493A7" StrokeThickness="1.5"/>
+                                            <Line X1="83" Y1="4" X2="83" Y2="124" Stroke="#FFC54D3A" StrokeThickness="4"/>
+                                            <Line X1="113" Y1="4" X2="113" Y2="124" Stroke="#FFC54D3A" StrokeThickness="4"/>
+                                            <Rectangle Canvas.Left="70" Canvas.Top="38" Width="60" Height="60" Stroke="#FFB78B67" StrokeDashArray="3,3" Fill="#18C28A54"/>
+                                            <Line X1="150" Y1="38" X2="150" Y2="98" Stroke="#FF173657"/>
+                                            <TextBlock Canvas.Left="156" Canvas.Top="56" Text="Lₛ" Foreground="#FF173657" FontWeight="Bold"/>
+                                        </Canvas>
+                                        <TextBlock Text="Minh họa nối chồng · chưa phải Rebar 3D"
+                                                   FontSize="10" Foreground="#FF986B48" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="SpliceDesignStatus" Foreground="#FF986B48" TextWrapping="Wrap"
+                                       Text="Cấu hình nối theo mockup; chưa kích hoạt nối giữa chiều cao tầng và so le trong bộ tạo Rebar."/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Existing validated pairing and bottleneck controls remain instantiated,
+                         but are deliberately hidden from the simplified mockup panel. -->
+                    <StackPanel Visibility="Collapsed">
                     <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,0,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="02  |  NỐI THÉP GIỮA CÁC TẦNG"/></Border>
                     <TextBlock Text="Cùng thiết lập thép chờ ở tab Hình học; thay đổi được đồng bộ hai tab." TextWrapping="Wrap" Margin="0,0,0,8"/>
                     <TextBlock x:Name="LegacyConnectionSummary" TextWrapping="Wrap" Foreground="#FF9A5700" Margin="0,0,0,6"/>
@@ -483,6 +544,7 @@
                             <TextBlock Text="TCVN 5574:2018: kiểm tra gối uốn theo 10.3.7 và giới hạn dưới đoạn nối theo 10.3.6.2. Chiều dài nối tính toán và cấu tạo đai vẫn lấy theo thiết kế." TextWrapping="Wrap" Margin="0,7,0,0"/>
                         </StackPanel>
                     </GroupBox>
+                    </StackPanel>
                     <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,4,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="03  |  NÚT GIAO DẦM – CỘT"/></Border>
                     <Border BorderBrush="#FFD8DFEA" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,12"><StackPanel><TextBlock FontWeight="SemiBold" Text="Xác minh dầm từ mô hình Revit" Foreground="#FF173657"/><TextBlock Text="Chiều cao dầm khác với khe hở giữa hai đoạn cột. Hai cột tiếp giáp 0 mm không tự động là sai hình học. KStruct kiểm tra dầm thực tế tại bước tạo thép; chiều cao nhập tay không thay thế xác minh hình học." TextWrapping="Wrap" Margin="0,6,0,0"/><TextBlock Text="Đối với dầm giao nhiều hướng hoặc khác chiều cao, cần kiểm tra riêng từng cấu kiện trước khi chấp thuận neo/nối." Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel></Border>
                     <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,0,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="04  |  KẾT THÚC THÉP CỘT MÁI"/></Border>
