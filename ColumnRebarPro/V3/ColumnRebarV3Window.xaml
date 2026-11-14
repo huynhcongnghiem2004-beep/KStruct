@@ -549,10 +549,41 @@
                         </StackPanel>
                     </GroupBox>
                     </StackPanel>
-                    <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,4,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="03  |  NÚT GIAO DẦM – CỘT"/></Border>
-                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,12"><StackPanel><TextBlock FontWeight="SemiBold" Text="Xác minh dầm từ mô hình Revit" Foreground="#FF173657"/><TextBlock Text="Chiều cao dầm khác với khe hở giữa hai đoạn cột. Hai cột tiếp giáp 0 mm không tự động là sai hình học. KStruct kiểm tra dầm thực tế tại bước tạo thép; chiều cao nhập tay không thay thế xác minh hình học." TextWrapping="Wrap" Margin="0,6,0,0"/><TextBlock Text="Đối với dầm giao nhiều hướng hoặc khác chiều cao, cần kiểm tra riêng từng cấu kiện trước khi chấp thuận neo/nối." Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel></Border>
-                    <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,0,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="04  |  KẾT THÚC THÉP CỘT MÁI"/></Border>
-                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,12"><StackPanel><TextBlock FontWeight="SemiBold" Text="Móc 90° hướng vào tâm cột" Foreground="#FF173657"/><TextBlock Text="Cấu hình móc đỉnh cột nằm trong thông số thép dọc. Chỉ áp dụng cho cột cuối tuyến, không có nối tầng phía trên. Nếu không đủ không gian uốn và chiều dài neo thiết kế, giữ thanh thẳng và cảnh báo chưa xác minh neo." TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel></Border>
+                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,12" Background="#FFF8FAFC">
+                        <StackPanel>
+                            <TextBlock Text="③  NÚT GIAO DẦM – CỘT" FontWeight="Bold" FontSize="16" Foreground="#FF173657" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="JointAutoDetectCheck" IsChecked="True" IsEnabled="False"
+                                      Content="Tự nhận diện dầm trong mô hình Revit (bắt buộc)" Foreground="#FF173657"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
+                                <CheckBox Content="Nhập chiều cao dầm" IsEnabled="False" Foreground="#FF52647A" Width="180"/>
+                                <TextBox Width="95" IsEnabled="False" Text="300" Style="{StaticResource AnchorageDisabledText}"/>
+                                <TextBlock Text="mm · chỉ minh họa, không thay thế Solid" Margin="8,2,0,0" Foreground="#FF986B48"/>
+                            </StackPanel>
+                            <TextBlock Text="Khoảng hở mép dầm ≥ 0 mm · kiểm tra từ Solid thật" Foreground="#FF173657" Margin="0,4,0,8"/>
+                            <CheckBox x:Name="JointOmitTiesCheck" Content="Bỏ bố trí đai trong nút"
+                                      Foreground="#FF173657" Checked="JointOmitTies_Changed" Unchecked="JointOmitTies_Changed"/>
+                            <TextBlock Text="Khi bỏ chọn: giữ đai qua nút; khi chọn: loại bỏ theo vùng giao thực tế mà bộ tạo đai xác định."
+                                       TextWrapping="Wrap" Foreground="#FF986B48" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,12" Background="#FFF8FAFC">
+                        <StackPanel>
+                            <TextBlock Text="④  KẾT THÚC THÉP CỘT MÁI" FontWeight="Bold" FontSize="16" Foreground="#FF173657" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="RoofHookCheck" Content="Móc 90° hướng vào tâm cột (tầng cuối)"
+                                      Foreground="#FF173657" Checked="RoofHook_Changed" Unchecked="RoofHook_Changed"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
+                                <TextBlock Text="Chiều dài neo mái Lₘ" Width="165" Foreground="#FF173657" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="RoofHookPreset" Width="105" SelectedIndex="0" SelectionChanged="RoofHook_Changed">
+                                    <ComboBoxItem Content="12d"/><ComboBoxItem Content="14d"/><ComboBoxItem Content="16d"/>
+                                </ComboBox>
+                                <TextBlock Text="≥ 200 mm" Margin="10,2,0,0" Foreground="#FF986B48"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RoofHookHint" Text="Lₘ = max(12d, 200 mm) · kiểm tra không gian bẻ"
+                                       Foreground="#FF986B48" TextWrapping="Wrap"/>
+                            <TextBlock Text="Không đủ khoảng trống hoặc chưa phê duyệt: chặn tạo Rebar, không tự rút ngắn móc."
+                                       Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
                     <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#FF986B48"
                         Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Ghép cổ chai theo vị trí thực khi cùng số thanh; nối so le và tự bổ sung/kết thúc khi đổi số thanh chưa được hỗ trợ. Bản vẽ là DRAFT."/>
                 </StackPanel>
