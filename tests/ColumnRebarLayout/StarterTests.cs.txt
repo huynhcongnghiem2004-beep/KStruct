@@ -63,6 +63,10 @@ static class StarterTests
         { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
     internal static void Run()
     {
+        var roofOnly=new List<V3SegmentWork>{Work("Mái",0,2500,true)};
+        V3StarterConnection.Resolve(roofOnly);
+        Check(!roofOnly[0].BottleneckToUpper && roofOnly[0].IncomingStarterLength==0,
+            "2500 mm roof terminal column has no upper joint and must not require beam detection");
         var pair=Pair();V3StarterConnection.Resolve(pair);
         Near(pair[1].IncomingStarterLength,1000,"400 mm beam/slab gap must be deducted from entered extension");
         Near(pair[0].Config.StarterLength,1400,"Never silently change the user's length");
