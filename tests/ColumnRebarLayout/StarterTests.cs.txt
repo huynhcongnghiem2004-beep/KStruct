@@ -92,6 +92,10 @@ static class StarterTests
         pair=Pair();pair[0].Config.StaggerSplices=true;
         V3StarterConnection.Resolve(pair);
         Check(pair[1].IncomingSpliceOffsets.Count==12,"Stagger all splices when needed to keep each section at or below 50 percent");
+        var continuousPair=new List<V3SegmentWork>{Work("Trệt",0,3600,true,1200),Work("Lầu 1",3600,7200,false)};
+        continuousPair[0].Config.JointBeamHeight=350;
+        V3StarterConnection.Resolve(continuousPair);
+        Check(continuousPair[1].IncomingSpliceOffsets.Count==12,"Continuous columns with equal bar count resolve 50% stagger even when beam height is smaller than stagger offset");
         pair=Pair();pair[0].Config.BottleneckRibbed=false;
         Reject(()=>V3StarterConnection.Resolve(pair),"thép trơn");
         pair=Pair();pair[0].Config.BottleneckSlope=1000;

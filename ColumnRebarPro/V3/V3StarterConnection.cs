@@ -73,7 +73,7 @@ namespace ColumnRebarPro.V3
                     if(staggeredLap<minimumLap-1e-6)
                         throw new InvalidOperationException("Chiều dài chờ " + Math.Round(a.StarterLength,1) +
                             " mm không đủ vừa nối tối thiểu và tách hai nhóm so le 50%. Tăng chiều dài theo chi tiết được duyệt; add-in không tự dùng 800 mm/40d.");
-                    if(stagger<=0 || stagger>a.JointBeamHeight || a.StarterLength-2*stagger<=0 ||
+                    if(stagger<=0 || (gapMm>50 && stagger>a.JointBeamHeight) || a.StarterLength-2*stagger<=0 ||
                         V3Units.Mm(h.Height)-upperEndInsetMm<=stagger)
                         throw new InvalidOperationException("Không đủ chiều cao dầm/cột để bố trí hai nhóm nối so le 50%.");
                     int rank=0;
