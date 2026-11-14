@@ -396,27 +396,44 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="235"/></Grid.ColumnDefinitions>
                             <CheckBox Grid.ColumnSpan="2" x:Name="FoundationAnchorCheck" Content="Neo chân L xuống móng tại chân tuyến" Foreground="#FF173657" IsChecked="False" FontWeight="SemiBold" Margin="0,0,0,10" Checked="FoundationAnchor_Changed" Unchecked="FoundationAnchor_Changed"/>
-                            <StackPanel Grid.Row="1" Margin="0,0,14,0">
-                                <TextBlock Text="Tổng kích thước đoạn đứng + chân ngang (mm)" Foreground="#FF173657" TextWrapping="Wrap"/>
-                                <TextBox x:Name="FoundationLengthBox" Style="{StaticResource AnchorageDisabledText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
-                                <TextBlock Text="Cover móng tại đáy và bên (mm)" Foreground="#FF173657" Margin="0,6,0,0"/>
-                                <TextBox x:Name="FoundationCoverBox" Style="{StaticResource AnchorageDisabledText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
-                                <TextBlock Text="Hướng chân neo theo trục cột" Foreground="#FF173657" Margin="0,6,0,0"/>
-                                <ComboBox x:Name="FoundationDirectionBox" Style="{StaticResource AnchorageDisabledCombo}" IsEnabled="False" SelectionChanged="FoundationAnchor_Changed">
-                                    <ComboBoxItem Content="Vào tâm — vuông góc từng cạnh"/>
-                                    <ComboBoxItem Content="Ra ngoài — vuông góc từng cạnh"/>
-                                    <ComboBoxItem Content="Cùng hướng +X cột"/><ComboBoxItem Content="Cùng hướng -X cột"/>
-                                    <ComboBoxItem Content="Cùng hướng +Y cột"/><ComboBoxItem Content="Cùng hướng -Y cột"/>
+                            <StackPanel Grid.Row="1" Margin="0,0,12,0">
+                                <TextBlock Text="Chiều dài neo L (Lₙ)" FontWeight="SemiBold" Foreground="#FF173657"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,2">
+                                    <ComboBox x:Name="FoundationLengthPreset" Width="105" SelectedIndex="0"
+                                              SelectionChanged="FoundationLengthPreset_Changed">
+                                        <ComboBoxItem Content="40d"/>
+                                        <ComboBoxItem Content="45d"/>
+                                        <ComboBoxItem Content="50d"/>
+                                        <ComboBoxItem Content="Tùy chỉnh"/>
+                                    </ComboBox>
+                                    <TextBox x:Name="FoundationLengthBox" Style="{StaticResource AnchorageDisabledText}"
+                                             Width="90" Margin="8,0,0,0" LostFocus="FoundationAnchor_Changed"
+                                             IsEnabled="False" ToolTip="Chiều dài chân neo ngang Lₙ, đơn vị mm"/>
+                                </StackPanel>
+                                <TextBlock x:Name="FoundationLengthHint" Text="Lₙ = max(40 × d, 400 mm) · Theo thiết kế được duyệt"
+                                           Foreground="#FF986B48" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                <TextBlock Text="Hướng bẻ neo" FontWeight="SemiBold" Foreground="#FF173657"/>
+                                <ComboBox x:Name="FoundationDirectionBox" Style="{StaticResource AnchorageDisabledCombo}"
+                                          IsEnabled="False" SelectionChanged="FoundationAnchor_Changed">
+                                    <ComboBoxItem Content="Hướng vào tâm cột"/>
+                                    <ComboBoxItem Content="Hướng ra ngoài cột"/>
+                                    <ComboBoxItem Content="Theo trục +X cột"/><ComboBoxItem Content="Theo trục -X cột"/>
+                                    <ComboBoxItem Content="Theo trục +Y cột"/><ComboBoxItem Content="Theo trục -Y cột"/>
                                 </ComboBox>
-                                <TextBlock Text="Số thanh lấy từ Cx/Cy. Bật Nhóm thép dọc ở tab Hình học để tạo Fixed Number; các thanh góc không lặp." TextWrapping="Wrap" Margin="0,8,0,0"/>
-                                <CheckBox x:Name="OpenAnchorModelCheck" IsChecked="True" IsEnabled="False" Margin="0,10,0,4" Content="Mở view 3D kiểm tra sau khi tạo"/>
+                                <TextBlock Text="Góc bẻ" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,0"/>
+                                <TextBlock Text="90° (cấu hình hiện hỗ trợ)" Foreground="#FF52647A" Margin="0,3,0,7"/>
+                                <TextBlock Text="Cover móng đáy và bên (mm)" Foreground="#FF173657"/>
+                                <TextBox x:Name="FoundationCoverBox" Style="{StaticResource AnchorageDisabledText}"
+                                         Width="125" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                                <CheckBox x:Name="OpenAnchorModelCheck" IsChecked="True" IsEnabled="False"
+                                          Margin="0,10,0,4" Content="Mở view 3D kiểm tra sau khi tạo"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1">
-                                <TextBlock Text="Sơ đồ hướng chân neo (trục cột)" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <TextBlock Text="Chi tiết neo L xuống móng" FontWeight="SemiBold" Margin="0,0,0,5"/>
                                 <Border Background="#FFF4F7FA" BorderBrush="#FFD8DFEA" BorderThickness="1">
                                     <Canvas x:Name="FoundationCanvas" Height="180" ClipToBounds="True" SizeChanged="FoundationCanvas_SizeChanged"/>
                                 </Border>
-                                <TextBlock Text="Mũi tên là hướng chân L, không biểu diễn chiều dài. Trục cột xoay/mirror theo family trong mô hình." FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                <TextBlock Text="Sơ đồ hướng bẻ theo trục cột; chiều dài Lₙ lấy theo đường tâm chân ngang và phải kiểm tra trong Solid móng." FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
                             </StackPanel>
                             <TextBlock Grid.Row="2" Grid.ColumnSpan="2" x:Name="FoundationAnchorSummary" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="#FF315889"/>
                         </Grid>
