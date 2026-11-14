@@ -202,18 +202,30 @@ namespace ColumnRebarPro.V3
                     {
                         if (item.HasNext || item.BottleneckToUpper || c.StarterBars)
                             throw new InvalidOperationException("Móc 90° hướng tâm chỉ áp dụng cho cột cuối tuyến, không có thép chờ lên tầng trên.");
-                        if (!c.DesignValuesConfirmed || c.TerminalHookLegMm <= 0 ||
-                            double.IsNaN(c.TerminalHookLegMm) || double.IsInfinity(c.TerminalHookLegMm))
-                            throw new InvalidOperationException("Móc 90° đỉnh cột cần chiều dài đoạn ngang được kỹ sư xác nhận trước khi tạo thép.");
                         XYZ center = g.At(0, 0, 0);
                         double dx = V3Units.Mm(center.X) - xy.X;
                         double dy = V3Units.Mm(center.Y) - xy.Y;
                         double distance = Math.Sqrt(dx * dx + dy * dy);
-                        double radius = (c.MainDiameter + c.TieDiameter) / 2;
-                        if (distance <= radius || c.TerminalHookLegMm > distance - radius)
-                            throw new InvalidOperationException("Chiều dài móc 90° không nằm gọn trong tiết diện cột; cần chi tiết neo khác được duyệt.");
-                        double scale = c.TerminalHookLegMm / distance;
-                        path.Points.Add(new V3Point3(xy.X + dx * scale, xy.Y + dy * scale, high));
+                        // Conservative bend and cover allowance. Never shorten a required
+                        // anchorage leg to make it fit the column.
+                        double bendAllowance = c.MainDiameter + c.TieDiameter / 2;
+                        double available = distance - bendAllowance;
+                        bool approved = c.DesignValuesConfirmed &&
+                            c.TerminalHookLegMm > 0 &&
+                            !double.IsNaN(c.TerminalHookLegMm) &&
+                            !double.IsInfinity(c.TerminalHookLegMm);
+                        if (approved && available >= c.TerminalHookLegMm - 1e-6)
+                        {
+                            double scale = c.TerminalHookLegMm / distance;
+                            path.Points.Add(new V3Point3(xy.X + dx * scale, xy.Y + dy * scale, high));
+                        }
+                        else
+                        {
+                            // Geometric fallback only: the straight bar must not be
+                            // reported as having a verified anchorage at the roof.
+                            item.StarterWarning = "Cột cuối tuyến: không đủ không gian hoặc chưa xác nhận chiều dài neo móc 90°; " +
+                                "đã bỏ móc, thanh dọc kết thúc thẳng. Cần kỹ sư kiểm tra phương án neo.";
+                        }
                     }
                 }
                 result.Add(path);
