@@ -1458,8 +1458,62 @@ namespace ColumnRebarPro.V3
         }
     
         // ========== MẶT CẮT DỌC MINH HỌA ==========
+        // Whole-stack preview uses actual segment elevations. Junction markers are
+        // shown only when the adjacent columns physically meet or leave a joint gap.
+        private void DrawWholeRouteOverview()
+        {
+            var canvas = LongSectionCanvas;
+            if (canvas == null || _segments.Count == 0) return;
+            double w = canvas.ActualWidth, h = canvas.ActualHeight;
+            if (w < 100 || h < 100) return;
+            canvas.Children.Clear();
+            double z0 = _segments.Min(v => v.BottomMm);
+            double z1 = _segments.Max(v => v.TopMm);
+            double scale = (h - 75) / Math.Max(1, z1 - z0);
+            double x = w * .42;
+            Func<double,double> y = z => h - 35 - (z-z0)*scale;
+            Action<double,double,string,Brush> label = (px,py,value,color) =>
+            {
+                var text = new TextBlock { Text=value, FontSize=10, Foreground=color };
+                Canvas.SetLeft(text,px); Canvas.SetTop(text,py);
+                canvas.Children.Add(text);
+            };
+            label(8,4,"TOÀN TUYẾN CỘT · " + _segments.Count + " tầng",Brushes.DarkSlateBlue);
+            foreach (var seg in _segments)
+            {
+                double half = Math.Max(5,Math.Min(55,seg.WidthMm*.09));
+                var rect = new Rectangle { Width=2*half,
+                    Height=Math.Max(1,(seg.TopMm-seg.BottomMm)*scale),
+                    Stroke=Brushes.SeaGreen, StrokeThickness=1.6,
+                    Fill=new SolidColorBrush(Color.FromArgb(22,47,143,86)) };
+                Canvas.SetLeft(rect,x-half); Canvas.SetTop(rect,y(seg.TopMm));
+                canvas.Children.Add(rect);
+                double baseY=y(seg.BottomMm);
+                canvas.Children.Add(new Line { X1=12,X2=w-12,Y1=baseY,Y2=baseY,
+                    Stroke=Brushes.SlateGray,StrokeThickness=.7,StrokeDashArray=new DoubleCollection { 4,3 } });
+                label(14,baseY-15,"LEVEL " + seg.LevelName + "  (" + Math.Round(seg.BottomMm) + " mm)",Brushes.DarkSlateGray);
+                label(x+half+6,(y(seg.TopMm)+baseY)/2,
+                    Math.Round(seg.WidthMm) + "×" + Math.Round(seg.DepthMm),Brushes.DimGray);
+            }
+            for (int i=0;i<_segments.Count-1;i++)
+            {
+                var lower=_segments[i]; var upper=_segments[i+1];
+                double gap=upper.BottomMm-lower.TopMm;
+                if (gap < -2) continue;
+                double jointY=y(lower.TopMm);
+                // A beam joint is not asserted solely from a user-entered beam height.
+                label(x+58,jointY-12,"Nút nối " + lower.LevelName + " / " + upper.LevelName +
+                    " · dầm: cần xác minh",Brushes.DarkOrange);
+                canvas.Children.Add(new Line { X1=x-70,X2=x+70,Y1=jointY,Y2=jointY,
+                    Stroke=Brushes.DarkOrange,StrokeThickness=2,StrokeDashArray=new DoubleCollection { 5,3 } });
+            }
+            label(8,h-18,"Minh họa theo cao độ mô hình; dầm chưa xác minh không vẽ thành cấu kiện thật.",Brushes.Gray);
+            ApplyLongSectionTransform();
+        }
+
         private void DrawLongSection()
         {
+            if (_segments.Count > 1) { DrawWholeRouteOverview(); return; }
             if (LongSectionCanvas == null) return;
             LongSectionCanvas.Children.Clear();
             var c = ActiveConfig;
