@@ -70,6 +70,21 @@
             <Setter Property="BorderBrush" Value="#FFB7BEC9"/>
         </Style>
         <!-- Shared KStruct interior controls: navy text, earth-brown focus and light cream sections. -->
+        <Style x:Key="AnchorageDisabledText" TargetType="TextBox" BasedOn="{StaticResource EditorText}">
+            <Style.Triggers><Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="#FF52647A"/>
+                <Setter Property="Background" Value="#FFE9EEF5"/>
+                <Setter Property="BorderBrush" Value="#FFB7C4D4"/>
+                <Setter Property="Opacity" Value="1"/>
+            </Trigger></Style.Triggers>
+        </Style>
+        <Style x:Key="AnchorageDisabledCombo" TargetType="ComboBox" BasedOn="{StaticResource EditorCombo}">
+            <Style.Triggers><Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="#FF52647A"/>
+                <Setter Property="Background" Value="#FFE9EEF5"/>
+                <Setter Property="Opacity" Value="1"/>
+            </Trigger></Style.Triggers>
+        </Style>
         <Style TargetType="TextBox">
             <Setter Property="Foreground" Value="{StaticResource KStructNavy}"/>
             <Setter Property="Background" Value="White"/>
@@ -379,15 +394,15 @@
                     <Border BorderBrush="#FFB9C9DC" BorderThickness="1" Padding="12" CornerRadius="7" Background="#FFF8FAFD" Margin="0,0,0,12">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="310"/></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="235"/></Grid.ColumnDefinitions>
                             <CheckBox Grid.ColumnSpan="2" x:Name="FoundationAnchorCheck" Content="Neo chân L xuống móng tại chân tuyến" Foreground="#FF173657" IsChecked="False" FontWeight="SemiBold" Margin="0,0,0,10" Checked="FoundationAnchor_Changed" Unchecked="FoundationAnchor_Changed"/>
                             <StackPanel Grid.Row="1" Margin="0,0,14,0">
                                 <TextBlock Text="Tổng kích thước đoạn đứng + chân ngang (mm)" Foreground="#FF173657" TextWrapping="Wrap"/>
-                                <TextBox x:Name="FoundationLengthBox" Style="{StaticResource EditorText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                                <TextBox x:Name="FoundationLengthBox" Style="{StaticResource AnchorageDisabledText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
                                 <TextBlock Text="Cover móng tại đáy và bên (mm)" Foreground="#FF173657" Margin="0,6,0,0"/>
-                                <TextBox x:Name="FoundationCoverBox" Style="{StaticResource EditorText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                                <TextBox x:Name="FoundationCoverBox" Style="{StaticResource AnchorageDisabledText}" Width="150" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
                                 <TextBlock Text="Hướng chân neo theo trục cột" Foreground="#FF173657" Margin="0,6,0,0"/>
-                                <ComboBox x:Name="FoundationDirectionBox" Style="{StaticResource EditorCombo}" IsEnabled="False" SelectionChanged="FoundationAnchor_Changed">
+                                <ComboBox x:Name="FoundationDirectionBox" Style="{StaticResource AnchorageDisabledCombo}" IsEnabled="False" SelectionChanged="FoundationAnchor_Changed">
                                     <ComboBoxItem Content="Vào tâm — vuông góc từng cạnh"/>
                                     <ComboBoxItem Content="Ra ngoài — vuông góc từng cạnh"/>
                                     <ComboBoxItem Content="Cùng hướng +X cột"/><ComboBoxItem Content="Cùng hướng -X cột"/>
@@ -399,7 +414,7 @@
                             <StackPanel Grid.Row="1" Grid.Column="1">
                                 <TextBlock Text="Sơ đồ hướng chân neo (trục cột)" FontWeight="SemiBold" Margin="0,0,0,5"/>
                                 <Border Background="#FFF4F7FA" BorderBrush="#FFD8DFEA" BorderThickness="1">
-                                    <Canvas x:Name="FoundationCanvas" Height="240" ClipToBounds="True" SizeChanged="FoundationCanvas_SizeChanged"/>
+                                    <Canvas x:Name="FoundationCanvas" Height="180" ClipToBounds="True" SizeChanged="FoundationCanvas_SizeChanged"/>
                                 </Border>
                                 <TextBlock Text="Mũi tên là hướng chân L, không biểu diễn chiều dài. Trục cột xoay/mirror theo family trong mô hình." FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
                             </StackPanel>
@@ -412,17 +427,17 @@
                     <TextBlock x:Name="LegacyConnectionSummary" TextWrapping="Wrap" Foreground="#FF9A5700" Margin="0,0,0,6"/>
                     <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Foreground="#FF173657" Margin="0,4,0,8" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
-                        <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Foreground="#FF173657" Width="280" VerticalAlignment="Center"/>
+                        <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Foreground="#FF173657" Width="235" VerticalAlignment="Center"/>
                         <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
-                        <TextBlock Text="Neo thẳng thanh bổ sung trong dầm (mm)" Foreground="#FF173657" Width="280" VerticalAlignment="Center"
+                        <TextBlock Text="Neo thẳng thanh bổ sung trong dầm (mm)" Foreground="#FF173657" Width="235" VerticalAlignment="Center"
                                    ToolTip="Chỉ dùng khi thép tầng trên nhiều hơn; nhập chiều dài neo theo chi tiết được duyệt. Để trống nếu không dùng."/>
                         <TextBox x:Name="SupplementalAnchorLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"
                                  ToolTip="Chỉ dùng khi thép tầng trên nhiều hơn; nhập chiều dài neo theo chi tiết được duyệt. Để trống nếu không dùng."/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
-                        <TextBlock Text="Lớp bảo vệ phía trên dầm (mm)" Foreground="#FF173657" Width="280" VerticalAlignment="Center"
+                        <TextBlock Text="Lớp bảo vệ phía trên dầm (mm)" Foreground="#FF173657" Width="235" VerticalAlignment="Center"
                                    ToolTip="Chỉ dùng để xác định đầu thanh dư; nhập lớp bảo vệ trên dầm theo bản vẽ."/>
                         <TextBox x:Name="BeamTopCoverBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"
                                  ToolTip="Chỉ dùng để xác định đầu thanh dư; nhập lớp bảo vệ trên dầm theo bản vẽ."/>
