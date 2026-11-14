@@ -10,7 +10,7 @@ static class LegacySpliceTests
     static void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
     static V3SegmentWork Work(double bottom,double top)=>new V3SegmentWork {
         Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,
-            StarterBars=true,StarterLength=1200},Geometry=new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
+            StarterBars=true,StarterLength=1200,BottleneckSlope=6,JointBeamHeight=400},Geometry=new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
         Segment=new ColumnSegment {LevelName="Test"}};
     internal static void Run()
     {
@@ -50,9 +50,8 @@ static class LegacySpliceTests
         Check(!modern.StarterBars&&modern.LegacyConnectionNotice==null,"Modern disabled connections stay disabled");
         lower=Work(0,3000);upper=Work(3400,6400);upper.Config.StarterBars=false;
         lower.Config.Splice=V3SpliceStyle.AtStoreyJoint;lower.Config.StaggerSplices=true;
-        rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
-        catch(InvalidOperationException ex){rejected=ex.Message.Contains("so le");}
-        Check(rejected,"Migration does not silently enable unsupported staggered connections");
+        V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
+        Check(lower.BottleneckToUpper&&upper.IncomingSpliceOffsets.Count==14,"Migrated connections use the production 50 percent stagger planner");
         lower.Config.StaggerSplices=false;lower.Config.StarterLength=600;
         rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
         catch(InvalidOperationException ex){rejected=ex.Message.Contains("chưa đủ");}

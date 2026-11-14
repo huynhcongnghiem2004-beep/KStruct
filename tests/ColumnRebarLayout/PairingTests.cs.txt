@@ -54,7 +54,8 @@ static class PairingTests
         Plan(Profile(),Profile(angle:.1)); // physical rotation, not just axis relabelling
         var foot=Profile();foot.HasFoot=true;foot.FootDirection=V3AnchorDirection.PositiveY;
         Plan(foot,Profile(350,450));
-        Reject(()=>V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6),"Khác số thanh");
+        var extraBarsPlan=V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6);
+        Check(extraBarsPlan.UnmatchedUpperPositions.Count>0,"Record unmatched upper bars for supplemental starter creation");
         Reject(()=>V3ColumnPairing.Create(Profile(cx:4,cy:5),Profile(cx:3,cy:6),2,6),"các cạnh");
         Reject(()=>V3ColumnPairing.Create(Profile(width:0),Profile(),2,6),"không hợp lệ");
         var bad=Profile();bad.AxisX=new V3Point2(2,0);
@@ -66,7 +67,7 @@ static class PairingTests
         Check(rows.Single(r=>r.Parameter=="Cover (mm)").Status=="Khác","Expose actual cover difference");
         Check(rows.Single(r=>r.Parameter=="Thép chủ (mm)").Status=="Giống","Do not invent a diameter difference");
         // Run production adapter and resolver rather than a fake SameStructure boolean.
-        var lower=new V3SegmentWork {Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=true,StarterLength=1200},
+        var lower=new V3SegmentWork {Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=true,StarterLength=1200,BottleneckSlope=6,JointBeamHeight=400},
             Geometry=new V3Geometry {Bottom=0,Top=V3Units.Ft(3000)},Segment=new ColumnSegment {LevelName="Trệt"}};
         var upper=new V3SegmentWork {Config=lower.Config.Copy(),Geometry=new V3Geometry {Bottom=V3Units.Ft(3400),Top=V3Units.Ft(6400)},
             Segment=new ColumnSegment {LevelName="Lầu 1"}};
@@ -75,7 +76,7 @@ static class PairingTests
         V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
         Check(lower.ConnectionPlan!=null&&lower.ConnectionPlan.Bars.Count==14,"Real resolver accepts changed cover/ties/section");
         upper.Config.Cx=5;
-        Reject(()=>V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper}),"Dưới:");
+        Reject(()=>V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper}),"nhiều hơn 2 thanh");
 
         var paths=new List<V3BarPath>();
         for(int i=0;i<4;i++)paths.Add(new V3BarPath {BarIndex=i,Points=new List<V3Point3> {
