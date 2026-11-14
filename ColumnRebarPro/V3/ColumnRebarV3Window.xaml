@@ -226,54 +226,31 @@
                     </Border>
                     <!-- 02 — existing live previews, restyled to match the reference add-in -->
                     <Border Grid.Column="2" BorderBrush="#FFD5C7B8" BorderThickness="1" CornerRadius="6" Background="White" Margin="0,0,8,0">
-                        <TabControl x:Name="PreviewTabs" BorderThickness="0" Background="Transparent">
-                            <TabItem Header="Mặt cắt ngang (Cross-section)">
-                                <Grid Background="White">
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Border Background="#FFF8FAFC" Padding="10,7" BorderBrush="#FFE2E8F0" BorderThickness="0,0,0,1">
-                                        <WrapPanel VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
-                                                <Rectangle Width="12" Height="12" Stroke="#FF2F8F56" StrokeThickness="2" Margin="0,0,5,0"/>
-                                                <TextBlock Text="Cột bê tông" FontSize="11" Foreground="#FF475569"/>
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
-                                                <Rectangle Width="12" Height="12" Stroke="#FF00999D" StrokeThickness="2" Margin="0,0,5,0"/>
-                                                <TextBlock Text="Đai ngoài" FontSize="11" Foreground="#FF475569"/>
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
-                                                <Ellipse Width="10" Height="10" Fill="#FFFF0000" Stroke="#FF8B0000" Margin="0,0,5,0"/>
-                                                <TextBlock Text="Thép dọc" FontSize="11" Foreground="#FF475569"/>
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Rectangle Width="12" Height="2" Fill="#FFB22222" Margin="0,5,5,0"/>
-                                                <TextBlock Text="Đai phụ" FontSize="11" Foreground="#FF475569"/>
-                                            </StackPanel>
-                                        </WrapPanel>
-                                    </Border>
-                                    <Canvas Grid.Row="1" x:Name="SectionCanvas" Margin="8" ClipToBounds="True" Background="White" SizeChanged="SectionCanvas_SizeChanged"/>
-                                    <Border Grid.Row="2" Background="#FFF8FAFC" Padding="9,5" BorderBrush="#FFE2E8F0" BorderThickness="0,1,0,0">
-                                        <TextBlock Text="Preview mặt cắt · Bấm thanh dọc để bật / tắt đai phụ" ToolTip="Click lên một thanh thép dọc để bật hoặc tắt đai phụ trong cấu hình và preview." FontSize="11" Foreground="#FF64748B" HorizontalAlignment="Right"/>
-                                    </Border>
-                                </Grid>
-                            </TabItem>
-                            <TabItem Header="Mặt đứng cột (minh họa)">
-                                <Grid Background="White" ClipToBounds="True">
-                                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Canvas Grid.Row="0" x:Name="LongSectionCanvas" MinWidth="420" MinHeight="400" Margin="8" ClipToBounds="True" Background="White" SizeChanged="LongSectionCanvas_SizeChanged" PreviewMouseLeftButtonDown="LongSectionCanvas_MouseLeftButtonDown" MouseLeftButtonUp="LongSectionCanvas_MouseLeftButtonUp" MouseMove="LongSectionCanvas_MouseMove" MouseWheel="LongSectionCanvas_MouseWheel" LostMouseCapture="LongSectionCanvas_LostMouseCapture"/>
-                                    <Border Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" Background="#F8FFFFFF" BorderBrush="#FFD2D8E0" BorderThickness="1" CornerRadius="4" Padding="4">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button Style="{StaticResource FlatButton}" Content="+" Width="34" MinHeight="30" Click="LongSectionZoomIn_Click" ToolTip="Phóng to"/>
-                                            <Button Style="{StaticResource FlatButton}" Content="−" Width="34" MinHeight="30" Click="LongSectionZoomOut_Click" ToolTip="Thu nhỏ"/>
-                                            <Button Style="{StaticResource FlatButton}" Content="Vừa khung" MinHeight="30" Click="LongSectionZoomFit_Click" ToolTip="Đưa hình về vừa khung"/>
-                                            <TextBlock x:Name="LongSectionZoomLabel" Text="100%" VerticalAlignment="Center" Margin="8,0,6,0" Foreground="#FF475569"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Grid.Row="1" Background="#FFF1F5F9" Padding="8,5" BorderBrush="#FFE2E8F0" BorderThickness="0,1,0,0">
-                                        <TextBlock Text="Con lăn: zoom · Kéo chuột trái: pan · Kiểm tra cấu tạo theo hồ sơ được duyệt." FontSize="11" Foreground="#FF64748B" TextWrapping="Wrap" HorizontalAlignment="Center"/>
-                                    </Border>
-                                </Grid>
-                            </TabItem>
-                        </TabControl>
+                        <Grid Background="White">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="42*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="58*"/></Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <Border Background="#FF17365D" Padding="10,9"><TextBlock Text="MẶT CẮT NGANG · THEO TỪNG TẦNG" Foreground="White" FontWeight="Bold"/></Border>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="FloorSectionPreviewStack">
+                                        <TextBlock Text="Mặt cắt đang chọn" Margin="10,7" FontWeight="SemiBold"/>
+                                        <Grid Height="300"><Canvas x:Name="SectionCanvas" Margin="8" ClipToBounds="True" Background="White" SizeChanged="SectionCanvas_SizeChanged"/></Grid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#FFD5DDE8"/>
+                            <Grid Grid.Column="2">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Border Background="#FF17365D" Padding="10,9"><TextBlock Text="MẶT CẮT ĐỨNG · TOÀN TUYẾN CỘT / LEVEL / NÚT DẦM" Foreground="White" FontWeight="Bold"/></Border>
+                                <Canvas Grid.Row="1" x:Name="LongSectionCanvas" MinWidth="250" MinHeight="350" Margin="8" ClipToBounds="True" Background="White" SizeChanged="LongSectionCanvas_SizeChanged" PreviewMouseLeftButtonDown="LongSectionCanvas_MouseLeftButtonDown" MouseLeftButtonUp="LongSectionCanvas_MouseLeftButtonUp" MouseMove="LongSectionCanvas_MouseMove" MouseWheel="LongSectionCanvas_MouseWheel" LostMouseCapture="LongSectionCanvas_LostMouseCapture"/>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Style="{StaticResource FlatButton}" Content="+" Click="LongSectionZoomIn_Click"/>
+                                    <Button Style="{StaticResource FlatButton}" Content="−" Click="LongSectionZoomOut_Click"/>
+                                    <Button Style="{StaticResource FlatButton}" Content="Vừa khung" Click="LongSectionZoomFit_Click"/>
+                                    <TextBlock x:Name="LongSectionZoomLabel" Text="100%" VerticalAlignment="Center" Margin="8"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
                     </Border>
                 </Grid>
             </Grid>
