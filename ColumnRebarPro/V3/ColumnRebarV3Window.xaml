@@ -367,8 +367,9 @@
             <TabItem Header="⌁  3. NEO &amp; NỐI TẦNG">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="18">
+                    <Border Background="#FF173657" CornerRadius="7" Padding="14" Margin="0,0,0,12"><StackPanel><TextBlock Text="03  |  NEO THÉP &amp; NỐI TẦNG" Foreground="White" FontSize="18" FontWeight="Bold"/><TextBlock Text="Thiết lập theo thiết kế được duyệt • Xác minh hình học trên mô hình Revit trước khi tạo thép" Foreground="#FFDCE7F2" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0"/></StackPanel></Border>
                     <!-- Foundation L anchorage is the first section in the anchorage/splice tab. -->
-                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" Padding="12" CornerRadius="4">
+                    <Border BorderBrush="#FFB9C9DC" BorderThickness="1" Padding="12" CornerRadius="7" Background="#FFF8FAFD" Margin="0,0,0,12">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="310"/></Grid.ColumnDefinitions>
@@ -399,7 +400,7 @@
                         </Grid>
                     </Border>
 
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Thép chờ và neo chân L" Margin="0,0,0,10"/>
+                    <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,0,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="02  |  NỐI THÉP GIỮA CÁC TẦNG"/></Border>
                     <TextBlock Text="Cùng thiết lập thép chờ ở tab Hình học; thay đổi được đồng bộ hai tab." TextWrapping="Wrap" Margin="0,0,0,8"/>
                     <TextBlock x:Name="LegacyConnectionSummary" TextWrapping="Wrap" Foreground="#FF9A5700" Margin="0,0,0,6"/>
                     <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Margin="0,4,0,8" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
@@ -443,6 +444,10 @@
                             <TextBlock Text="TCVN 5574:2018: kiểm tra gối uốn theo 10.3.7 và giới hạn dưới đoạn nối theo 10.3.6.2. Chiều dài nối tính toán và cấu tạo đai vẫn lấy theo thiết kế." TextWrapping="Wrap" Margin="0,7,0,0"/>
                         </StackPanel>
                     </GroupBox>
+                    <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,4,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="03  |  NÚT GIAO DẦM – CỘT"/></Border>
+                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,12"><StackPanel><TextBlock FontWeight="SemiBold" Text="Xác minh dầm từ mô hình Revit" Foreground="#FF173657"/><TextBlock Text="Chiều cao dầm khác với khe hở giữa hai đoạn cột. Hai cột tiếp giáp 0 mm không tự động là sai hình học. KStruct kiểm tra dầm thực tế tại bước tạo thép; chiều cao nhập tay không thay thế xác minh hình học." TextWrapping="Wrap" Margin="0,6,0,0"/><TextBlock Text="Đối với dầm giao nhiều hướng hoặc khác chiều cao, cần kiểm tra riêng từng cấu kiện trước khi chấp thuận neo/nối." Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel></Border>
+                    <Border Background="#FFEAF0F7" Padding="10" CornerRadius="5" Margin="0,0,0,10"><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF173657" Text="04  |  KẾT THÚC THÉP CỘT MÁI"/></Border>
+                    <Border BorderBrush="#FFD8DFEA" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,12"><StackPanel><TextBlock FontWeight="SemiBold" Text="Móc 90° hướng vào tâm cột" Foreground="#FF173657"/><TextBlock Text="Cấu hình móc đỉnh cột nằm trong thông số thép dọc. Chỉ áp dụng cho cột cuối tuyến, không có nối tầng phía trên. Nếu không đủ không gian uốn và chiều dài neo thiết kế, giữ thanh thẳng và cảnh báo chưa xác minh neo." TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel></Border>
                     <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#FF986B48"
                         Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Ghép cổ chai theo vị trí thực khi cùng số thanh; nối so le và tự bổ sung/kết thúc khi đổi số thanh chưa được hỗ trợ. Bản vẽ là DRAFT."/>
                 </StackPanel>
