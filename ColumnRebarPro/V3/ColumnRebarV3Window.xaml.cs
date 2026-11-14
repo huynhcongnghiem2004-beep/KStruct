@@ -749,7 +749,9 @@ namespace ColumnRebarPro.V3
             {
                 var t = new TextBlock { Text = value, FontSize = 10, Foreground = brush,
                     TextWrapping = TextWrapping.Wrap, MaxWidth = Math.Max(60, w * .42) };
-                Canvas.SetLeft(t, x); Canvas.SetTop(t, y);
+                // Clamp labels to the visible drawing area at narrow window widths.
+                Canvas.SetLeft(t, Math.Max(3, Math.Min(x, w - t.MaxWidth - 3)));
+                Canvas.SetTop(t, Math.Max(2, Math.Min(y, h - 28)));
                 canvas.Children.Add(t);
             };
             label(5, 2, "CAO ĐỘ MÔ HÌNH · " + _segments.Count + " TẦNG", Brushes.DarkSlateBlue);
@@ -794,6 +796,35 @@ namespace ColumnRebarPro.V3
                 if (snapshot != null && snapshot.Paths.TryGetValue(seg.Id.Value, out verifiedPaths))
                 {
                     var g = _geometry[seg.Id.Value];
+                    // Dimensions are derived from generated path coordinates, never from
+                    // nominal 40d/50d/12d assumptions. Label only clear axial/horizontal
+                    // path segments; complex diagonal transitions remain unlabelled.
+                    int dimensionCount = 0;
+                    foreach (var path in verifiedPaths)
+                    {
+                        for (int j = 1; j < path.Points.Count && dimensionCount < 3; j++)
+                        {
+                            var a = path.Points[j - 1]; var b = path.Points[j];
+                            double dz = Math.Abs(b.Z - a.Z);
+                            double dx = b.X - a.X, dy = b.Y - a.Y;
+                            double horizontal = Math.Sqrt(dx * dx + dy * dy);
+                            if (dz < 1 && horizontal >= 50)
+                            {
+                                label(center + half + 5, yy(a.Z) - 10,
+                                    "Đoạn bẻ " + Math.Round(horizontal).ToString("0") + " mm",
+                                    Brushes.DarkGreen);
+                                dimensionCount++;
+                            }
+                            else if (horizontal < 1 && dz >= 150 &&
+                                (a.Z < seg.BottomMm || b.Z > seg.TopMm))
+                            {
+                                label(center + half + 5, Math.Min(yy(a.Z), yy(b.Z)),
+                                    "Đoạn đứng " + Math.Round(dz).ToString("0") + " mm",
+                                    Brushes.DarkGreen);
+                                dimensionCount++;
+                            }
+                        }
+                    }
                     foreach (var path in verifiedPaths)
                         for (int j = 1; j < path.Points.Count; j++)
                         {
