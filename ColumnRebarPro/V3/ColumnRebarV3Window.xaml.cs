@@ -857,7 +857,9 @@ namespace ColumnRebarPro.V3
 
             Tuple<bool, V3BeamJointInfo, string> detection;
             long cacheKey = lower.Segment.Id.Value;
-            if (!_beamDetectionCache.TryGetValue(cacheKey, out detection))
+            bool shouldRecheck = !_beamDetectionCache.TryGetValue(cacheKey, out detection) ||
+                                 (!detection.Item1 && lower.Column != null && upper.Column != null);
+            if (shouldRecheck)
             {
                 V3BeamJointInfo detected;
                 string detectionReason;
@@ -1103,8 +1105,20 @@ namespace ColumnRebarPro.V3
             }
             if (_geometry.ContainsKey(row.Segment.Id.Value) && _geometry.ContainsKey(upper.Id.Value))
             {
-                var lowerWork = new V3SegmentWork { Segment = row.Segment, Config = c, Geometry = _geometry[row.Segment.Id.Value] };
-                var upperWork = new V3SegmentWork { Segment = upper, Config = u, Geometry = _geometry[upper.Id.Value] };
+                var lowerWork = new V3SegmentWork
+                {
+                    Column = _document?.GetElement(row.Segment.Id) as Autodesk.Revit.DB.FamilyInstance,
+                    Segment = row.Segment,
+                    Config = c,
+                    Geometry = _geometry[row.Segment.Id.Value]
+                };
+                var upperWork = new V3SegmentWork
+                {
+                    Column = _document?.GetElement(upper.Id) as Autodesk.Revit.DB.FamilyInstance,
+                    Segment = upper,
+                    Config = u,
+                    Geometry = _geometry[upper.Id.Value]
+                };
                 string beamInfo = ApplyDetectedBeamInfo(lowerWork, upperWork, true);
                 var lowerProfile = V3ConnectionAdapter.Profile(lowerWork);
                 var upperProfile = V3ConnectionAdapter.Profile(upperWork);

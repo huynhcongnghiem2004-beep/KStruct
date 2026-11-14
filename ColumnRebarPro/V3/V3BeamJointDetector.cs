@@ -23,7 +23,7 @@ namespace ColumnRebarPro.V3
     /// </summary>
     internal static class V3BeamJointDetector
     {
-        private const double FaceToleranceMm = 10;
+        private const double FaceToleranceMm = 25;
         private const double XYMarginMm = 50;
 
         internal static bool TryDetect(Document doc, V3SegmentWork lower,
@@ -71,8 +71,21 @@ namespace ColumnRebarPro.V3
                 double topMm = V3Units.Mm(box.Max.Z);
                 double lowerTopMm = V3Units.Mm(lower.Geometry.Top);
                 double upperBottomMm = V3Units.Mm(upper.Geometry.Bottom);
-                if (Math.Abs(bottomMm - lowerTopMm) > FaceToleranceMm ||
-                    Math.Abs(topMm - upperBottomMm) > FaceToleranceMm)
+                double floorZMm = Math.Max(lowerTopMm, upperBottomMm);
+
+                // Case 1: Gap modeled between lower column and upper column to accommodate beam
+                bool alignedWithGap = Math.Abs(bottomMm - lowerTopMm) <= FaceToleranceMm &&
+                                      Math.Abs(topMm - upperBottomMm) <= FaceToleranceMm;
+
+                // Case 2: Continuous columns touching at floor level (standard BIM practice)
+                bool alignedContinuous = Math.Abs(topMm - floorZMm) <= FaceToleranceMm &&
+                                         bottomMm < floorZMm - 50;
+
+                // Case 3: Beam top aligns with upper column bottom or lower column top within tolerance
+                bool alignedTop = Math.Abs(topMm - upperBottomMm) <= FaceToleranceMm ||
+                                  Math.Abs(topMm - lowerTopMm) <= FaceToleranceMm;
+
+                if (!alignedWithGap && !(alignedContinuous && alignedTop))
                 {
                     misaligned.Add(beam.Name + " (đáy=" + Math.Round(bottomMm, 1) +
                         ", đỉnh=" + Math.Round(topMm, 1) + " mm)");
@@ -83,8 +96,10 @@ namespace ColumnRebarPro.V3
                 string coverReason;
                 if (!TryTopCover(doc, beam, out coverMm, out coverReason))
                 {
-                    missingCover.Add(beam.Name + ": " + coverReason);
-                    continue;
+                    // Fallback to lower column cover or default 25 mm if beam has no explicit top cover
+                    double fallbackCover = (lower?.Config?.BeamTopCoverMm > 0) ? lower.Config.BeamTopCoverMm :
+                                           (lower?.Config?.Cover > 0) ? lower.Config.Cover : 25.0;
+                    coverMm = fallbackCover;
                 }
 
                 var valid = new V3BeamJointInfo
@@ -102,27 +117,20 @@ namespace ColumnRebarPro.V3
 
                 if (result == null)
                     result = valid;
-                else if (Math.Abs(result.HeightMm - valid.HeightMm) > 2 ||
-                         Math.Abs(result.BottomZ - valid.BottomZ) > V3Units.Ft(2) ||
-                         Math.Abs(result.TopCoverMm - valid.TopCoverMm) > 2)
-                {
-                    result = null;
-                    reason = "Có nhiều dầm giao nút với kích thước hoặc cover mặt trên khác nhau; không thể chọn an toàn.";
-                    return false;
-                }
                 else
+                {
+                    // When multiple beams intersect at the column joint (e.g., X and Y beams of different depths),
+                    // the deeper beam governs the anchorage and termination height.
+                    if (valid.HeightMm > result.HeightMm)
+                    {
+                        result = valid;
+                    }
                     result.MatchingBeamCount++;
+                }
             }
 
             if (result != null)
             {
-                if (missingCover.Count > 0)
-                {
-                    result = null;
-                    reason = "Một trong các dầm giao đúng cao độ chưa có Rebar Cover - Top Face: " +
-                        string.Join("; ", missingCover.Distinct().Take(3)) + ".";
-                    return false;
-                }
                 return true;
             }
 
