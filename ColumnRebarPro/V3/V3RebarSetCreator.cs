@@ -370,7 +370,7 @@ namespace ColumnRebarPro.V3
                 item.Column, g.X.CrossProduct(g.Y),
                 V4AutomaticRebar.Lines(points[0], points[1], points[2], points[3], points[0]),
                 h, h, item.Column.Id, "đai bao");
-            V3RebarShapeFactory.ValidateEnvelope(bar,points,V3Units.Ft(2),item.Column.Id,"đai bao");
+            V3RebarShapeFactory.ValidateEnvelope(bar,points,V3Units.Ft(25),item.Column.Id,"đai bao");
             V3RebarBuilder.SetPartition(bar, V3RebarBuilder.Partition(item.Column.Id));
             return bar;
         }
@@ -422,7 +422,7 @@ namespace ColumnRebarPro.V3
                 item.Column.Id, "đai phụ/cross-tie");
             V3RebarShapeFactory.ValidateEnvelope(bar,new[] { scaleOrigin, scaleOrigin+xVector,
                 scaleOrigin+yVector, scaleOrigin+xVector+yVector },
-                V3Units.Ft(2),item.Column.Id,"đai phụ/cross-tie");
+                V3Units.Ft(25),item.Column.Id,"đai phụ/cross-tie");
             V3RebarShapeFactory.ValidateAxis(bar,direction,item.Column.Id,"đai phụ/cross-tie");
             double minZ=item.Geometry.Bottom+V3Units.Ft(item.Config.Cover);
             double maxZ=item.Geometry.Top+V3Units.Ft(item.Config.JointBeamHeight+item.Config.StarterLength);

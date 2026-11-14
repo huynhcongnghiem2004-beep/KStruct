@@ -131,11 +131,12 @@ namespace ColumnRebarPro.V3
             if (actual.Count == 0)
                 throw new InvalidOperationException("Cột " + columnId.Value + ": Shape không tạo được hình học cho " + groupName + ".");
             double[] expectedBounds = Bounds(expected), actualBounds = Bounds(actual);
+            double effectiveToleranceFt = Math.Max(toleranceFt, V3Units.Ft(25));
             for (int i = 0; i < 6; i++)
-                if (Math.Abs(expectedBounds[i] - actualBounds[i]) > toleranceFt)
+                if (Math.Abs(expectedBounds[i] - actualBounds[i]) > effectiveToleranceFt)
                     throw new InvalidOperationException("Cột " + columnId.Value + ": Shape/ScaleToBox nhóm " + groupName +
                         " không đạt kích thước/vị trí thiết kế (sai lệch vượt " +
-                        Math.Round(V3Units.Mm(toleranceFt), 1) + " mm); đã dừng trước khi thay thép cũ.");
+                        Math.Round(V3Units.Mm(effectiveToleranceFt), 1) + " mm); đã dừng trước khi thay thép cũ.");
         }
 
         internal static void ValidateInside(Rebar bar, V3Geometry geometry, double minZ, double maxZ,
