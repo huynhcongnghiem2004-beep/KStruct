@@ -1172,6 +1172,23 @@ namespace ColumnRebarPro.V3
             }
         }
 
+        private void SplicePanel_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || SpliceLengthSelector == null || SpliceLengthHint == null ||
+                _segments == null || _segments.Count == 0) return;
+            int index = Math.Max(0, SpliceLengthSelector.SelectedIndex);
+            double factor = index == 0 ? 50 : index == 1 ? 55 : 60;
+            double diameter = _configs[_segments[0].Id.Value].MainDiameter;
+            double lap = Math.Max(600, factor * diameter);
+            SpliceLengthHint.Text = "Lₛ = max(" + factor.ToString("0") + "d, 600 mm) = " +
+                lap.ToString("0.##", CultureInfo.InvariantCulture) + " mm · cần thiết kế duyệt";
+            if (SpliceDesignStatus != null)
+                SpliceDesignStatus.Text = SplicePanelToggle.IsChecked == true
+                    ? "Cấu hình thiết kế Lₛ = " + lap.ToString("0.##", CultureInfo.InvariantCulture) +
+                      " mm. Chưa áp dụng vị trí giữa tầng hoặc nối so le vào Rebar; bộ ghép cũ vẫn kiểm tra ngầm."
+                    : "Tắt lựa chọn nối ở panel. Bộ thép chờ hiện hữu trong tab Hình học không bị tự thay đổi.";
+        }
+
         private void FoundationLengthPreset_Changed(object sender, SelectionChangedEventArgs e)
         {
             if (_loading || FoundationLengthPreset == null || FoundationLengthBox == null ||
