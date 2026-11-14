@@ -96,10 +96,9 @@ namespace ColumnRebarPro.V3
                 string coverReason;
                 if (!TryTopCover(doc, beam, out coverMm, out coverReason))
                 {
-                    // Fallback to lower column cover or default 25 mm if beam has no explicit top cover
-                    double fallbackCover = (lower?.Config?.BeamTopCoverMm > 0) ? lower.Config.BeamTopCoverMm :
-                                           (lower?.Config?.Cover > 0) ? lower.Config.Cover : 25.0;
-                    coverMm = fallbackCover;
+                    // Fail closed: configuration/default cover is not evidence of the beam's actual top cover.
+                    missingCover.Add(beam.Name + " (" + coverReason + ")");
+                    continue;
                 }
 
                 var valid = new V3BeamJointInfo
@@ -138,7 +137,7 @@ namespace ColumnRebarPro.V3
                 reason = "Tìm thấy dầm giao nút nhưng không đọc được Rebar Cover - Top Face: " +
                     string.Join("; ", missingCover.Distinct().Take(3)) + ".";
             else if (misaligned.Count > 0)
-                reason = "Có dầm chiếu qua tim cột nhưng mặt dầm không trùng đầu hai cột trong sai số 10 mm: " +
+                reason = "Có dầm chiếu qua tim cột nhưng mặt dầm không trùng đầu hai cột trong sai số " + FaceToleranceMm.ToString("0") + " mm: " +
                     string.Join("; ", misaligned.Distinct().Take(3)) + ".";
             else if (projected.Count == 0)
                 reason = "Không tìm thấy dầm Structural Framing nằm ngang giao qua mặt bằng cả hai cột tại nút này.";
