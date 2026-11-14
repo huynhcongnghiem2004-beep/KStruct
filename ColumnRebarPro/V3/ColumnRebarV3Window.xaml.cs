@@ -764,9 +764,53 @@ namespace ColumnRebarPro.V3
                 Canvas.SetLeft(host, center - half); Canvas.SetTop(host, yTop);
                 canvas.Children.Add(host);
                 double inset = Math.Min(half * .35, 7);
-                foreach (double xx in new[] { center - half + inset, center + half - inset })
-                    canvas.Children.Add(new Line { X1 = xx, X2 = xx, Y1 = yTop + 2,
-                        Y2 = yBottom - 2, Stroke = Brushes.Firebrick, StrokeThickness = 2 });
+                // Project the SAME path generator used by the shaped-Rebar builder.
+                // Only the unconnected, non-foundation path is valid without resolving
+                // beam joints, splice pairing and foundation-host geometry first.
+                bool complex = cfg.FoundationAnchorEnabled || (cfg.StarterBars) ||
+                    _segments.Count > 1 && _segments.Any(v => v.Id.Value != seg.Id.Value);
+                if (!complex && _geometry.ContainsKey(seg.Id.Value))
+                {
+                    try
+                    {
+                        var work = new V3SegmentWork {
+                            Geometry = _geometry[seg.Id.Value], Config = cfg,
+                            Segment = seg, HasNext = false, HasPrevious = false
+                        };
+                        var paths = V3RebarSetCreator.ConnectionPaths(work);
+                        foreach (var path in paths)
+                        {
+                            for (int j = 1; j < path.Points.Count; j++)
+                            {
+                                var a = path.Points[j - 1]; var b = path.Points[j];
+                                // Projection along the column's local X axis.
+                                var g = work.Geometry;
+                                double ax = (V3Units.Ft(a.X) - g.Center.X) * g.X.X +
+                                    (V3Units.Ft(a.Y) - g.Center.Y) * g.X.Y;
+                                double bx = (V3Units.Ft(b.X) - g.Center.X) * g.X.X +
+                                    (V3Units.Ft(b.Y) - g.Center.Y) * g.X.Y;
+                                canvas.Children.Add(new Line {
+                                    X1 = center + ax / Math.Max(.001, g.Width / 2) * half,
+                                    X2 = center + bx / Math.Max(.001, g.Width / 2) * half,
+                                    Y1 = yy(a.Z), Y2 = yy(b.Z),
+                                    Stroke = Brushes.Firebrick, StrokeThickness = 1.3
+                                });
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        label(center + half + 5, yTop + 3,
+                            "Chưa dựng được đường thép: " + ex.Message, Brushes.DarkOrange);
+                    }
+                }
+                else
+                {
+                    foreach (double xx in new[] { center - half + inset, center + half - inset })
+                        canvas.Children.Add(new Line { X1 = xx, X2 = xx, Y1 = yTop + 2,
+                            Y2 = yBottom - 2, Stroke = Brushes.DarkOrange, StrokeThickness = 1.2,
+                            StrokeDashArray = new DoubleCollection { 3, 3 } });
+                }
                 canvas.Children.Add(new Line { X1 = 5, X2 = w - 5, Y1 = yBottom, Y2 = yBottom,
                     Stroke = Brushes.LightSlateGray, StrokeThickness = .7,
                     StrokeDashArray = new DoubleCollection { 4, 3 } });
@@ -779,7 +823,7 @@ namespace ColumnRebarPro.V3
                 double z = _segments[i].TopMm;
                 label(center + 30, yy(z) - 11, "Nút: chưa xác minh dầm", Brushes.DarkOrange);
             }
-            label(5, h - 14, "Đường đỏ: thép chủ minh họa; chưa thể hiện neo/nối/uốn thực.", Brushes.Gray);
+            label(5, h - 14, "Đỏ: đường tâm từ builder khi đủ dữ liệu; nét đứt: chưa xác minh.", Brushes.Gray);
         }
 
         private void AnchorageReviewFloor_Click(object sender, RoutedEventArgs e)
