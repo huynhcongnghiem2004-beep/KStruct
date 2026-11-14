@@ -141,6 +141,10 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            // Read-only mockup review panels use the same ordered column segments as the editor.
+            // They must not claim beam joints or bar positions that have not been verified.
+            AnchorageRouteList.ItemsSource = _segments;
+            AnchorageSectionList.ItemsSource = _segments;
             Closing += (sender, args) =>
             {
                 // Store the most recently edited floor profile for the next session.
