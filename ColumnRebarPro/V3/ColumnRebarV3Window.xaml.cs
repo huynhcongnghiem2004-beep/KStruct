@@ -118,10 +118,11 @@ namespace ColumnRebarPro.V3
                     .OrderBy(x => x.Mm).ThenBy(x => x.TypeName).ToList();
             if (_sizes.Count == 0)
                 throw new InvalidOperationException("Project chưa có RebarBarType phù hợp. Hãy nạp thép vào Project.");
+            var lastUsed = V3RebarConfigStorage.ReadLastUsed();
             for (int i = 0; i < _segments.Count; i++)
             {
                 ColumnSegment segment = _segments[i];
-                var initial = new V3RebarConfig();
+                var initial = lastUsed != null && IsUsable(lastUsed) ? lastUsed.Copy() : new V3RebarConfig();
                 // Match BimSpeed's per-column saved profiles, which override the last-used fallback.
                 // Ignore stale/invalid stored data so the editor can still open.
                 try
@@ -140,6 +141,20 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            Closing += (sender, args) =>
+            {
+                // Store the most recently edited floor profile for the next session.
+                // This is user AppData only; it does not modify the RVT on Cancel.
+                try
+                {
+                    if (SaveActive(false) && ActiveConfig != null && IsUsable(ActiveConfig))
+                        V3RebarConfigStorage.StoreLastUsed(ActiveConfig.Copy());
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("KStruct column settings autosave: " + ex.Message);
+                }
+            };
             var workArea = SystemParameters.WorkArea;
             MinWidth = Math.Min(MinWidth, workArea.Width);
             MinHeight = Math.Min(MinHeight, workArea.Height);
