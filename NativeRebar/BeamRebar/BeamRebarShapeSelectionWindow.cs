@@ -67,9 +67,9 @@ namespace SDK_HD.KStruct.NativeRebar
 
             var window = new Window
             {
-                Title = "Chọn Rebar Shape có sẵn cho thép dầm",
-                Width = 760,
-                Height = 670,
+                Title = "KStruct | Tự động nhận diện Rebar Shape thép dầm",
+                Width = 850,
+                Height = 700,
                 MinWidth = 640,
                 MinHeight = 520,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
@@ -82,7 +82,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var root = new DockPanel { Margin = new Thickness(18) };
             var note = new TextBlock
             {
-                Text = "Mỗi nhóm dùng đúng Rebar Shape đã chọn trong project. Đai được tạo trực tiếp từ StirrupTie shape và ScaleToBox (không dò shape từ đường bao 4 cạnh); có thể chọn HookType riêng ở đầu/cuối. Style, khả năng dùng HookType và kích thước hình học/layout thực tế được kiểm tra trước khi đặt. Shape/hook không tương thích sẽ báo lỗi và giữ nguyên thép cũ.",
+                Text = "KStruct tự đề xuất Rebar Shape từ các kiểu đang có trong project. Các lựa chọn được giữ nguyên nếu đã lưu và còn phù hợp về Style; khi có nhiều Shape, hệ thống ưu tiên các mẫu thông dụng. Có thể chỉnh từng dòng trước khi tiếp tục. Revit sẽ kiểm tra chính xác hình học, HookType và khả năng bố trí trước khi thay thép cũ.",
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 14)
             };
@@ -95,8 +95,10 @@ namespace SDK_HD.KStruct.NativeRebar
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(0, 14, 0, 0)
             };
+            var auto = new Button { Content = "Tự nhận diện lại", MinWidth = 148, Margin = new Thickness(5, 0, 12, 0) };
             var cancel = new Button { Content = "Hủy", MinWidth = 90, Margin = new Thickness(5, 0, 0, 0), IsCancel = true };
             var accept = new Button { Content = "Tiếp tục", MinWidth = 110, Margin = new Thickness(5, 0, 0, 0), IsDefault = true };
+            buttons.Children.Add(auto);
             buttons.Children.Add(cancel);
             buttons.Children.Add(accept);
             DockPanel.SetDock(buttons, Dock.Bottom);
@@ -132,7 +134,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 {
                     ItemsSource = choices,
                     DisplayMemberPath = "Display",
-                    SelectedIndex = Math.Max(0, choices.FindIndex(choice => choice.Shape?.Id == row.Selected?.Id)),
+                    SelectedIndex = FindSuggestedShapeIndex(choices, row.Style, row.Selected),
                     MinHeight = 26,
                     Margin = new Thickness(0, 3, 0, 3),
                     IsEnabled = choices.Count > 1
@@ -156,6 +158,22 @@ namespace SDK_HD.KStruct.NativeRebar
                 GetHookChoices(hookTypes, options.TieType, initialTieShape, 0), options.TieStartHook);
             UpdateHookChoices(endHookCombo,
                 GetHookChoices(hookTypes, options.TieType, initialTieShape, 1), options.TieEndHook);
+
+            // Manual overrides are never silently reset during ordinary selection changes.
+            // The explicit button allows the user to request fresh suggestions.
+            auto.Click += (sender, args) =>
+            {
+                foreach (ShapeRow row in rows)
+                {
+                    var available = row.Combo.ItemsSource.Cast<ShapeChoice>().ToList();
+                    row.Combo.SelectedIndex = FindSuggestedShapeIndex(available, row.Style, null);
+                }
+                RebarShape tie = Selected(rows[0]);
+                UpdateHookChoices(startHookCombo,
+                    GetHookChoices(hookTypes, options.TieType, tie, 0), options.TieStartHook);
+                UpdateHookChoices(endHookCombo,
+                    GetHookChoices(hookTypes, options.TieType, tie, 1), options.TieEndHook);
+            };
 
             accept.Click += (sender, args) =>
             {
@@ -191,6 +209,44 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             window.Content = root;
             return window.ShowDialog() == true ? options : null;
+        }
+
+        // Prefer a previously saved project shape. Otherwise suggest a common project
+        // shape by style/name; final geometric compatibility is checked by the Rebar engine.
+        // This is a proposal, NOT proof that the selected shape can form every bar.
+        private static int FindSuggestedShapeIndex(IList<ShapeChoice> choices,
+            RebarStyle style, RebarShape saved)
+        {
+            if (saved != null)
+            {
+                int savedIndex = choices.ToList().FindIndex(choice =>
+                    choice.Shape != null && choice.Shape.Id == saved.Id &&
+                    choice.Shape.RebarStyle == style);
+                if (savedIndex > 0) return savedIndex;
+            }
+
+            var candidates = choices.Select((choice, index) => new { choice, index })
+                .Where(item => item.choice.Shape != null && item.choice.Shape.RebarStyle == style)
+                .OrderByDescending(item => ScoreShapeName(item.choice.Shape, style))
+                .ThenBy(item => item.choice.Shape.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.choice.Shape.Id.Value)
+                .ToList();
+            return candidates.Count == 0 ? 0 : candidates[0].index;
+        }
+
+        private static int ScoreShapeName(RebarShape shape, RebarStyle style)
+        {
+            string name = (shape.Name ?? "").ToUpperInvariant().Replace(" ", "");
+            if (style == RebarStyle.StirrupTie)
+            {
+                if (name.Contains("BS_M_T1") || name.Contains("STIRRUP") || name.Contains("ĐAI")) return 50;
+                if (name.Contains("T1") || name.Contains("TIE")) return 30;
+                return 1;
+            }
+            if (name == "M_01" || name == "M-01" || name == "00" || name == "01") return 50;
+            if (name.Contains("M_01") || name.Contains("STRAIGHT")) return 40;
+            if (name.Contains("M_00")) return 30;
+            return 1;
         }
 
         private static ShapeRow Row(string label, RebarStyle style, bool required, RebarShape selected)
@@ -259,8 +315,22 @@ namespace SDK_HD.KStruct.NativeRebar
         {
             int index = choices.ToList().FindIndex(choice => choice.Hook?.Id == selected?.Id);
             combo.ItemsSource = choices;
-            combo.SelectedIndex = index >= 0 ? index : 0;
+            combo.SelectedIndex = index > 0 ? index : FindSuggestedHookIndex(choices);
             combo.IsEnabled = choices.Any(choice => choice.Hook != null);
+        }
+
+        private static int FindSuggestedHookIndex(IList<HookChoice> choices)
+        {
+            var matches = choices.Select((choice, index) => new { choice, index })
+                .Where(item => item.choice.Hook != null)
+                .OrderByDescending(item =>
+                {
+                    double angle = item.choice.Hook.HookAngle * 180.0 / Math.PI;
+                    return Math.Abs(angle - 135.0) < 0.1 ? 10 : 0;
+                })
+                .ThenBy(item => item.choice.Hook.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return matches.Count == 0 ? 0 : matches[0].index;
         }
 
         private static RebarHookType SelectedHook(ComboBox combo, IList<RebarHookType> hooks,
