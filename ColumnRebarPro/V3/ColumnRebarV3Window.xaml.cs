@@ -143,8 +143,6 @@ namespace ColumnRebarPro.V3
             InitializeComponent();
             // Read-only mockup review panels use the same ordered column segments as the editor.
             // They must not claim beam joints or bar positions that have not been verified.
-            AnchorageRouteList.ItemsSource = _segments;
-            AnchorageSectionList.ItemsSource = _segments;
             Closing += (sender, args) =>
             {
                 // Store the most recently edited floor profile for the next session.
@@ -193,6 +191,8 @@ namespace ColumnRebarPro.V3
                 _rows.Add(floorRow);
             }
             FloorList.ItemsSource = _rows;
+            AnchorageRouteList.ItemsSource = _rows;
+            AnchorageSectionList.ItemsSource = _rows;
             CountLabel.Text = "Số lượng: " + _rows.Count;
             _loading = false;
             FloorList.SelectedIndex = Math.Max(0, _rows.Count - 1);
@@ -721,6 +721,15 @@ namespace ColumnRebarPro.V3
                 config.EndSpacing + " / a" + config.MidSpacing +
                 "\nĐây là bản xem trước hình học; không thay thế kiểm tra kết cấu và bản vẽ thi công.",
                 "KStruct - Xem trước dữ liệu", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void AnchorageReviewFloor_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var id = button == null ? null : button.Tag as Autodesk.Revit.DB.ElementId;
+            if (id == null) return;
+            var row = _rows.FirstOrDefault(r => r.Segment.Id.Value == id.Value);
+            if (row != null) FloorList.SelectedItem = row; // existing selection handler validates and saves.
         }
 
         private void FloorList_SelectionChanged(object sender, SelectionChangedEventArgs e)
