@@ -876,6 +876,22 @@ namespace ColumnRebarPro.V3
                             Y2 = yBottom - 2, Stroke = Brushes.DarkOrange, StrokeThickness = 1.2,
                             StrokeDashArray = new DoubleCollection { 3, 3 } });
                 }
+                if (snapshot != null)
+                {
+                    V3SegmentWork work = snapshot.Works.FirstOrDefault(v => v.Segment.Id.Value == seg.Id.Value);
+                    if (work != null && work.Config.TerminalInwardHook90)
+                        label(center + half + 5, yTop + 8,
+                            "Móc mái 90° · Lm " + work.Config.TerminalHookLegMm.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                    if (work != null && work.FoundationHost != null)
+                        label(center + half + 5, yBottom - 30,
+                            "Neo L · Ln " + work.FoundationAnchorLengthMm.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                    if (work != null && work.VerifiedBeamJoint)
+                        label(center + half + 5, yTop - 14,
+                            "Nút dầm đã xác minh · hd " + work.Config.JointBeamHeight.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                }
                 canvas.Children.Add(new Line { X1 = 5, X2 = w - 5, Y1 = yBottom, Y2 = yBottom,
                     Stroke = Brushes.LightSlateGray, StrokeThickness = .7,
                     StrokeDashArray = new DoubleCollection { 4, 3 } });
