@@ -179,10 +179,26 @@ namespace ColumnRebarPro.V3
                 {
                     if(lower.JointBeamHeightMm<=0||lower.BeamTopCoverMm<=0)
                         throw new InvalidOperationException("Thanh dư cần chiều cao dầm và lớp bảo vệ phía trên dầm nhập theo bản vẽ.");
-                    double endZ=lower.TopZ+lower.JointBeamHeightMm-lower.BeamTopCoverMm;
-                    if(!V3BottleneckRules.Finite(endZ))throw new InvalidOperationException("Không xác định được cao độ kết thúc thanh dư trong dầm.");
-                    if(endZ<=lower.TopZ+.1||endZ>upper.BottomZ+.1)
-                        throw new InvalidOperationException("Cao độ kết thúc thanh dư không nằm trong vùng dầm giữa hai cột.");
+                    double gap = upper.BottomZ - lower.TopZ;
+                    double endZ;
+                    if (gap > 50)
+                    {
+                        // Modeled with physical gap: lower column ends at beam soffit
+                        endZ = lower.TopZ + lower.JointBeamHeightMm - lower.BeamTopCoverMm;
+                        if(!V3BottleneckRules.Finite(endZ))throw new InvalidOperationException("Không xác định được cao độ kết thúc thanh dư trong dầm.");
+                        if(endZ <= lower.TopZ + .1 || endZ > upper.BottomZ + .1)
+                            throw new InvalidOperationException("Cao độ kết thúc thanh dư không nằm trong vùng dầm giữa hai cột.");
+                    }
+                    else
+                    {
+                        // Standard continuous columns: both meet at floor level, beam is embedded in floor joint
+                        double floorZ = Math.Max(lower.TopZ, upper.BottomZ);
+                        endZ = floorZ - lower.BeamTopCoverMm;
+                        double beamBottomZ = floorZ - lower.JointBeamHeightMm;
+                        if(!V3BottleneckRules.Finite(endZ))throw new InvalidOperationException("Không xác định được cao độ kết thúc thanh dư trong dầm.");
+                        if(endZ <= beamBottomZ - .1 || endZ > floorZ + .1 || endZ <= lower.BottomZ + .1)
+                            throw new InvalidOperationException("Cao độ kết thúc thanh dư không nằm trong vùng dầm giữa hai cột.");
+                    }
                     plan.Bars.Add(new V3BarConnection {LowerIndex=i,UpperIndex=-1,Lower=a[i].Point,
                         Upper=new V3Point2(),End=a[i].Point,Terminated=true,EndZ=endZ});
                     continue;

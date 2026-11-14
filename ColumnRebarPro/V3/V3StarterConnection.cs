@@ -59,7 +59,7 @@ namespace ColumnRebarPro.V3
                     if (!Finite(a.JointBeamHeight) || a.JointBeamHeight <= 0)
                         throw new InvalidOperationException("Nút " + lower.Segment.LevelName + " → " + upper.Segment.LevelName +
                             " cần chiều cao dầm nhập theo bản vẽ để xử lý thanh dư hoặc nối so le.");
-                    if (Math.Abs(gapMm - a.JointBeamHeight) > 10)
+                    if (gapMm > 50 && Math.Abs(gapMm - a.JointBeamHeight) > 25)
                         throw new InvalidOperationException("Chiều cao dầm nhập " + Math.Round(a.JointBeamHeight, 1) +
                             " mm không khớp khoảng cách hình học giữa hai cột " + Math.Round(gapMm, 1) + " mm.");
                 }
