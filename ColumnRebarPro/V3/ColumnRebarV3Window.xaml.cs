@@ -118,10 +118,11 @@ namespace ColumnRebarPro.V3
                     .OrderBy(x => x.Mm).ThenBy(x => x.TypeName).ToList();
             if (_sizes.Count == 0)
                 throw new InvalidOperationException("Project chưa có RebarBarType phù hợp. Hãy nạp thép vào Project.");
+            var lastUsed = V3RebarConfigStorage.ReadLastUsed();
             for (int i = 0; i < _segments.Count; i++)
             {
                 ColumnSegment segment = _segments[i];
-                var initial = new V3RebarConfig();
+                var initial = lastUsed != null && IsUsable(lastUsed) ? lastUsed.Copy() : new V3RebarConfig();
                 // Match BimSpeed's per-column saved profiles, which override the last-used fallback.
                 // Ignore stale/invalid stored data so the editor can still open.
                 try
@@ -140,6 +141,20 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            Closing += (sender, args) =>
+            {
+                // Store the most recently edited floor profile for the next session.
+                // This is user AppData only; it does not modify the RVT on Cancel.
+                try
+                {
+                    if (SaveActive(false) && ActiveConfig != null && IsUsable(ActiveConfig))
+                        V3RebarConfigStorage.StoreLastUsed(ActiveConfig.Copy());
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("KStruct column settings autosave: " + ex.Message);
+                }
+            };
             var workArea = SystemParameters.WorkArea;
             MinWidth = Math.Min(MinWidth, workArea.Width);
             MinHeight = Math.Min(MinHeight, workArea.Height);
@@ -1403,6 +1418,64 @@ namespace ColumnRebarPro.V3
             Canvas.SetLeft(sizeLabel, Math.Max(4, left));
             Canvas.SetTop(sizeLabel, Math.Max(4, top - 23));
             SectionCanvas.Children.Add(sizeLabel);
+            RefreshAllFloorSections();
+        }
+
+        private void RefreshAllFloorSections()
+        {
+            if (FloorSectionPreviewStack == null || _segments == null) return;
+            // Retain the interactive section canvas and its parent Grid.
+            var interactive = SectionCanvas.Parent as Grid;
+            FloorSectionPreviewStack.Children.Clear();
+            foreach (var segment in _segments)
+            {
+                V3RebarConfig cfg;
+                if (!_configs.TryGetValue(segment.Id.Value, out cfg)) continue;
+                var title = new TextBlock {
+                    Text = "LEVEL " + segment.LevelName + "  ·  " +
+                        Math.Round(segment.WidthMm) + " × " + Math.Round(segment.DepthMm) +
+                        " mm  ·  " + cfg.BarCount + " thanh",
+                    FontWeight = FontWeights.SemiBold, Margin = new Thickness(8,12,8,4),
+                    Foreground = Brushes.DarkSlateBlue };
+                FloorSectionPreviewStack.Children.Add(title);
+                var diagram = new Canvas { Height=155, Margin=new Thickness(8),
+                    Background=Brushes.White };
+                double size = 125, cx = 75, cy = 75;
+                double factor = size / Math.Max(segment.WidthMm,segment.DepthMm);
+                double ww = segment.WidthMm*factor, hh=segment.DepthMm*factor;
+                var concrete = new Rectangle { Width=ww,Height=hh,
+                    Stroke=Brushes.SeaGreen,StrokeThickness=2,
+                    Fill=new SolidColorBrush(Color.FromArgb(18,47,143,86)) };
+                Canvas.SetLeft(concrete,cx-ww/2); Canvas.SetTop(concrete,cy-hh/2);
+                diagram.Children.Add(concrete);
+                double inset = Math.Min(ww,hh)*.14;
+                var tie = new Rectangle { Width=Math.Max(2,ww-2*inset),
+                    Height=Math.Max(2,hh-2*inset), Stroke=Brushes.Teal,StrokeThickness=2 };
+                Canvas.SetLeft(tie,cx-ww/2+inset);Canvas.SetTop(tie,cy-hh/2+inset);
+                diagram.Children.Add(tie);
+                int nx=Math.Max(2,cfg.Cx),ny=Math.Max(2,cfg.Cy);
+                Action<double,double> dot=(px,py) =>
+                {
+                    var circle=new Ellipse { Width=7,Height=7,Fill=Brushes.OrangeRed };
+                    Canvas.SetLeft(circle,px-3.5);Canvas.SetTop(circle,py-3.5);
+                    diagram.Children.Add(circle);
+                };
+                double x0=cx-ww/2+inset,x1=cx+ww/2-inset;
+                double y0=cy-hh/2+inset,y1=cy+hh/2-inset;
+                for(int i=0;i<nx;i++) {double xx=x0+(x1-x0)*i/(nx-1);dot(xx,y0);dot(xx,y1);}
+                for(int j=1;j<ny-1;j++) {double yy=y0+(y1-y0)*j/(ny-1);dot(x0,yy);dot(x1,yy);}
+                FloorSectionPreviewStack.Children.Add(diagram);
+            }
+            // The live interactive section remains accessible after the floor cards.
+            if (interactive != null)
+            {
+                var oldParent = interactive.Parent as Panel;
+                if (oldParent != null) oldParent.Children.Remove(interactive);
+                FloorSectionPreviewStack.Children.Add(new TextBlock {
+                    Text="Mặt cắt tương tác · tầng đang chọn",Margin=new Thickness(8,8,8,2),
+                    Foreground=Brushes.DimGray });
+                FloorSectionPreviewStack.Children.Add(interactive);
+            }
         }
         private void AddOutline(double x, double y, double w, double h, Color color, double stroke, double radius)
         {
@@ -1444,8 +1517,62 @@ namespace ColumnRebarPro.V3
         }
     
         // ========== MẶT CẮT DỌC MINH HỌA ==========
+        // Whole-stack preview uses actual segment elevations. Junction markers are
+        // shown only when the adjacent columns physically meet or leave a joint gap.
+        private void DrawWholeRouteOverview()
+        {
+            var canvas = LongSectionCanvas;
+            if (canvas == null || _segments.Count == 0) return;
+            double w = canvas.ActualWidth, h = canvas.ActualHeight;
+            if (w < 100 || h < 100) return;
+            canvas.Children.Clear();
+            double z0 = _segments.Min(v => v.BottomMm);
+            double z1 = _segments.Max(v => v.TopMm);
+            double scale = (h - 75) / Math.Max(1, z1 - z0);
+            double x = w * .42;
+            Func<double,double> y = z => h - 35 - (z-z0)*scale;
+            Action<double,double,string,Brush> label = (px,py,value,color) =>
+            {
+                var text = new TextBlock { Text=value, FontSize=10, Foreground=color };
+                Canvas.SetLeft(text,px); Canvas.SetTop(text,py);
+                canvas.Children.Add(text);
+            };
+            label(8,4,"TOÀN TUYẾN CỘT · " + _segments.Count + " tầng",Brushes.DarkSlateBlue);
+            foreach (var seg in _segments)
+            {
+                double half = Math.Max(5,Math.Min(55,seg.WidthMm*.09));
+                var rect = new Rectangle { Width=2*half,
+                    Height=Math.Max(1,(seg.TopMm-seg.BottomMm)*scale),
+                    Stroke=Brushes.SeaGreen, StrokeThickness=1.6,
+                    Fill=new SolidColorBrush(Color.FromArgb(22,47,143,86)) };
+                Canvas.SetLeft(rect,x-half); Canvas.SetTop(rect,y(seg.TopMm));
+                canvas.Children.Add(rect);
+                double baseY=y(seg.BottomMm);
+                canvas.Children.Add(new Line { X1=12,X2=w-12,Y1=baseY,Y2=baseY,
+                    Stroke=Brushes.SlateGray,StrokeThickness=.7,StrokeDashArray=new DoubleCollection { 4,3 } });
+                label(14,baseY-15,"LEVEL " + seg.LevelName + "  (" + Math.Round(seg.BottomMm) + " mm)",Brushes.DarkSlateGray);
+                label(x+half+6,(y(seg.TopMm)+baseY)/2,
+                    Math.Round(seg.WidthMm) + "×" + Math.Round(seg.DepthMm),Brushes.DimGray);
+            }
+            for (int i=0;i<_segments.Count-1;i++)
+            {
+                var lower=_segments[i]; var upper=_segments[i+1];
+                double gap=upper.BottomMm-lower.TopMm;
+                if (gap < -2) continue;
+                double jointY=y(lower.TopMm);
+                // A beam joint is not asserted solely from a user-entered beam height.
+                label(x+58,jointY-12,"Nút nối " + lower.LevelName + " / " + upper.LevelName +
+                    " · dầm: cần xác minh",Brushes.DarkOrange);
+                canvas.Children.Add(new Line { X1=x-70,X2=x+70,Y1=jointY,Y2=jointY,
+                    Stroke=Brushes.DarkOrange,StrokeThickness=2,StrokeDashArray=new DoubleCollection { 5,3 } });
+            }
+            label(8,h-18,"Minh họa theo cao độ mô hình; dầm chưa xác minh không vẽ thành cấu kiện thật.",Brushes.Gray);
+            ApplyLongSectionTransform();
+        }
+
         private void DrawLongSection()
         {
+            if (_segments.Count > 1) { DrawWholeRouteOverview(); return; }
             if (LongSectionCanvas == null) return;
             LongSectionCanvas.Children.Clear();
             var c = ActiveConfig;
