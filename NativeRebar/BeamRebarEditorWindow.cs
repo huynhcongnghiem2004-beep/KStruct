@@ -61,11 +61,11 @@ namespace SDK_HD.KStruct.NativeRebar
             public bool QuickTypeChanged;
         }
 
-        private static readonly Brush Blue = new SolidColorBrush(Color.FromRgb(39, 99, 245));
-        private static readonly Brush Teal = new SolidColorBrush(Color.FromRgb(0, 137, 126));
+        private static readonly Brush Blue = new SolidColorBrush(Color.FromRgb(28, 67, 107));
+        private static readonly Brush Teal = new SolidColorBrush(Color.FromRgb(151, 97, 61));
         private static readonly Brush MutedBlue = new SolidColorBrush(Color.FromRgb(145, 177, 240));
-        private static readonly Brush Page = new SolidColorBrush(Color.FromRgb(244, 246, 249));
-        private static readonly Brush BorderBrush = new SolidColorBrush(Color.FromRgb(215, 223, 235));
+        private static readonly Brush Page = new SolidColorBrush(Color.FromRgb(246, 248, 251));
+        private static readonly Brush BorderBrush = new SolidColorBrush(Color.FromRgb(218, 226, 234));
 
         internal static ReinforceStraightBeamsCommand.Options Show(IntPtr owner, IList<RebarBarType> types,
             IList<RebarHookType> hookTypes, ReinforceStraightBeamsCommand.Options defaults,
@@ -74,10 +74,10 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "Thép dầm",
-                Width = 1530,
-                Height = 890,
-                MinWidth = 1200,
-                MinHeight = 720,
+                Width = 1600,
+                Height = 920,
+                MinWidth = 1320,
+                MinHeight = 760,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -88,32 +88,34 @@ namespace SDK_HD.KStruct.NativeRebar
             List<BarRow> rows = BuildRows(types, defaults);
             var nav = new ListBox
             {
-                Width = 150,
-                Margin = new Thickness(8, 0, 8, 0),
+                Width = 204,
+                Margin = new Thickness(12, 0, 12, 0),
                 Background = Brushes.White,
                 BorderBrush = BorderBrush,
                 ItemsSource = new[] { "Hình học", "Thép chủ (trên)", "Thép chủ (dưới)", "Gia cường (trên)", "Gia cường (dưới)", "Thép đai", "Thép chống phình", "Cắt thép · TCVN 5574:2018" },
+                FontSize = 13,
+                FontWeight = FontWeights.Medium,
                 SelectedIndex = 1
             };
             var navItemStyle = new Style(typeof(ListBoxItem));
-            navItemStyle.Setters.Add(new Setter(WpfControl.PaddingProperty, new Thickness(12, 11, 8, 11)));
-            navItemStyle.Setters.Add(new Setter(WpfControl.MarginProperty, new Thickness(3, 2, 3, 2)));
+            navItemStyle.Setters.Add(new Setter(WpfControl.PaddingProperty, new Thickness(14, 14, 10, 14)));
+            navItemStyle.Setters.Add(new Setter(WpfControl.MarginProperty, new Thickness(4, 3, 4, 3)));
             navItemStyle.Setters.Add(new Setter(WpfControl.BorderThicknessProperty, new Thickness(1)));
             navItemStyle.Setters.Add(new Setter(WpfControl.BorderBrushProperty, Brushes.Transparent));
             var navSelected = new Trigger { Property = ListBoxItem.IsSelectedProperty, Value = true };
-            navSelected.Setters.Add(new Setter(WpfControl.BackgroundProperty, new SolidColorBrush(Color.FromRgb(233, 240, 255))));
+            navSelected.Setters.Add(new Setter(WpfControl.BackgroundProperty, new SolidColorBrush(Color.FromRgb(230, 238, 245))));
             navSelected.Setters.Add(new Setter(WpfControl.ForegroundProperty, Blue));
             navSelected.Setters.Add(new Setter(WpfControl.BorderBrushProperty, Blue));
             navItemStyle.Triggers.Add(navSelected);
             nav.ItemContainerStyle = navItemStyle;
-            var pageTitle = new TextBlock { Text = "Thép chủ (trên)", FontSize = 20, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(37, 61, 102)), Margin = new Thickness(8, 0, 0, 8) };
+            var pageTitle = new TextBlock { Text = "Thép chủ (trên)", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(37, 61, 102)), Margin = new Thickness(8, 0, 0, 8) };
             var editorHost = new ContentControl();
             // Keep one visual tree per tab. Rebuilding the selected page on every click
             // used to re-parent shared WPF controls (notably the hook ComboBoxes), which
             // throws "already the logical child of another element" during fast tab changes.
             var editorPages = new Dictionary<string, FrameworkElement>(StringComparer.Ordinal);
             var editorPageRows = new Dictionary<string, BarRow>(StringComparer.Ordinal);
-            var sectionCanvas = new Canvas { Height = 270, Background = Brushes.White };
+            var sectionCanvas = new Canvas { Height = 308, Background = Brushes.White };
             var beamCanvas = new Canvas { MinHeight = 220, Background = Brushes.White, ClipToBounds = false, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
             var beamViewport = new Grid { ClipToBounds = true, Background = Brushes.White, Cursor = Cursors.Hand };
             beamViewport.Children.Add(beamCanvas);
@@ -161,7 +163,7 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             var status = new TextBlock { Text = beamWidthMm.ToString("0") + "×" + beamHeightMm.ToString("0") + " mm   ·   L=" + beamLengthMm.ToString("0") + " mm", Margin = new Thickness(10, 10, 0, 0), Foreground = new SolidColorBrush(Color.FromRgb(67, 91, 130)) };
             var spanCombo = new ComboBox { Width = 90, ItemsSource = new[] { "0" }, SelectedIndex = 0, Margin = new Thickness(8, 0, 8, 0) };
-            var showImage = new CheckBox { Content = "Toggle hình ảnh", IsChecked = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
+            var showImage = new CheckBox { Content = "Hiện hình minh họa", IsChecked = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
             var zoneRadio = new RadioButton { Content = "Chia vùng", GroupName = "TieMode", IsChecked = defaults == null || defaults.UseZonedTies, Margin = new Thickness(6, 0, 0, 0) };
             var uniformRadio = new RadioButton { Content = "Phân bố đều", GroupName = "TieMode", IsChecked = defaults != null && !defaults.UseZonedTies, Margin = new Thickness(6, 0, 0, 0) };
             var coverBox = Input(defaults?.CoverMm ?? 30, 74);
@@ -203,27 +205,27 @@ namespace SDK_HD.KStruct.NativeRebar
             var sectionDock = new DockPanel { LastChildFill = true };
             var sectionHeader = new StackPanel { Children =
                 {
-                    new TextBlock { Text = "Mặt cắt", FontSize = 14, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0,0,0,7) },
+                    new TextBlock { Text = "MẶT CẮT TRỰC QUAN", FontSize = 14, FontWeight = FontWeights.Bold, Foreground = Blue, Margin = new Thickness(0,0,0,9) },
                     sectionTabs, sectionTitle
                 }
             };
-            var sectionLegend = new TextBlock { Text = "● Thép trên   ● Thép dưới   ─ Đai chính\n○ Thép tăng cường\nChọn vị trí mặt cắt bằng các thẻ phía trên.", Foreground = new SolidColorBrush(Color.FromRgb(72, 108, 169)), Margin = new Thickness(2,8,0,0), TextWrapping = TextWrapping.Wrap };
+            var sectionLegend = new TextBlock { Text = "● Thép trên / dưới    ─ Đai chính\n○ Thanh gia cường\nChọn 1-1 / 2-2 / 3-3 để xem bố trí tại từng vị trí.\nHình minh họa không thay thế kiểm tra kết cấu.", Foreground = new SolidColorBrush(Color.FromRgb(72, 108, 169)), Margin = new Thickness(2,8,0,0), TextWrapping = TextWrapping.Wrap };
             DockPanel.SetDock(sectionHeader, Dock.Top); DockPanel.SetDock(sectionLegend, Dock.Bottom);
             sectionDock.Children.Add(sectionHeader); sectionDock.Children.Add(sectionLegend); sectionDock.Children.Add(sectionCanvas);
             Border sideCard = Card(sectionDock, new Thickness(10));
 
             var mainGrid = new Grid();
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(158) });
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
             mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(315) });
             Grid.SetColumn(nav, 0); mainGrid.Children.Add(nav);
             var center = new Grid();
             center.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(330) });
+                center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(375) });
             center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(pageTitle, 0); center.Children.Add(pageTitle);
             Grid.SetRow(editorHost, 1); center.Children.Add(editorHost);
-            var drawing = new Border { Background = Brushes.White, BorderBrush = BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 8, 8, 0) };
+            var drawing = new Border { Background = Brushes.White, BorderBrush = BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Margin = new Thickness(0, 10, 10, 0) };
             var drawingGrid = new Grid();
             drawingGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             drawingGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -249,24 +251,24 @@ namespace SDK_HD.KStruct.NativeRebar
             Grid.SetColumn(sideCard, 2); mainGrid.Children.Add(sideCard);
 
             var footer = new DockPanel { Margin = new Thickness(8, 6, 8, 6), LastChildFill = false };
-            var brand = new TextBlock { Text = "KSTRUCT / Beam Rebar", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.SemiBold };
+            var brand = new TextBlock { Text = "KSTRUCT  /  BEAM REBAR  ·  Revit 2024", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.SemiBold, Foreground = Blue };
             DockPanel.SetDock(brand, Dock.Left); footer.Children.Add(brand);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             actions.Children.Add(new TextBlock { Text = "Nhịp dầm:", VerticalAlignment = VerticalAlignment.Center });
             actions.Children.Add(spanCombo);
             actions.Children.Add(new TextBlock { Text = "Đơn vị: mm", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,8,0) });
             actions.Children.Add(showImage);
-            var cancel = Button(settingsOnly ? "Quay lại" : "Quay lại", 86);
-            var close = Button("Đóng", 70);
-            var ok = Button(settingsOnly ? "Lưu cài đặt" : "Tạo cốt thép", 128);
+            var cancel = Button("Quay lại", 86);
+            var close = Button("Đóng", 76);
+            var ok = Button(settingsOnly ? "Lưu cấu hình" : "TẠO THÉP DẦM", 148);
             ok.Background = Blue; ok.Foreground = Brushes.White; ok.FontWeight = FontWeights.SemiBold;
             actions.Children.Add(cancel); actions.Children.Add(close); actions.Children.Add(ok);
             DockPanel.SetDock(actions, Dock.Right); footer.Children.Add(actions);
 
             var root = new DockPanel { Margin = new Thickness(0) };
-            var heading = new StackPanel { Margin = new Thickness(18, 8, 18, 10) };
-            heading.Children.Add(new TextBlock { Text = "Cấu hình chi tiết cốt thép dầm", FontSize = 21, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(37, 61, 102)) });
-            heading.Children.Add(new TextBlock { Text = "Chỉnh thép theo nhịp, xem mặt cắt và sơ đồ dọc trước khi tạo cốt thép.", Foreground = new SolidColorBrush(Color.FromRgb(89, 116, 164)), Margin = new Thickness(0, 2, 0, 0) });
+            var heading = new StackPanel { Margin = new Thickness(22, 14, 22, 16) };
+            heading.Children.Add(new TextBlock { Text = "KSTRUCT   /   THIẾT KẾ CỐT THÉP DẦM", FontSize = 23, FontWeight = FontWeights.Bold, Foreground = Blue });
+            heading.Children.Add(new TextBlock { Text = "01  Chọn nhóm thép    →    02  Nhập thông số    →    03  Xem mặt cắt và sơ đồ dọc    →    04  Tạo Rebar", FontSize = 13, Foreground = new SolidColorBrush(Color.FromRgb(91, 105, 121)), Margin = new Thickness(0, 6, 0, 0) });
             DockPanel.SetDock(heading, Dock.Top); root.Children.Add(heading);
             DockPanel.SetDock(footer, Dock.Bottom); root.Children.Add(footer);
             root.Children.Add(mainGrid);
