@@ -155,8 +155,9 @@ namespace ColumnRebarPro.V3
             var g=item.Geometry;var c=item.Config;var result=new List<V3BarPath>();
             double low=item.FoundationHost==null?V3Units.Mm(g.Bottom)+c.Cover+c.MainDiameter/2:V3Units.Mm(item.FoundationBendZ);
             double high=c.StarterBars?V3Units.Mm(g.Top)+c.StarterLength:V3Units.Mm(g.Top)-c.Cover-c.MainDiameter/2;
-            double footLength=item.FoundationHost==null?0:V3AnchorLayoutPlan.HorizontalLength(item.FoundationAnchorLengthMm,
-                V3Units.Mm(g.Bottom-item.FoundationBendZ));
+            // Ln is the horizontal L-leg dimension measured from the bend tangent
+            // to the end, not the sum of vertical embedment and horizontal leg.
+            double footLength=item.FoundationHost==null?0:item.FoundationAnchorLengthMm;
             foreach(var array in AnchorPlan(item))for(int i=0;i<array.Count;i++)
             {
                 XYZ model=g.At(V3Units.Ft(array.X+array.StepX*i),V3Units.Ft(array.Y+array.StepY*i),0);
@@ -221,10 +222,11 @@ namespace ColumnRebarPro.V3
                         }
                         else
                         {
-                            // Geometric fallback only: the straight bar must not be
-                            // reported as having a verified anchorage at the roof.
-                            item.StarterWarning = "Cột cuối tuyến: không đủ không gian hoặc chưa xác nhận chiều dài neo móc 90°; " +
-                                "đã bỏ móc, thanh dọc kết thúc thẳng. Cần kỹ sư kiểm tra phương án neo.";
+                            // Never silently replace a requested roof hook with a straight bar.
+                            throw new InvalidOperationException(
+                                "Móc mái 90°: không đủ khoảng trống trong tiết diện hoặc chưa duyệt chiều dài Lm = " +
+                                c.TerminalHookLegMm.ToString("0.##") +
+                                " mm. Điều chỉnh thiết kế hoặc tắt tùy chọn; không tự rút ngắn móc.");
                         }
                     }
                 }

@@ -141,6 +141,8 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            // Read-only mockup review panels use the same ordered column segments as the editor.
+            // They must not claim beam joints or bar positions that have not been verified.
             Closing += (sender, args) =>
             {
                 // Store the most recently edited floor profile for the next session.
@@ -166,6 +168,12 @@ namespace ColumnRebarPro.V3
             FoundationCoverBox.Text = bottomConfig.FoundationAnchorCover > 0 ? bottomConfig.FoundationAnchorCover.ToString(CultureInfo.InvariantCulture) : "";
             FoundationDirectionBox.SelectedIndex = Enum.IsDefined(typeof(V3AnchorDirection), bottomConfig.FoundationAnchorDirection)
                 ? (int)bottomConfig.FoundationAnchorDirection : 0;
+            // Preserve a nonstandard saved length as a custom engineering value.
+            double savedLn = bottomConfig.FoundationAnchorLength;
+            double standardLn = Math.Max(40 * bottomConfig.MainDiameter, 400);
+            FoundationLengthPreset.SelectedIndex = savedLn > 0 && Math.Abs(savedLn - standardLn) > .1 ? 3 : 0;
+            if (FoundationLengthPreset.SelectedIndex == 0)
+                FoundationLengthBox.Text = standardLn.ToString("0.##", CultureInfo.InvariantCulture);
             SetFoundationControlState();
             var deployment = new V3DeploymentControl();
             _deployment = deployment;
@@ -189,6 +197,9 @@ namespace ColumnRebarPro.V3
                 _rows.Add(floorRow);
             }
             FloorList.ItemsSource = _rows;
+            AnchorageRouteList.ItemsSource = _rows;
+            AnchorageSectionList.ItemsSource = _rows;
+            AnchorageElevationCanvas.Dispatcher.BeginInvoke(new Action(DrawAnchorageElevation));
             CountLabel.Text = "Số lượng: " + _rows.Count;
             _loading = false;
             FloorList.SelectedIndex = Math.Max(0, _rows.Count - 1);
@@ -387,6 +398,18 @@ namespace ColumnRebarPro.V3
             CrossAlternateCheck.IsChecked = c.CrossTiesAlternating;
             JointTiesCheck.IsChecked = c.JointTies;
             QuickJointTiesCheck.IsChecked = c.ShowJointTies;
+            if (JointOmitTiesCheck != null) JointOmitTiesCheck.IsChecked = !c.ShowJointTies;
+            if (RoofHookCheck != null)
+            {
+                bool terminal = _segments.Count > 0 && _activeId.Value == _segments[_segments.Count - 1].Id.Value;
+                RoofHookCheck.IsEnabled = terminal;
+                RoofHookCheck.IsChecked = terminal && c.TerminalInwardHook90;
+                if (RoofHookPreset != null)
+                {
+                    double ratio = c.MainDiameter > 0 ? c.TerminalHookLegMm / c.MainDiameter : 12;
+                    RoofHookPreset.SelectedIndex = ratio >= 15 ? 2 : ratio >= 13 ? 1 : 0;
+                }
+            }
             JointHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             BeamHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
             JointStepBox.Text = c.JointSpacing > 0 ? c.JointSpacing.ToString(CultureInfo.InvariantCulture) : "";
@@ -461,6 +484,16 @@ namespace ColumnRebarPro.V3
                 c.CrossTies = CrossCheck.IsChecked == true;
                 c.CrossTiesAlternating = CrossAlternateCheck.IsChecked == true;
                 c.ShowJointTies = QuickJointTiesCheck.IsChecked == true;
+                if (JointOmitTiesCheck != null)
+                    c.ShowJointTies = JointOmitTiesCheck.IsChecked != true;
+                if (RoofHookCheck != null && RoofHookPreset != null &&
+                    _activeId.Value == _segments[_segments.Count - 1].Id.Value)
+                {
+                    double factor = RoofHookPreset.SelectedIndex == 2 ? 16 :
+                        RoofHookPreset.SelectedIndex == 1 ? 14 : 12;
+                    c.TerminalInwardHook90 = RoofHookCheck.IsChecked == true;
+                    c.TerminalHookLegMm = Math.Max(factor * c.MainDiameter, 200);
+                }
                 c.JointTies = false; // Legacy starter-zone setting remains disabled.
                 double beamHeight = ReadOptionalPositive(QuickBeamHeightBox, "Cao dầm sàn");
                 if (c.JointTies)
@@ -484,6 +517,7 @@ namespace ColumnRebarPro.V3
                 _configs[_activeId.Value] = c;
                 var row = ActiveRow;
                 if (row != null) RefreshFloorPreview(row, c);
+                DrawAnchorageElevation();
                 TieLayoutControlState();
                 UpdateSummary();
                 return true;
@@ -717,6 +751,183 @@ namespace ColumnRebarPro.V3
                 config.EndSpacing + " / a" + config.MidSpacing +
                 "\nĐây là bản xem trước hình học; không thay thế kiểm tra kết cấu và bản vẽ thi công.",
                 "KStruct - Xem trước dữ liệu", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void AnchorageElevationCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            DrawAnchorageElevation();
+        }
+
+        // Read-only elevation based on selected host levels and configured bars.
+        // It deliberately does not assert verified beam geometry, lap length or hook shape.
+        private void DrawAnchorageElevation()
+        {
+            var canvas = AnchorageElevationCanvas;
+            if (canvas == null || _segments == null || _segments.Count == 0) return;
+            canvas.Children.Clear();
+            double w = canvas.ActualWidth, h = canvas.ActualHeight;
+            if (w < 110 || h < 110) return;
+            double bottom = _segments.Min(v => v.BottomMm);
+            double top = _segments.Max(v => v.TopMm);
+            // Reserve a top annotation band; avoid clipping the upper hook.
+            double scale = (h - 100) / Math.Max(1, top - bottom);
+            double center = w * 0.49;
+            Func<double, double> yy = z => h - 40 - (z - bottom) * scale;
+            Action<double, double, string, Brush> label = (x, y, value, brush) =>
+            {
+                var t = new TextBlock { Text = value, FontSize = 10, Foreground = brush,
+                    TextWrapping = TextWrapping.Wrap, MaxWidth = Math.Max(60, w * .42) };
+                // Clamp labels to the visible drawing area at narrow window widths.
+                Canvas.SetLeft(t, Math.Max(3, Math.Min(x, w - t.MaxWidth - 3)));
+                Canvas.SetTop(t, Math.Max(2, Math.Min(y, h - 28)));
+                canvas.Children.Add(t);
+            };
+            label(5, 2, "CAO ĐỘ MÔ HÌNH · " + _segments.Count + " TẦNG", Brushes.DarkSlateBlue);
+            V3VerifiedPathSnapshot snapshot = null;
+            string verificationWarning = null;
+            if (_document != null)
+            {
+                try
+                {
+                    var works = _segments.Select(seg => new V3SegmentWork {
+                        Column = _document.GetElement(seg.Id) as Autodesk.Revit.DB.FamilyInstance,
+                        Segment = seg, Geometry = _geometry[seg.Id.Value],
+                        Config = _configs[seg.Id.Value].Copy()
+                    }).ToList();
+                    var anchor = CaptureFoundationAnchorSettings();
+                    snapshot = V3VerifiedPathSnapshot.Prepare(_document, works, anchor, true);
+                }
+                catch (Exception ex)
+                {
+                    verificationWarning = ex.Message;
+                }
+            }
+            if (verificationWarning != null)
+                label(5, 18, "CHƯA XÁC MINH: " + verificationWarning, Brushes.DarkOrange);
+
+            foreach (var seg in _segments)
+            {
+                V3RebarConfig cfg;
+                if (!_configs.TryGetValue(seg.Id.Value, out cfg)) continue;
+                double half = Math.Max(10, Math.Min(30, seg.WidthMm * .09));
+                double yTop = yy(seg.TopMm), yBottom = yy(seg.BottomMm);
+                var host = new Rectangle { Width = half * 2, Height = Math.Max(1, yBottom - yTop),
+                    Stroke = Brushes.SlateGray, StrokeThickness = 1.2,
+                    Fill = new SolidColorBrush(Color.FromArgb(30, 80, 116, 153)) };
+                Canvas.SetLeft(host, center - half); Canvas.SetTop(host, yTop);
+                canvas.Children.Add(host);
+                double inset = Math.Min(half * .35, 7);
+                // Project the SAME path generator used by the shaped-Rebar builder.
+                // Only the unconnected, non-foundation path is valid without resolving
+                // beam joints, splice pairing and foundation-host geometry first.
+                List<V3BarPath> verifiedPaths;
+                if (snapshot != null && snapshot.Paths.TryGetValue(seg.Id.Value, out verifiedPaths))
+                {
+                    var g = _geometry[seg.Id.Value];
+                    // Dimensions are derived from generated path coordinates, never from
+                    // nominal 40d/50d/12d assumptions. Label only clear axial/horizontal
+                    // path segments; complex diagonal transitions remain unlabelled.
+                    int dimensionCount = 0;
+                    foreach (var path in verifiedPaths)
+                    {
+                        for (int j = 1; j < path.Points.Count && dimensionCount < 3; j++)
+                        {
+                            var a = path.Points[j - 1]; var b = path.Points[j];
+                            double dz = Math.Abs(b.Z - a.Z);
+                            double dx = b.X - a.X, dy = b.Y - a.Y;
+                            double horizontal = Math.Sqrt(dx * dx + dy * dy);
+                            if (dz < 1 && horizontal >= 50)
+                            {
+                                label(center + half + 5, yy(a.Z) - 10,
+                                    "Đoạn bẻ " + Math.Round(horizontal).ToString("0") + " mm",
+                                    Brushes.DarkGreen);
+                                dimensionCount++;
+                            }
+                            else if (horizontal < 1 && dz >= 150 &&
+                                (a.Z < seg.BottomMm || b.Z > seg.TopMm))
+                            {
+                                label(center + half + 5, Math.Min(yy(a.Z), yy(b.Z)),
+                                    "Đoạn đứng " + Math.Round(dz).ToString("0") + " mm",
+                                    Brushes.DarkGreen);
+                                dimensionCount++;
+                            }
+                        }
+                    }
+                    foreach (var path in verifiedPaths)
+                        for (int j = 1; j < path.Points.Count; j++)
+                        {
+                            var a = path.Points[j - 1]; var b = path.Points[j];
+                            double ax = (V3Units.Ft(a.X) - g.Center.X) * g.X.X +
+                                (V3Units.Ft(a.Y) - g.Center.Y) * g.X.Y;
+                            double bx = (V3Units.Ft(b.X) - g.Center.X) * g.X.X +
+                                (V3Units.Ft(b.Y) - g.Center.Y) * g.X.Y;
+                            canvas.Children.Add(new Line {
+                                X1 = center + ax / Math.Max(.001, g.Width / 2) * half,
+                                X2 = center + bx / Math.Max(.001, g.Width / 2) * half,
+                                Y1 = yy(a.Z), Y2 = yy(b.Z),
+                                Stroke = Brushes.Firebrick, StrokeThickness = 1.3
+                            });
+                        }
+                }
+                else
+                {
+                    foreach (double xx in new[] { center - half + inset, center + half - inset })
+                        canvas.Children.Add(new Line { X1 = xx, X2 = xx, Y1 = yTop + 2,
+                            Y2 = yBottom - 2, Stroke = Brushes.DarkOrange, StrokeThickness = 1.2,
+                            StrokeDashArray = new DoubleCollection { 3, 3 } });
+                }
+                if (snapshot != null)
+                {
+                    V3SegmentWork work = snapshot.Works.FirstOrDefault(v => v.Segment.Id.Value == seg.Id.Value);
+                    if (work != null && work.Config.TerminalInwardHook90)
+                        label(center + half + 5, yTop + 8,
+                            "Móc mái 90° · Lm " + work.Config.TerminalHookLegMm.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                    if (work != null && work.FoundationHost != null)
+                        label(center + half + 5, yBottom - 30,
+                            "Neo L · Ln " + work.FoundationAnchorLengthMm.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                    if (work != null && work.VerifiedBeamJoint)
+                        label(center + half + 5, yTop - 14,
+                            "Nút dầm đã xác minh · hd " + work.Config.JointBeamHeight.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                }
+                canvas.Children.Add(new Line { X1 = 5, X2 = w - 5, Y1 = yBottom, Y2 = yBottom,
+                    Stroke = Brushes.LightSlateGray, StrokeThickness = .7,
+                    StrokeDashArray = new DoubleCollection { 4, 3 } });
+                label(5, Math.Max(18, yBottom - 15), seg.LevelName, Brushes.DarkSlateGray);
+                // Dimension line uses actual segment top/bottom elevations, not a guessed lap.
+                double dimX = center - half - 13;
+                canvas.Children.Add(new Line { X1 = dimX, X2 = dimX, Y1 = yTop, Y2 = yBottom,
+                    Stroke = Brushes.SteelBlue, StrokeThickness = .8 });
+                foreach (double y in new[] { yTop, yBottom })
+                    canvas.Children.Add(new Line { X1 = dimX - 4, X2 = dimX + 4, Y1 = y, Y2 = y,
+                        Stroke = Brushes.SteelBlue, StrokeThickness = .8 });
+                label(center + half + 5, (yTop + yBottom) / 2 - 12,
+                    FormatBars(cfg), Brushes.Firebrick);
+                label(center + half + 5, (yTop + yBottom) / 2 + 2,
+                    "H " + Math.Round(seg.TopMm - seg.BottomMm).ToString("0") + " mm",
+                    Brushes.SteelBlue);
+            }
+            for (int i = 0; i < _segments.Count - 1; i++)
+            {
+                double z = _segments[i].TopMm;
+                if (snapshot == null)
+                    label(center + 30, yy(z) - 11, "Nút: chưa xác minh dầm", Brushes.DarkOrange);
+            }
+            label(5, h - 25, snapshot == null
+                ? "CAM ĐỨT: CHƯA XÁC MINH · Không dùng preview để gia công"
+                : "ĐỎ LIỀN: đường tâm Rebar builder · Kiểm tra Rebar 3D trước phát hành",
+                snapshot == null ? Brushes.DarkOrange : Brushes.DarkSlateGray);
+        }
+
+        private void AnchorageReviewFloor_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var id = button == null ? null : button.Tag as Autodesk.Revit.DB.ElementId;
+            if (id == null) return;
+            var row = _rows.FirstOrDefault(r => r.Segment.Id.Value == id.Value);
+            if (row != null) FloorList.SelectedItem = row; // existing selection handler validates and saves.
         }
 
         private void FloorList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -999,10 +1210,131 @@ namespace ColumnRebarPro.V3
             }
         }
 
+        private void JointOmitTies_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || JointOmitTiesCheck == null || ActiveConfig == null) return;
+            ActiveConfig.ShowJointTies = JointOmitTiesCheck.IsChecked != true;
+            QuickJointTiesCheck.IsChecked = ActiveConfig.ShowJointTies;
+            SaveActive(false);
+            DrawAnchorageElevation();
+        }
+
+        private void RoofHook_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || RoofHookCheck == null || RoofHookPreset == null ||
+                ActiveConfig == null || _segments == null || _segments.Count == 0) return;
+            bool terminal = _activeId.Value == _segments[_segments.Count - 1].Id.Value;
+            if (!terminal) return;
+            var c = ActiveConfig;
+            double factor = RoofHookPreset.SelectedIndex == 2 ? 16 :
+                RoofHookPreset.SelectedIndex == 1 ? 14 : 12;
+            double leg = Math.Max(factor * c.MainDiameter, 200);
+            c.TerminalInwardHook90 = RoofHookCheck.IsChecked == true;
+            c.TerminalHookLegMm = leg;
+            if (RoofHookHint != null)
+                RoofHookHint.Text = "Lₘ = max(" + factor.ToString("0") + "d, 200 mm) = " +
+                    leg.ToString("0.##", CultureInfo.InvariantCulture) +
+                    " mm · chỉ tạo khi hình học đủ và thiết kế đã duyệt";
+            DrawAnchorageElevation();
+        }
+
+        private static void HighlightDiagramChoice(Button choice, bool selected)
+        {
+            if (choice == null) return;
+            choice.Background = selected
+                ? new SolidColorBrush(Color.FromRgb(255, 241, 219))
+                : new SolidColorBrush(Color.FromRgb(248, 250, 252));
+            choice.BorderBrush = selected
+                ? new SolidColorBrush(Color.FromRgb(230, 126, 34))
+                : new SolidColorBrush(Color.FromRgb(201, 214, 228));
+            choice.BorderThickness = selected ? new Thickness(2, 2, 2, 3) : new Thickness(1, 1, 1, 3);
+        }
+
+        private void RefreshDiagramSelections()
+        {
+            if (FoundationDirectionBox != null)
+            {
+                HighlightDiagramChoice(FoundationInwardVisual, FoundationDirectionBox.SelectedIndex == 0);
+                HighlightDiagramChoice(FoundationOutwardVisual, FoundationDirectionBox.SelectedIndex == 1);
+            }
+            if (SpliceLengthSelector != null)
+            {
+                HighlightDiagramChoice(Splice50Visual, SpliceLengthSelector.SelectedIndex == 0);
+                HighlightDiagramChoice(Splice55Visual, SpliceLengthSelector.SelectedIndex == 1);
+                HighlightDiagramChoice(Splice60Visual, SpliceLengthSelector.SelectedIndex == 2);
+            }
+        }
+
+        private void FoundationDiagramChoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (FoundationDirectionBox == null) return;
+            var button = sender as Button;
+            int index;
+            if (button == null || !int.TryParse(button.Tag as string, out index)) return;
+            FoundationDirectionBox.SelectedIndex = index;
+            if (FoundationAnchorCheck != null && FoundationAnchorCheck.IsChecked != true)
+                FoundationAnchorCheck.IsChecked = true;
+            UpdateFoundationAnchorSummary();
+            RefreshDiagramSelections();
+        }
+
+        private void SpliceDiagramChoice_Click(object sender, RoutedEventArgs e)
+        {
+            if (SpliceLengthSelector == null) return;
+            var button = sender as Button;
+            int index;
+            if (button == null || !int.TryParse(button.Tag as string, out index)) return;
+            SpliceLengthSelector.SelectedIndex = index;
+            RefreshDiagramSelections();
+            if (SplicePanelToggle != null && SplicePanelToggle.IsChecked != true)
+                SplicePanelToggle.IsChecked = true;
+        }
+
+        private void SplicePanel_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || SpliceLengthSelector == null || SpliceLengthHint == null ||
+                _segments == null || _segments.Count == 0) return;
+            int index = Math.Max(0, SpliceLengthSelector.SelectedIndex);
+            double factor = index == 0 ? 50 : index == 1 ? 55 : 60;
+            double diameter = _configs[_segments[0].Id.Value].MainDiameter;
+            double lap = Math.Max(600, factor * diameter);
+            RefreshDiagramSelections();
+            SpliceLengthHint.Text = "Lₛ = max(" + factor.ToString("0") + "d, 600 mm) = " +
+                lap.ToString("0.##", CultureInfo.InvariantCulture) + " mm · cần thiết kế duyệt";
+            if (SpliceDesignStatus != null)
+                SpliceDesignStatus.Text = SplicePanelToggle.IsChecked == true
+                    ? "Cấu hình thiết kế Lₛ = " + lap.ToString("0.##", CultureInfo.InvariantCulture) +
+                      " mm. Chưa áp dụng vị trí giữa tầng hoặc nối so le vào Rebar; bộ ghép cũ vẫn kiểm tra ngầm."
+                    : "Tắt lựa chọn nối ở panel. Bộ thép chờ hiện hữu trong tab Hình học không bị tự thay đổi.";
+        }
+
+        private void FoundationLengthPreset_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading || FoundationLengthPreset == null || FoundationLengthBox == null ||
+                _segments == null || _segments.Count == 0) return;
+            int index = FoundationLengthPreset.SelectedIndex;
+            if (index < 0) return;
+            if (index < 3)
+            {
+                double diameter = _configs[_segments[0].Id.Value].MainDiameter;
+                double factor = index == 0 ? 40 : index == 1 ? 45 : 50;
+                double length = Math.Max(factor * diameter, 400);
+                FoundationLengthBox.Text = length.ToString("0.##", CultureInfo.InvariantCulture);
+                FoundationLengthHint.Text = "Lₙ = max(" + factor.ToString("0") +
+                    "d, 400 mm) = " + length.ToString("0.##") +
+                    " mm · kiểm tra theo thiết kế";
+            }
+            else FoundationLengthHint.Text = "Nhập Lₙ (mm), tối thiểu 400 mm; cần thiết kế duyệt";
+            SetFoundationControlState();
+            RefreshDiagramSelections();
+            UpdateFoundationAnchorSummary();
+        }
+
         private void SetFoundationControlState()
         {
             bool enabled = FoundationAnchorCheck.IsChecked == true;
-            FoundationLengthBox.IsEnabled = enabled;
+            FoundationLengthBox.IsEnabled = enabled && FoundationLengthPreset.SelectedIndex == 3;
+            FoundationLengthPreset.IsEnabled = enabled;
             FoundationCoverBox.IsEnabled = enabled;
             FoundationDirectionBox.IsEnabled = enabled;
             OpenAnchorModelCheck.IsEnabled = enabled;
@@ -1023,7 +1355,7 @@ namespace ColumnRebarPro.V3
             var bottom = _configs[_segments[0].Id.Value];
             FoundationAnchorSummary.Text = "Áp dụng tại " + _segments[0].LevelName + ": " + FormatBars(bottom) +
                 (bottom.GroupLongBars ? " — nhóm Fixed Number theo cạnh (1 thanh dùng Single)." : " — tạo từng thanh.") +
-                " Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang = tổng kích thước nhập trừ đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
+                " Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang Lₙ được tính theo đường kính thanh và lựa chọn 40d/45d/50d hoặc nhập tay; không cộng đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
             DrawFoundationPreview();
         }
 
@@ -1036,7 +1368,7 @@ namespace ColumnRebarPro.V3
             {
                 Enabled = true,
                 CoverMm = ReadPositive(FoundationCoverBox, "Cover móng"),
-                AnchorLengthMm = ReadPositive(FoundationLengthBox, "Tổng kích thước neo chân L"),
+                AnchorLengthMm = ReadPositive(FoundationLengthBox, "Chiều dài chân neo ngang Lₙ"),
                 Direction = (V3AnchorDirection)FoundationDirectionBox.SelectedIndex
             };
         }

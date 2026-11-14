@@ -53,7 +53,10 @@ namespace ColumnRebarPro.V3
             double vertical = bottomWork.Geometry.Bottom - zBend;
             if (vertical <= cover + barRadius)
                 throw new InvalidOperationException("Chiều dày móng không đủ để đặt chân neo L với cover đã chọn.");
-            V3AnchorLayoutPlan.HorizontalLength(settings.AnchorLengthMm, V3Units.Mm(vertical));
+            // Ln is the horizontal leg, independent of the vertical embedment.
+            // The footing-solid envelope check below remains mandatory.
+            if (settings.AnchorLengthMm < 400)
+                throw new InvalidOperationException("Chiều dài chân neo L_n phải đạt tối thiểu 400 mm theo cấu hình giao diện.");
 
             bottomWork.FoundationHost = footing;
             bottomWork.FoundationBottom = box.Min.Z;

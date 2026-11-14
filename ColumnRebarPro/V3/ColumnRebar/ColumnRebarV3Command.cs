@@ -404,33 +404,8 @@ namespace ColumnRebarPro.V3
 
         private static void VerifyBeamJointsForBuild(Document doc, IList<V3SegmentWork> works)
         {
-            for (int i = 0; i + 1 < works.Count; i++)
-            {
-                var lower = works[i];
-                var upper = works[i + 1];
-                lower.VerifiedBeamJoint = false;
-                if (!lower.Config.StarterBars) continue;
-                double gapMm = V3Units.Mm(upper.Geometry.Bottom - lower.Geometry.Top);
-                // At a touching joint, a previously entered beam height is not
-                // evidence of a physical beam. Re-detect against this exact stack.
-                if (gapMm < -2 || gapMm > 2) continue;
-                V3BeamJointInfo info;
-                string reason;
-                if (V3BeamJointDetector.TryDetect(doc, lower, upper, out info, out reason))
-                {
-                    lower.VerifiedBeamJoint = true;
-                    lower.Config.JointBeamHeight = info.HeightMm;
-                    lower.Config.BeamTopCoverMm = info.TopCoverMm;
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        "Nút " + lower.Segment.LevelName + " → " + upper.Segment.LevelName +
-                        " (cột " + lower.Column.Id.Value + " / " + upper.Column.Id.Value +
-                        ", khe hở " + Math.Round(gapMm, 1) + " mm): chưa xác minh được dầm giao. " +
-                        reason + " Nếu đây là cột mái kết thúc tuyến, kiểm tra lại các cột đã chọn.");
-                }
-            }
+            // Same verification rules as the read-only path snapshot.
+            V3VerifiedPathSnapshot.VerifyBeamJoints(doc, works);
         }
 
         private static List<V3SegmentWork> MakeWorks(Document doc, List<ColumnSegment> stack)
