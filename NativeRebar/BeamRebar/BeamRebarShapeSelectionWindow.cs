@@ -291,7 +291,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var compatible = (hookTypes ?? new List<RebarHookType>())
                 .Where(hook => hook != null && hook.Style == RebarStyle.StirrupTie &&
                     barType != null && HasHookPermission(barType, hook) &&
-                    (shape == null || HookAngleMatchesDefault(hook, requiredAngle)))
+                    (shape == null || (requiredAngle != 0 && HookAngleMatchesDefault(hook, requiredAngle))))
                 .OrderBy(hook => hook.Name, StringComparer.CurrentCultureIgnoreCase)
                 .Select(hook => new HookChoice(hook)).ToList();
             compatible.Insert(0, new HookChoice(null));
