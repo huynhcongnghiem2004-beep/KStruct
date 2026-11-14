@@ -168,6 +168,12 @@ namespace ColumnRebarPro.V3
             FoundationCoverBox.Text = bottomConfig.FoundationAnchorCover > 0 ? bottomConfig.FoundationAnchorCover.ToString(CultureInfo.InvariantCulture) : "";
             FoundationDirectionBox.SelectedIndex = Enum.IsDefined(typeof(V3AnchorDirection), bottomConfig.FoundationAnchorDirection)
                 ? (int)bottomConfig.FoundationAnchorDirection : 0;
+            // Preserve a nonstandard saved length as a custom engineering value.
+            double savedLn = bottomConfig.FoundationAnchorLength;
+            double standardLn = Math.Max(40 * bottomConfig.MainDiameter, 400);
+            FoundationLengthPreset.SelectedIndex = savedLn > 0 && Math.Abs(savedLn - standardLn) > .1 ? 3 : 0;
+            if (FoundationLengthPreset.SelectedIndex == 0)
+                FoundationLengthBox.Text = standardLn.ToString("0.##", CultureInfo.InvariantCulture);
             SetFoundationControlState();
             var deployment = new V3DeploymentControl();
             _deployment = deployment;
@@ -1166,10 +1172,32 @@ namespace ColumnRebarPro.V3
             }
         }
 
+        private void FoundationLengthPreset_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading || FoundationLengthPreset == null || FoundationLengthBox == null ||
+                _segments == null || _segments.Count == 0) return;
+            int index = FoundationLengthPreset.SelectedIndex;
+            if (index < 0) return;
+            if (index < 3)
+            {
+                double diameter = _configs[_segments[0].Id.Value].MainDiameter;
+                double factor = index == 0 ? 40 : index == 1 ? 45 : 50;
+                double length = Math.Max(factor * diameter, 400);
+                FoundationLengthBox.Text = length.ToString("0.##", CultureInfo.InvariantCulture);
+                FoundationLengthHint.Text = "Lₙ = max(" + factor.ToString("0") +
+                    "d, 400 mm) = " + length.ToString("0.##") +
+                    " mm · kiểm tra theo thiết kế";
+            }
+            else FoundationLengthHint.Text = "Nhập Lₙ (mm), tối thiểu 400 mm; cần thiết kế duyệt";
+            SetFoundationControlState();
+            UpdateFoundationAnchorSummary();
+        }
+
         private void SetFoundationControlState()
         {
             bool enabled = FoundationAnchorCheck.IsChecked == true;
-            FoundationLengthBox.IsEnabled = enabled;
+            FoundationLengthBox.IsEnabled = enabled && FoundationLengthPreset.SelectedIndex == 3;
+            FoundationLengthPreset.IsEnabled = enabled;
             FoundationCoverBox.IsEnabled = enabled;
             FoundationDirectionBox.IsEnabled = enabled;
             OpenAnchorModelCheck.IsEnabled = enabled;
@@ -1190,7 +1218,7 @@ namespace ColumnRebarPro.V3
             var bottom = _configs[_segments[0].Id.Value];
             FoundationAnchorSummary.Text = "Áp dụng tại " + _segments[0].LevelName + ": " + FormatBars(bottom) +
                 (bottom.GroupLongBars ? " — nhóm Fixed Number theo cạnh (1 thanh dùng Single)." : " — tạo từng thanh.") +
-                " Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang = tổng kích thước nhập trừ đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
+                " Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang Lₙ được tính theo đường kính thanh và lựa chọn 40d/45d/50d hoặc nhập tay; không cộng đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
             DrawFoundationPreview();
         }
 
@@ -1203,7 +1231,7 @@ namespace ColumnRebarPro.V3
             {
                 Enabled = true,
                 CoverMm = ReadPositive(FoundationCoverBox, "Cover móng"),
-                AnchorLengthMm = ReadPositive(FoundationLengthBox, "Tổng kích thước neo chân L"),
+                AnchorLengthMm = ReadPositive(FoundationLengthBox, "Chiều dài chân neo ngang Lₙ"),
                 Direction = (V3AnchorDirection)FoundationDirectionBox.SelectedIndex
             };
         }
