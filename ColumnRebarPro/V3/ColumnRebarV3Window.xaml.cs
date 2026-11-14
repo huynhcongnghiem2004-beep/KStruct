@@ -741,9 +741,10 @@ namespace ColumnRebarPro.V3
             if (w < 110 || h < 110) return;
             double bottom = _segments.Min(v => v.BottomMm);
             double top = _segments.Max(v => v.TopMm);
-            double scale = (h - 55) / Math.Max(1, top - bottom);
+            // Reserve a top annotation band; avoid clipping the upper hook.
+            double scale = (h - 100) / Math.Max(1, top - bottom);
             double center = w * 0.49;
-            Func<double, double> yy = z => h - 26 - (z - bottom) * scale;
+            Func<double, double> yy = z => h - 40 - (z - bottom) * scale;
             Action<double, double, string, Brush> label = (x, y, value, brush) =>
             {
                 var t = new TextBlock { Text = value, FontSize = 10, Foreground = brush,
@@ -820,8 +821,18 @@ namespace ColumnRebarPro.V3
                     Stroke = Brushes.LightSlateGray, StrokeThickness = .7,
                     StrokeDashArray = new DoubleCollection { 4, 3 } });
                 label(5, Math.Max(18, yBottom - 15), seg.LevelName, Brushes.DarkSlateGray);
-                label(center + half + 5, (yTop + yBottom) / 2,
+                // Dimension line uses actual segment top/bottom elevations, not a guessed lap.
+                double dimX = center - half - 13;
+                canvas.Children.Add(new Line { X1 = dimX, X2 = dimX, Y1 = yTop, Y2 = yBottom,
+                    Stroke = Brushes.SteelBlue, StrokeThickness = .8 });
+                foreach (double y in new[] { yTop, yBottom })
+                    canvas.Children.Add(new Line { X1 = dimX - 4, X2 = dimX + 4, Y1 = y, Y2 = y,
+                        Stroke = Brushes.SteelBlue, StrokeThickness = .8 });
+                label(center + half + 5, (yTop + yBottom) / 2 - 12,
                     FormatBars(cfg), Brushes.Firebrick);
+                label(center + half + 5, (yTop + yBottom) / 2 + 2,
+                    "H " + Math.Round(seg.TopMm - seg.BottomMm).ToString("0") + " mm",
+                    Brushes.SteelBlue);
             }
             for (int i = 0; i < _segments.Count - 1; i++)
             {
@@ -829,7 +840,10 @@ namespace ColumnRebarPro.V3
                 if (snapshot == null)
                     label(center + 30, yy(z) - 11, "Nút: chưa xác minh dầm", Brushes.DarkOrange);
             }
-            label(5, h - 14, "Đỏ: đường tâm từ builder khi đủ dữ liệu; nét đứt: chưa xác minh.", Brushes.Gray);
+            label(5, h - 25, snapshot == null
+                ? "CAM ĐỨT: CHƯA XÁC MINH · Không dùng preview để gia công"
+                : "ĐỎ LIỀN: đường tâm Rebar builder · Kiểm tra Rebar 3D trước phát hành",
+                snapshot == null ? Brushes.DarkOrange : Brushes.DarkSlateGray);
         }
 
         private void AnchorageReviewFloor_Click(object sender, RoutedEventArgs e)
