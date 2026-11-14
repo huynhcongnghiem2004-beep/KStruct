@@ -51,7 +51,11 @@ static class LegacySpliceTests
         lower=Work(0,3000);upper=Work(3400,6400);upper.Config.StarterBars=false;
         lower.Config.Splice=V3SpliceStyle.AtStoreyJoint;lower.Config.StaggerSplices=true;
         V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
-        Check(lower.BottleneckToUpper&&upper.IncomingSpliceOffsets.Count==14,"Migrated connections use the production 50 percent stagger planner");
+        Check(lower.Config.Splice==V3SpliceStyle.None && lower.Config.StaggerSplices,
+            "Migration preserves the explicitly requested staggered splice setting");
+        Check(lower.ConnectionPlan!=null && lower.ConnectionPlan.StaggeredBarCount==14 &&
+            upper.IncomingSpliceOffsets.Count==14 && upper.IncomingStagger,
+            "A geometrically valid explicit staggered connection must produce all splice offsets");
         lower.Config.StaggerSplices=false;lower.Config.StarterLength=600;
         rejected=false;try{V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});}
         catch(InvalidOperationException ex){rejected=ex.Message.Contains("chưa đủ");}

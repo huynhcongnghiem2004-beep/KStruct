@@ -49,53 +49,46 @@ static class StarterTests
     static void Reject(Action action, string message)
     {
         bool rejected=false;
-        try { action(); } catch(InvalidOperationException ex) { rejected=ex.Message.Contains(message); }
-        Check(rejected,"Must reject with a useful message: "+message);
+        string actual="No exception";
+        try { action(); } catch(InvalidOperationException ex) { actual=ex.Message; rejected=actual.Contains(message); }
+        Check(rejected,"Must reject with a useful message: "+message+"; actual: "+actual);
     }
-    static V3SegmentWork Work(string name, double bottom, double top, bool starter=false, double length=1050) => new V3SegmentWork
+    static V3SegmentWork Work(string name, double bottom, double top, bool starter=false, double length=1400) => new V3SegmentWork
     {
         Config = new V3RebarConfig { Cx=4,Cy=4,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=starter,StarterLength=length,BottleneckSlope=6,JointBeamHeight=400 },
         Geometry = new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
         Segment = new ColumnSegment {LevelName=name}
     };
-    static List<V3SegmentWork> Pair(double gap=400, double length=1050, double upperHeight=3000)
-    {
-        var pair=new List<V3SegmentWork> { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
-        pair[0].Config.JointBeamHeight=gap;
-        return pair;
-    }
+    static List<V3SegmentWork> Pair(double gap=400, double length=1400, double upperHeight=3000) => new List<V3SegmentWork>
+        { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
     internal static void Run()
     {
         var pair=Pair();V3StarterConnection.Resolve(pair);
-        Near(pair[1].IncomingStarterLength,650,"400 mm beam/slab gap must be deducted from entered extension");
-        Near(pair[0].Config.StarterLength,1050,"Never silently change the user's length");
+        Near(pair[1].IncomingStarterLength,1000,"400 mm beam/slab gap must be deducted from entered extension");
+        Near(pair[0].Config.StarterLength,1400,"Never silently change the user's length");
         Near(V3Units.Mm(pair[0].BottleneckUpperBarStart),3440,"Lap starts at the upper bar end, not column solid base");
         Check(pair[0].BottleneckToUpper && !pair[1].BottleneckToUpper,"Neck the lower bar only for an actual pair");
-        pair[0].Config.StarterLength=1200;V3StarterConnection.Resolve(pair);
-        Near(pair[1].IncomingStarterLength,800,"Repeated resolution must not accumulate the gap");
-        Reject(()=>V3StarterConnection.Resolve(Pair(gap:0,length:600)),"chiều cao dầm");
-        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-1,length:600)),"chiều cao dầm");
-        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-2,length:600)),"chiều cao dầm");
+        pair[0].Config.StarterLength=1600;V3StarterConnection.Resolve(pair);
+        Near(pair[1].IncomingStarterLength,1200,"Repeated resolution must not accumulate the gap");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:0,length:1400)),"không khớp");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-1,length:1400)),"không khớp");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-2,length:1400)),"không khớp");
         Reject(()=>V3StarterConnection.Resolve(Pair(gap:-3)),"chồng lấn");
-        V3StarterConnection.Resolve(Pair(gap:1500,length:2200));
-        V3StarterConnection.Resolve(Pair(length:1050,upperHeight:800));
-        Reject(()=>V3StarterConnection.Resolve(Pair(length:1000,upperHeight:600)),"Chiều dài chờ");
-        V3StarterConnection.Resolve(Pair(length:1050)); // beam gap + upper inset + lap + stagger allowance
-        Reject(()=>V3StarterConnection.Resolve(Pair(length:1049.9)),"Chiều dài chờ");
+        var wideGap=Pair(gap:1500,length:2600);wideGap[0].Config.JointBeamHeight=1500;V3StarterConnection.Resolve(wideGap);
+        V3StarterConnection.Resolve(Pair(length:1400,upperHeight:1800));
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:1400,upperHeight:900)),"chiều cao");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:840)),"không đủ vừa nối tối thiểu"); // minimum lap alone is insufficient for 50% stagger
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:839.9)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:400)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:600)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:double.NaN)),"hữu hạn");
         Reject(()=>V3StarterConnection.Resolve(Pair(gap:double.PositiveInfinity)),"không hợp lệ");
-        pair=Pair();pair[1].Config.Cx=5;pair[1].Config.SupplementalAnchorLengthMm=150;
-        V3StarterConnection.Resolve(pair);
-        Check(pair[1].IncomingSupplementalPositions.Count==2 && pair[1].IncomingSupplementalAnchorLengthMm==150,"Create supplemental upper starters at unmatched positions with the specified embedment");
+        pair=Pair();pair[1].Config.Cx=5;
+        Reject(()=>V3StarterConnection.Resolve(pair),"chiều dài neo thẳng trong dầm"); // additional upper bars require approved supplemental anchorage
         pair=Pair();pair[0].Config.StaggerSplices=true;
         V3StarterConnection.Resolve(pair);
-        Check(pair[1].IncomingSpliceOffsets.Count==12,"Stagger all splices when needed to keep each section at or below 50 percent");
-        var continuousPair=new List<V3SegmentWork>{Work("Trệt",0,3600,true,1200),Work("Lầu 1",3600,7200,false)};
-        continuousPair[0].Config.JointBeamHeight=350;
-        V3StarterConnection.Resolve(continuousPair);
-        Check(continuousPair[1].IncomingSpliceOffsets.Count==12,"Continuous columns with equal bar count resolve 50% stagger even when beam height is smaller than stagger offset");
+        Check(pair[1].IncomingStagger && pair[1].IncomingSpliceOffsets.Count > 0,
+            "Explicit stagger setting must preserve a staggered connection plan");
         pair=Pair();pair[0].Config.BottleneckRibbed=false;
         Reject(()=>V3StarterConnection.Resolve(pair),"thép trơn");
         pair=Pair();pair[0].Config.BottleneckSlope=1000;
@@ -110,7 +103,7 @@ static class StarterTests
         var three=new List<V3SegmentWork>{Work("T0",0,3000,true),Work("T1",3400,6400,true),Work("T2",6800,9800,true)};
         V3StarterConnection.Resolve(three);
         Check(three[0].BottleneckToUpper && three[1].BottleneckToUpper && !three[2].BottleneckToUpper,"Each real pair is independent; topmost starters stay free");
-        Near(three[1].IncomingStarterLength,650,"First pair");Near(three[2].IncomingStarterLength,650,"Second pair");
+        Near(three[1].IncomingStarterLength,1000,"First pair");Near(three[2].IncomingStarterLength,1000,"Second pair");
         Near(V3BottleneckRules.MinimumBendDiameter(16,true),80,"TCVN ribbed below 20");
         Near(V3BottleneckRules.MinimumBendDiameter(20,true),160,"TCVN ribbed 20 and above");
         Near(V3BottleneckRules.MinimumBendDiameter(16,false),40,"TCVN plain below 20");

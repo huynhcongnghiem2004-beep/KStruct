@@ -651,8 +651,9 @@ namespace ColumnRebarPro.V3
 
         private void ShowAdvanced(bool show)
         {
-            CompactSurface.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
-            AdvancedSurface.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            // Both editors now live inside Tab 1; switch its nested view, not the entire window.
+            MainTabs.SelectedIndex = 0;
+            ColumnModeTabs.SelectedIndex = show ? 1 : 0;
             if (QuickAdvancedCheck.IsChecked != show)
             {
                 _compactSync = true;
@@ -665,9 +666,9 @@ namespace ColumnRebarPro.V3
             // Always allow opening Advanced to fix an incomplete design profile.
             SaveActive(false);
             string caption = (sender as Button)?.Content?.ToString() ?? "";
-            MainTabs.SelectedIndex = caption.Contains("Hook") ? 2 :
-                caption.Contains("Neo") ? 1 : 0;
             ShowAdvanced(true);
+            if (caption.Contains("Hook")) MainTabs.SelectedIndex = 1;
+            else if (caption.Contains("Neo")) MainTabs.SelectedIndex = 2;
         }
         private void QuickAdvanced_Changed(object sender, RoutedEventArgs e)
         {
@@ -782,6 +783,69 @@ namespace ColumnRebarPro.V3
             MessageBox.Show(this, "Đã áp dụng cấu hình cho " + _segments.Count + " tầng trong cửa sổ. Chưa thay đổi mô hình Revit.",
                 "KStruct", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+        // V5 is a read-only advisory preflight. V4 remains the sole production writer.
+        // Do not interpret V5InputReview.CanCreateRebar=false as permission to run its pilot writer.
+        private void V5Review_Click(object sender, RoutedEventArgs e)
+        {
+            if (!SaveActive(true)) return;
+            var messages = new List<string>();
+            foreach (var segment in _segments)
+            {
+                V3RebarConfig cfg;
+                if (!_configs.TryGetValue(segment.Id.Value, out cfg))
+                {
+                    messages.Add(segment.LevelName + ": thiếu cấu hình V4.");
+                    continue;
+                }
+                var host = _document == null ? null : _document.GetElement(segment.Id);
+                var input = new SDK_HD.KStruct.Core.V5.V5RebarInput
+                {
+                    Module = SDK_HD.KStruct.Core.V5.V5StructuralModule.Column,
+                    HostModule = SDK_HD.KStruct.Core.V5.V5StructuralModule.Column,
+                    HostUniqueId = host == null ? "" : host.UniqueId,
+                    WidthMm = segment.WidthMm,
+                    HeightMm = segment.DepthMm,
+                    CoverMm = cfg.Cover,
+                    MainBarDiameterMm = cfg.MainDiameter,
+                    TieDiameterMm = cfg.TieDiameter,
+                    TieSpacingMm = cfg.MidSpacing,
+                    MainBarCount = 2 * (cfg.Cx + cfg.Cy) - 4
+                };
+                var review = SDK_HD.KStruct.Core.V5.V5RebarInputPolicy.Review(input,
+                    _sizes.Select(x => x.Mm));
+                var prefix = segment.LevelName + ": ";
+                messages.Add(prefix + (review.IsValid
+                    ? "Dữ liệu V5 hợp lệ ở mức kiểm tra đầu vào."
+                    : string.Join("; ", review.Errors)));
+                foreach (var warning in review.Warnings)
+                    messages.Add("  • " + warning);
+                // V5 host geometry inventory is diagnostic evidence, never permission to write.
+                if (host != null)
+                {
+                    var inventory = SDK_HD.KStruct.Core.V5.V5HostSolidInspector.Inspect(host);
+                    messages.Add("  Solid: " + inventory.SolidCount
+                        + " | ứng viên bê tông trực tiếp: " + inventory.DirectConcreteCandidateSolids
+                        + " | ứng viên bê tông nested: " + inventory.NestedConcreteCandidateSolids
+                        + " | hình học bị cắt ngắn: " + (inventory.Truncated ? "có" : "không"));
+                    foreach (var warning in inventory.Warnings)
+                        messages.Add("  • " + warning);
+                    var gate = SDK_HD.KStruct.Core.V5.V5ExecutionGatePolicy.Review(
+                        new SDK_HD.KStruct.Core.V5.V5ExecutionEvidence
+                        {
+                            HostSolidIsConcrete = inventory.ConcreteVerified,
+                            PhysicalCoverFacesVerified = inventory.CoverVerified
+                        });
+                    foreach (var blocker in gate.Blockers)
+                        messages.Add("  CHẶN V5: " + blocker);
+                }
+            }
+            messages.Add("");
+            messages.Add("V5 chưa được cấp phép tạo thép: Solid, cover, nút giao, neo/nối và transaction chưa được xác minh. Nút này KHÔNG sửa mô hình.");
+            MessageBox.Show(this, string.Join(Environment.NewLine, messages),
+                "KStruct · V5 kiểm tra đầu vào (chỉ đọc)", MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
         private void Run_Click(object sender, RoutedEventArgs e)
         {
             if (!SaveActive(true)) return;
@@ -841,7 +905,7 @@ namespace ColumnRebarPro.V3
             catch (Exception ex)
             {
                 MainTabs.SelectedIndex = ex.Message.IndexOf("móc",StringComparison.OrdinalIgnoreCase)>=0 ||
-                    ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 2 : 1;
+                    ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 1 : 2;
                 ShowAdvanced(true);
                 MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;

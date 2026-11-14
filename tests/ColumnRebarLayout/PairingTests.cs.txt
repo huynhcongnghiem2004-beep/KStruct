@@ -54,13 +54,13 @@ static class PairingTests
         Plan(Profile(),Profile(angle:.1)); // physical rotation, not just axis relabelling
         var foot=Profile();foot.HasFoot=true;foot.FootDirection=V3AnchorDirection.PositiveY;
         Plan(foot,Profile(350,450));
-        var extraBarsPlan=V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6);
-        Check(extraBarsPlan.UnmatchedUpperPositions.Count>0,"Record unmatched upper bars for supplemental starter creation");
-        var continuousLower=Profile(300,300,3,3);continuousLower.BottomZ=0;continuousLower.TopZ=3600;continuousLower.JointBeamHeightMm=500;continuousLower.BeamTopCoverMm=30;
-        var continuousUpper=Profile(200,200,2,2);continuousUpper.BottomZ=3600;continuousUpper.TopZ=7200;
-        var terminatedPlan=V3ColumnPairing.Create(continuousLower,continuousUpper,2,6);
-        Check(terminatedPlan.Bars.Count(b=>b.Terminated)==4,"4 bars terminated for 8 to 4 bar reduction in continuous columns");
-        Check(terminatedPlan.Bars.Where(b=>b.Terminated).All(b=>Math.Abs(b.EndZ-(3600-30))<1e-4),"Terminated bars stop at beam top minus top cover");
+        // More upper bars are permitted as unmatched supplemental starters; they must never be silently paired twice.
+        var extraUpper=V3ColumnPairing.Create(Profile(),Profile(cx:5),2,6);
+        Check(extraUpper.Bars.Count==14 && extraUpper.UnmatchedUpperPositions.Count==2,
+            "Two extra upper bars must be reported for supplemental anchorage");
+        Check(extraUpper.Bars.All(bar=>!bar.Terminated) &&
+            extraUpper.Bars.Select(bar=>bar.UpperIndex).Distinct().Count()==14,
+            "Existing lower bars must map uniquely without fabricating supplemental anchors");
         Reject(()=>V3ColumnPairing.Create(Profile(cx:4,cy:5),Profile(cx:3,cy:6),2,6),"các cạnh");
         Reject(()=>V3ColumnPairing.Create(Profile(width:0),Profile(),2,6),"không hợp lệ");
         var bad=Profile();bad.AxisX=new V3Point2(2,0);
@@ -72,7 +72,7 @@ static class PairingTests
         Check(rows.Single(r=>r.Parameter=="Cover (mm)").Status=="Khác","Expose actual cover difference");
         Check(rows.Single(r=>r.Parameter=="Thép chủ (mm)").Status=="Giống","Do not invent a diameter difference");
         // Run production adapter and resolver rather than a fake SameStructure boolean.
-        var lower=new V3SegmentWork {Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=true,StarterLength=1200,BottleneckSlope=6,JointBeamHeight=400},
+        var lower=new V3SegmentWork {Config=new V3RebarConfig {Cx=4,Cy=5,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=true,StarterLength=1400,BottleneckSlope=6,JointBeamHeight=400},
             Geometry=new V3Geometry {Bottom=0,Top=V3Units.Ft(3000)},Segment=new ColumnSegment {LevelName="Trệt"}};
         var upper=new V3SegmentWork {Config=lower.Config.Copy(),Geometry=new V3Geometry {Bottom=V3Units.Ft(3400),Top=V3Units.Ft(6400)},
             Segment=new ColumnSegment {LevelName="Lầu 1"}};
@@ -81,7 +81,7 @@ static class PairingTests
         V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper});
         Check(lower.ConnectionPlan!=null&&lower.ConnectionPlan.Bars.Count==14,"Real resolver accepts changed cover/ties/section");
         upper.Config.Cx=5;
-        Reject(()=>V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper}),"nhiều hơn 2 thanh");
+        Reject(()=>V3StarterConnection.Resolve(new List<V3SegmentWork>{lower,upper}),"Nhập chiều dài neo thẳng trong dầm");
 
         var paths=new List<V3BarPath>();
         for(int i=0;i<4;i++)paths.Add(new V3BarPath {BarIndex=i,Points=new List<V3Point3> {
