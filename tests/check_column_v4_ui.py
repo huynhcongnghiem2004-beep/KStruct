@@ -32,8 +32,11 @@ def main():
     names = [e.attrib[xns] for e in root.iter() if xns in e.attrib]
     assert len(names) == len(set(names)), "Duplicate WPF x:Name"
     assert "DeploymentHost" in names, "Existing drawing deployment host lost"
-    assert "MainTabs.SelectedIndex = caption.Contains(\"Hook\") ? 1 :" in code
-    assert "caption.Contains(\"Neo\") ? 2 : 0;" in code
+    assert "ColumnModeTabs" in names, "Nested quick/detail tabs missing"
+    assert "Tạo thép nhanh" in text and "Thiết lập chi tiết" in text
+    assert "ColumnModeTabs.SelectedIndex = show ? 1 : 0;" in code
+    assert 'if (caption.Contains("Hook")) MainTabs.SelectedIndex = 1;' in code
+    assert 'else if (caption.Contains("Neo")) MainTabs.SelectedIndex = 2;' in code
     for key in ("KStructNavy", "KStructEarth", "KStructCream"):
         assert key in text, f"Missing color resource: {key}"
     handlers = set(re.findall(
