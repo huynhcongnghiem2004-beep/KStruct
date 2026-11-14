@@ -414,7 +414,7 @@
                             <StackPanel Grid.Row="1" Margin="0,0,12,0">
                                 <TextBlock Text="Chọn chi tiết neo" Foreground="#FF52647A" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
-                                    <Button Style="{StaticResource DiagramChoice}" Tag="0" Click="FoundationDiagramChoice_Click" ToolTip="Chân L hướng vào tâm">
+                                    <Button x:Name="FoundationInwardVisual" Style="{StaticResource DiagramChoice}" Tag="0" Click="FoundationDiagramChoice_Click" ToolTip="Chân L hướng vào tâm">
                                         <StackPanel>
                                             <Canvas Width="66" Height="42">
                                                 <Path Data="M 15,3 L 15,33 L 50,33" Stroke="#FFE53935" StrokeThickness="4" StrokeLineJoin="Round"/>
@@ -424,7 +424,7 @@
                                             <TextBlock Text="Vào tâm" TextAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
-                                    <Button Style="{StaticResource DiagramChoice}" Tag="1" Click="FoundationDiagramChoice_Click" ToolTip="Chân L hướng ra ngoài">
+                                    <Button x:Name="FoundationOutwardVisual" Style="{StaticResource DiagramChoice}" Tag="1" Click="FoundationDiagramChoice_Click" ToolTip="Chân L hướng ra ngoài">
                                         <StackPanel>
                                             <Canvas Width="66" Height="42">
                                                 <Path Data="M 50,3 L 50,33 L 15,33" Stroke="#FFE53935" StrokeThickness="4" StrokeLineJoin="Round"/>
@@ -498,7 +498,7 @@
                                     </StackPanel>
                                     <TextBlock Text="Chọn kiểu nối theo hình" FontWeight="SemiBold" Foreground="#FF52647A" Margin="0,2,0,4"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <Button Style="{StaticResource DiagramChoice}" Tag="0" Click="SpliceDiagramChoice_Click" ToolTip="Nối chồng - 50d">
+                                        <Button x:Name="Splice50Visual" Style="{StaticResource DiagramChoice}" Tag="0" Click="SpliceDiagramChoice_Click" ToolTip="Nối chồng - 50d">
                                             <StackPanel>
                                                 <Canvas Width="54" Height="42">
                                                     <Line X1="19" Y1="2" X2="19" Y2="37" Stroke="#FFE53935" StrokeThickness="4"/>
@@ -508,8 +508,8 @@
                                                 <TextBlock Text="50d" TextAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
-                                        <Button Style="{StaticResource DiagramChoice}" Tag="1" Click="SpliceDiagramChoice_Click" Content="55d"/>
-                                        <Button Style="{StaticResource DiagramChoice}" Tag="2" Click="SpliceDiagramChoice_Click" Content="60d"/>
+                                        <Button x:Name="Splice55Visual" Style="{StaticResource DiagramChoice}" Tag="1" Click="SpliceDiagramChoice_Click" Content="55d"/>
+                                        <Button x:Name="Splice60Visual" Style="{StaticResource DiagramChoice}" Tag="2" Click="SpliceDiagramChoice_Click" Content="60d"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
                                         <TextBlock Text="Chiều dài nối (Lₛ)" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
