@@ -502,13 +502,12 @@
                                             <Border BorderBrush="#FFD2DDE9" BorderThickness="1" Background="White" CornerRadius="5" Padding="10" Margin="0,0,0,8">
                                                 <StackPanel>
                                                     <Button Content="{Binding Segment.LevelName}" Tag="{Binding Segment.Id}" Click="AnchorageReviewFloor_Click" Background="#FFEAF0F7" Foreground="#FF173657" FontWeight="SemiBold" HorizontalContentAlignment="Left" Padding="6" ToolTip="Chọn tầng này để chỉnh thông số"/>
-                                                    <Grid Height="78" Margin="0,7,0,5">
-                                                        <Rectangle Width="72" Height="72" Fill="#FFF1F2F4" Stroke="#FF778A9D"/>
-                                                        <Rectangle Width="60" Height="60" Stroke="#FFD34835" StrokeThickness="2" Fill="Transparent"/>
-                                                        <Ellipse Width="6" Height="6" Fill="#FFD34835" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="79,5,0,0"/>
-                                                    </Grid>
+                                                    <Border Height="128" Margin="0,7,0,5" Background="#FFF7F9FC" BorderBrush="#FFD2DDE9" BorderThickness="1" Padding="5">
+                                                        <Image Source="{Binding SectionPreview}" Stretch="Uniform" ToolTip="Mặt cắt sinh từ cấu hình Cx/Cy, đường kính thép và tiết diện tầng hiện tại"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding SizeText}" TextAlignment="Center" Foreground="#FF173657" FontWeight="SemiBold"/>
                                                     <TextBlock Text="{Binding BarText}" TextAlignment="Center" Foreground="#FF556A80" FontSize="11"/>
-                                                    <TextBlock Text="Sơ đồ tượng trưng — không biểu diễn vị trí thép thực" TextWrapping="Wrap" FontSize="10" Foreground="#FF986B48" Margin="0,4,0,0"/>
+                                                    <TextBlock Text="Preview cấu hình 2D; chưa xác minh va chạm Solid" TextWrapping="Wrap" FontSize="10" Foreground="#FF986B48" Margin="0,4,0,0"/>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
