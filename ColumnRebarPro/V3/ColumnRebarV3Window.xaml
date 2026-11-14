@@ -353,15 +353,17 @@
                         </TabControl>
                     </TabItem>
             <TabItem Header="▤  2. THÉP ĐAI">
-                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20" Width="600" HorizontalAlignment="Left">
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Đai toàn tuyến — Maximum Spacing" Margin="0,0,0,12"/>
-                    <TextBlock Text="Chọn kiểu đai một lần cho toàn tuyến. Không bố trí đai tại vùng giao thực tế với dầm hoặc sàn." TextWrapping="Wrap" Foreground="#FF20665C" Margin="0,0,0,6"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16" MaxWidth="850" HorizontalAlignment="Left" TextBlock.Foreground="#FF173657">
+                    <Border Background="#FF162C46" CornerRadius="6" Padding="13" Margin="0,0,0,12"><StackPanel><TextBlock Text="02  |  THÉP ĐAI TOÀN TUYẾN" FontSize="16" FontWeight="Bold" Foreground="White"/><TextBlock Text="Thiết lập kiểu đai, móc và khoảng cách theo vùng · Revit 2024" Foreground="#FFE1E9F2" Margin="0,5,0,0"/></StackPanel></Border>
+                    <Border Background="#FFF8FAFC" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="14"><StackPanel>
+                    <TextBlock FontSize="15" FontWeight="Bold" Text="①  Cấu hình thép đai" Foreground="#FF162C46" Margin="0,0,0,12"/>
+                    <TextBlock Text="Chọn kiểu đai một lần cho toàn tuyến. Vùng nút dầm/sàn được xử lý theo bộ kiểm tra hình học hiện hữu." TextWrapping="Wrap" Foreground="#FF20665C" Margin="0,0,0,6"/>
                     <TextBlock TextWrapping="Wrap" Foreground="#FF315889" Margin="0,0,0,8" Text="Shape thép đai được Revit tự tìm từ hình học và thư viện project. Hook 135°/90° vẫn dùng loại có sẵn; nếu có nhiều Hook tương thích thì chọn loại bên dưới."/>
                     <TextBlock Style="{StaticResource FormLabel}" Text="Đai bao (Shape tự động)" Visibility="Collapsed"/>
-                    <ComboBox Visibility="Collapsed" x:Name="OuterTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
+                    <ComboBox Visibility="Collapsed" x:Name="OuterTieShapeBox" Width="560" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                     <TextBlock Style="{StaticResource FormLabel}" Text="Đai phụ / cross-tie" Visibility="Collapsed"/>
                     <ComboBox Visibility="Collapsed" x:Name="CrossTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai 135°"/><ComboBox x:Name="TieHook135Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai 135°"/><ComboBox x:Name="TieHook135Box" Width="395" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai phụ 90°"/><ComboBox x:Name="TieHook90Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Chiều dài vùng đai đầu cột mỗi đầu (mm)"/><TextBox x:Name="ZoneBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai hai đầu (mm)"/><TextBox x:Name="EndStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
@@ -378,6 +380,8 @@
                     <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,4"><TextBlock Width="265" VerticalAlignment="Center" Text="Chiều cao nút dầm sàn (mm)"/><TextBox x:Name="JointHeightBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,8"><TextBlock Width="265" VerticalAlignment="Center" Text="Bước đai trong nút dầm (mm)"/><TextBox x:Name="JointStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <TextBlock TextWrapping="Wrap" Foreground="#FF986B48" Margin="0,8,0,0" Text="Revit tự khớp Shape có sẵn; nếu project không có hình tương ứng với đường thanh + Hook đã chọn, KStruct sẽ báo lỗi và rollback tuyến, không tạo Shape mới."/>
+                    </StackPanel></Border>
+                    <Border Background="#FFFFF8E7" BorderBrush="#FFE8D8BB" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,12,0,0"><TextBlock Text="Lưu ý: số lượng đai được tính theo Maximum Spacing từ chiều dài phân bố thực; không lấy trực tiếp công thức ước lượng 20 đai/tầng trong tài liệu làm số đai cố định." TextWrapping="Wrap" Foreground="#FF76552C"/></Border>
                 </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="⌁  3. NEO &amp; NỐI TẦNG">
@@ -467,12 +471,12 @@
                                                Foreground="#FF986B48" TextWrapping="Wrap" Margin="132,0,0,7"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
                                         <TextBlock Text="Vị trí nối" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
-                                        <ComboBox x:Name="SplicePositionSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
+                                        <ComboBox x:Name="SplicePositionSelector" Width="165" SelectedIndex="0" IsEnabled="False" ToolTip="Chưa hỗ trợ bố trí nối tại giữa chiều cao tầng trong Rebar builder" SelectionChanged="SplicePanel_Changed">
                                             <ComboBoxItem Content="Giữa chiều cao tầng"/>
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal">
-                                        <CheckBox x:Name="SpliceStaggerCheck" Content="Bố trí so le" IsChecked="False"
+                                        <CheckBox x:Name="SpliceStaggerCheck" Content="Bố trí so le" IsChecked="False" IsEnabled="False" ToolTip="Chưa hỗ trợ bố trí so le theo 1.3Ls trong Rebar builder"
                                                   Checked="SplicePanel_Changed" Unchecked="SplicePanel_Changed"
                                                   Foreground="#FF173657" Margin="0,0,10,0"/>
                                         <TextBlock Text="≥ 1.3Lₛ" Foreground="#FF986B48" VerticalAlignment="Center"/>
@@ -494,7 +498,7 @@
                                 </Border>
                             </Grid>
                             <TextBlock x:Name="SpliceDesignStatus" Foreground="#FF986B48" TextWrapping="Wrap"
-                                       Text="Cấu hình nối theo mockup; chưa kích hoạt nối giữa chiều cao tầng và so le trong bộ tạo Rebar."/>
+                                       Text="Chiều dài Lₛ là giá trị tham khảo theo cấu hình thiết kế. Vị trí giữa tầng và so le đang khóa cho đến khi được kiểm thử trong Revit."/>
                         </StackPanel>
                     </Border>
                     <!-- Existing validated pairing and bottleneck controls remain instantiated,
