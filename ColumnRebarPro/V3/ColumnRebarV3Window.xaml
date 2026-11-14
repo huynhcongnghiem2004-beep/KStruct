@@ -419,7 +419,7 @@
                                             <Canvas Width="66" Height="42">
                                                 <Path Data="M 15,3 L 15,33 L 50,33" Stroke="#FFE53935" StrokeThickness="4" StrokeLineJoin="Round"/>
                                                 <Path Data="M 9,4 L 9,38 M 8,38 L 55,38" Stroke="#FF94A3B8" StrokeThickness="1.2"/>
-                                                <Path Data="M 49,29 L 55,33 L 49,37" Fill="None" Stroke="#FFE67E22" StrokeThickness="1.5"/>
+                                                <Path Data="M 49,29 L 55,33 L 49,37" Fill="Transparent" Stroke="#FFE67E22" StrokeThickness="1.5"/>
                                             </Canvas>
                                             <TextBlock Text="Vào tâm" TextAlignment="Center"/>
                                         </StackPanel>
@@ -429,7 +429,7 @@
                                             <Canvas Width="66" Height="42">
                                                 <Path Data="M 50,3 L 50,33 L 15,33" Stroke="#FFE53935" StrokeThickness="4" StrokeLineJoin="Round"/>
                                                 <Path Data="M 55,4 L 55,38 M 10,38 L 56,38" Stroke="#FF94A3B8" StrokeThickness="1.2"/>
-                                                <Path Data="M 19,29 L 13,33 L 19,37" Fill="None" Stroke="#FFE67E22" StrokeThickness="1.5"/>
+                                                <Path Data="M 19,29 L 13,33 L 19,37" Fill="Transparent" Stroke="#FFE67E22" StrokeThickness="1.5"/>
                                             </Canvas>
                                             <TextBlock Text="Ra ngoài" TextAlignment="Center"/>
                                         </StackPanel>
@@ -646,8 +646,8 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Canvas Width="155" Height="98">
                                         <Rectangle Canvas.Left="39" Canvas.Top="9" Width="75" Height="86" Fill="#FFE8EDF3" Stroke="#FF8296AA"/>
-                                        <Path Data="M 52,93 L 52,26 Q 52,18 60,18 L 94,18" Stroke="#FFE53935" StrokeThickness="4" Fill="None"/>
-                                        <Path Data="M 101,93 L 101,26 Q 101,18 93,18 L 65,18" Stroke="#FFE53935" StrokeThickness="4" Fill="None"/>
+                                        <Path Data="M 52,93 L 52,26 Q 52,18 60,18 L 94,18" Stroke="#FFE53935" StrokeThickness="4" Fill="Transparent"/>
+                                        <Path Data="M 101,93 L 101,26 Q 101,18 93,18 L 65,18" Stroke="#FFE53935" StrokeThickness="4" Fill="Transparent"/>
                                         <Line X1="63" Y1="32" X2="95" Y2="32" Stroke="#FF1E88E5" StrokeThickness="1" StrokeDashArray="3,2"/>
                                         <TextBlock Canvas.Left="116" Canvas.Top="21" Text="Lm" Foreground="#FF1E88E5" FontWeight="Bold"/>
                                         <TextBlock Canvas.Left="8" Canvas.Top="4" Text="90°" Foreground="#FFE67E22" FontWeight="SemiBold"/>
