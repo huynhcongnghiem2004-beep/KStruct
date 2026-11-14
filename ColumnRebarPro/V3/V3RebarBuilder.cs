@@ -120,7 +120,7 @@ namespace ColumnRebarPro.V3
                                 "thay thép cột " + work.Column.Id.Value);
                         }
 
-                        if (work.FoundationHost != null || work.BottleneckToUpper ||
+                        if (work.Config.TerminalInwardHook90 || work.FoundationHost != null || work.BottleneckToUpper ||
                             work.IncomingSupplementalPositions.Count > 0 ||
                             work.IncomingSpliceOffsets.Count > 0)
                             V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);
