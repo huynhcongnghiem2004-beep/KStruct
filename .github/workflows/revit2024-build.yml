@@ -1,0 +1,113 @@
+name: Revit 2024 build and preferences
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: revit2024-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Check Ribbon command registration (96 commands / 7 panels)
+        run: dotnet run --project tests/RibbonRegistration/RibbonRegistration.csproj --configuration Release
+      - name: Check Column V4 four-tab WPF structure and event wiring
+        run: python tests/check_column_v4_ui.py
+      - name: Check KStruct V5 audit and ownership policies
+        run: dotnet run --project tests/CoreV5/CoreV5.csproj --configuration Release
+      - name: Check preferences and legacy compatibility
+        run: dotnet run --project tests/FootingPreferences/FootingPreferences.csproj --configuration Release
+      - name: Check footing rebar memory and ownership
+        run: dotnet run --project tests/FootingRebarMemory/FootingRebarMemory.csproj --configuration Release
+      - name: Check column tie layout and ownership
+        run: dotnet run --project tests/ColumnRebarLayout/ColumnRebarLayout.csproj --configuration Release
+      - name: Check existing project Shape and Hook policy
+        run: dotnet run --project tests/ExistingProjectRebar/ExistingProjectRebar.csproj --configuration Release
+      - name: Check footing view range and beam intersections
+        run: dotnet run --project tests/FootingDrawingMath/FootingDrawingMath.csproj --configuration Release
+      - name: Check footing Detail Item formula and rotation math
+        run: dotnet run --project tests/FootingPlanDetail/FootingPlanDetail.csproj --configuration Release
+      - name: Get pinned Revit 2024 compile references
+        shell: pwsh
+        run: |
+          $package = Join-Path $env:RUNNER_TEMP 'revit2024.zip'
+          Invoke-WebRequest 'https://api.nuget.org/v3-flatcontainer/revit_all_main_versions_api_x64/2024.0.0/revit_all_main_versions_api_x64.2024.0.0.nupkg' -OutFile $package
+          if ((Get-FileHash $package -Algorithm SHA256).Hash -ne '89B521D1F331A9AE450210AADD59F680412ED10B68AAFFA7EB5CC1E797D1DA00') { throw 'Reference package checksum mismatch' }
+          $references = Join-Path $env:RUNNER_TEMP 'revit2024'
+          Expand-Archive $package $references
+          "REVIT_REFERENCE_DIR=$references\lib\net48\" >> $env:GITHUB_ENV
+      - name: Build complete add-in against Revit 2024
+        shell: pwsh
+        run: |
+          dotnet build KStruct.csproj --configuration Release "/p:RevitInstallDir=$env:REVIT_REFERENCE_DIR" -bl:revit2024-build.binlog 2>&1 | Tee-Object -FilePath revit2024-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify Release DLL metadata and checksum
+        shell: pwsh
+        run: |
+          $assemblyFile = Join-Path $PWD 'bin/Release/KStruct.dll'
+          if (-not (Test-Path -LiteralPath $assemblyFile -PathType Leaf)) { throw "Missing built assembly: $assemblyFile" }
+          $assembly = [System.Reflection.AssemblyName]::GetAssemblyName($assemblyFile)
+          if ($assembly.Name -ne 'KStruct') { throw "Unexpected assembly name: $($assembly.Name)" }
+          # AssemblyName.ProcessorArchitecture is unreliable in modern .NET.
+          # Validate the PE COFF machine field instead.
+          $stream = [System.IO.File]::OpenRead($assemblyFile)
+          try {
+            $pe = [System.Reflection.PortableExecutable.PEReader]::new($stream)
+            try {
+              $machine = $pe.PEHeaders.CoffHeader.Machine
+              if ($machine -ne [System.Reflection.PortableExecutable.Machine]::Amd64) {
+                throw "Expected x64 assembly, found PE machine $machine"
+              }
+            } finally { $pe.Dispose() }
+          } finally { $stream.Dispose() }
+          $hash = (Get-FileHash -LiteralPath $assemblyFile -Algorithm SHA256).Hash
+          $size = (Get-Item -LiteralPath $assemblyFile).Length
+          if ($size -lt 1024) { throw "Assembly unexpectedly small: $size bytes" }
+          @(
+            "Assembly: $($assembly.Name)",
+            "Version: $($assembly.Version)",
+            "Architecture: $machine",
+            "SizeBytes: $size",
+            "SHA256: $hash",
+            "Commit: $env:GITHUB_SHA"
+          ) | Set-Content -Path revit2024-artifact-metadata.txt -Encoding utf8
+      - name: Render real WPF create and update dialogs
+        shell: pwsh
+        run: |
+          dotnet build tests/FootingRebarUi/FootingRebarUi.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $process = Start-Process -FilePath (Join-Path $PWD 'tests/FootingRebarUi/bin/Release/net48/FootingRebarUi.exe') -ArgumentList 'ui-previews' -WorkingDirectory $PWD.Path -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path ui-previews/render-error.txt) { Get-Content ui-previews/render-error.txt }
+            exit $process.ExitCode
+          }
+      - name: Upload WPF interface previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KStruct-Footing-UI
+          path: ui-previews/
+          if-no-files-found: warn
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revit2024-build-logs
+          path: |
+            revit2024-build.log
+            revit2024-build.binlog
+            revit2024-artifact-metadata.txt
+      - name: Upload add-in (Revit runtime validation still required)
+        uses: actions/upload-artifact@v4
+        with:
+          name: KStruct-Revit2024
+          path: bin/Release/KStruct.dll
+          if-no-files-found: error
