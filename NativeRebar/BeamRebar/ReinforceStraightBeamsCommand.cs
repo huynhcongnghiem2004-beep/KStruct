@@ -1685,9 +1685,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 .Cast<RebarShape>()
                 .Where(candidate => candidate != null && candidate.RebarStyle == expectedStyle &&
                     (preferred == null || candidate.Id != preferred.Id))
-                .Where(Matches).OrderBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(candidate => candidate.Id.Value).ToList();
-            if (matches.Count == 1) return matches[0];
+                .Where(Matches).ToList();
             if (matches.Count == 0)
             {
                 string original = preferred == null ? "(chưa chọn)" :
@@ -1696,9 +1694,18 @@ namespace SDK_HD.KStruct.NativeRebar
                     expectedStyle + " tương thích với đường thép và HookType thực tế. Shape trước đó: " +
                     original + ". Hãy nạp Shape đúng hoặc điều chỉnh hình học.");
             }
-            throw new InvalidOperationException(groupName + ": có " + matches.Count +
-                " RebarShape cùng tương thích với hình học và HookType; không thể tự chọn an toàn. " +
-                "Hãy chọn Shape phù hợp trong project.");
+
+            // Every candidate below passed Revit's exact curve/HookType matcher.
+            // If the saved/name-suggested Shape was incompatible, choose a stable
+            // project-preferred candidate instead of rejecting equivalent valid options.
+            RebarShape selected = matches
+                .OrderByDescending(candidate => BeamRebarShapeSelectionWindow.ScoreShapeName(candidate, expectedStyle))
+                .ThenBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(candidate => candidate.Id.Value)
+                .First();
+            System.Diagnostics.Debug.WriteLine("KStruct Beam Shape " + groupName + ": selected compatible Shape " +
+                selected.Name + " [Id " + selected.Id.Value + "] from " + matches.Count + " valid candidates.");
+            return selected;
         }
 
         private static Rebar CreateFromSelectedBeamShape(Document doc, RebarShape shape, RebarStyle expectedStyle,
@@ -1709,9 +1716,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // Match actual requested curves and HookTypes first. Name or RebarStyle
             // alone cannot tell a straight bar from an L/U/stepped profile.
             // The currently selected Shape has priority only if it truly matches.
-            // An unambiguous alternative from this document may be selected
-            // automatically; never create a new Shape or silently guess among
-            // multiple geometrically compatible definitions.
+            // When multiple candidates pass, use the stable project preference
+            // ranking; never create a new Shape or bypass Revit's geometry check.
             try
             {
                 shape = ResolveExistingLongitudinalShape(doc, shape, expectedStyle, type,
