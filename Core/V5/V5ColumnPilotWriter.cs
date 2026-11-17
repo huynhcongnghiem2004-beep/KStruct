@@ -1,0 +1,296 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+using SDK_HD.KStruct.NativeRebar;
+
+namespace SDK_HD.KStruct.Core.V5
+{
+    /// <summary>
+    /// Experimental four-corner straight-bar writer for a single, isolated,
+    /// vertical rectangular concrete column. Not a full column reinforcement
+    /// design: no ties, hooks, joints, splices, design checks or drawings.
+    /// The caller must explicitly approve the trial on a COPY of an RVT.
+    /// </summary>
+    internal static class V5ColumnPilotWriter
+    {
+        private const double MmPerFoot=304.8;
+        private static double Ft(double mm)=>mm/MmPerFoot;
+
+        internal static int Create(Document doc,FamilyInstance host,V5RebarInput input)
+        {
+            if(doc==null || host==null || input==null)
+                throw new InvalidOperationException("Thiếu Host hoặc cấu hình Pilot.");
+            if(doc.IsFamilyDocument || doc.IsReadOnly || host.Document!=doc ||
+               host.Category?.Id.Value!=(long)BuiltInCategory.OST_StructuralColumns ||
+               input.Module!=V5StructuralModule.Column || input.HostModule!=V5StructuralModule.Column ||
+               input.HostUniqueId!=host.UniqueId || input.MainBarCount!=4)
+                throw new InvalidOperationException("Pilot chỉ hỗ trợ đúng 1 cột chữ nhật, 4 thanh dọc.");
+
+            var barTypes=new FilteredElementCollector(doc).OfClass(typeof(RebarBarType))
+                .Cast<RebarBarType>().ToList();
+            var review=V5RebarInputPolicy.Review(input,
+                barTypes.Select(t=>AuditV2Policy.Mm(t.BarModelDiameter)));
+            if(!review.IsValid) throw new InvalidOperationException(
+                "Dữ liệu đầu vào không hợp lệ: "+string.Join("; ",review.Errors));
+            var matches=barTypes.Where(t=>Math.Abs(AuditV2Policy.Mm(t.BarModelDiameter)-
+                                                input.MainBarDiameterMm)<0.01).ToList();
+            if(matches.Count!=1)
+                throw new InvalidOperationException("Phải có đúng một RebarBarType thép chủ phù hợp.");
+            RebarBarType barType=matches[0];
+            var tieMatches=barTypes.Where(t=>Math.Abs(AuditV2Policy.Mm(t.BarModelDiameter)-
+                input.TieDiameterMm)<0.01).ToList();
+            if(tieMatches.Count!=1)
+                throw new InvalidOperationException("Phải có đúng một RebarBarType thép đai phù hợp.");
+            RebarBarType tieType=tieMatches[0];
+            var hooks=new FilteredElementCollector(doc).OfClass(typeof(RebarHookType))
+                .Cast<RebarHookType>()
+                .Where(h=>h.Style==RebarStyle.StirrupTie &&
+                    Math.Abs(h.HookAngle-135*Math.PI/180)<1e-6 &&
+                    tieType.GetHookPermission(h.Id)).ToList();
+            if(hooks.Count!=1)
+                throw new InvalidOperationException(
+                    "Pilot đai cần đúng một Hook 135° StirrupTie tương thích; " +
+                    "không tự đoán trong nhiều Hook hoặc bỏ móc.");
+            RebarHookType tieHook=hooks[0];
+            if(new FilteredElementCollector(doc).OfClass(typeof(Rebar))
+                .Cast<Rebar>().Any(r=>r.GetHostId().Equals(host.Id)))
+                throw new InvalidOperationException(
+                    "Cột đã có Rebar: Pilot không chèn trùng hoặc thay thép hiện hữu.");
+
+            if(!RevitHostGeometryResolver.TryResolve(host,out var frame,out string reason) ||
+               frame.IsMirrored || frame.Z.Z<0.9999 ||
+               Math.Abs(frame.X.Z)>0.0001 || Math.Abs(frame.Y.Z)>0.0001)
+                throw new InvalidOperationException("Chỉ hỗ trợ cột đứng, không mirror: "+reason);
+
+            RejectOverlappingStructuralHosts(doc,host);
+            var inventory=V5HostSolidInspector.Inspect(host);
+            if(inventory.Truncated || inventory.SolidCount!=1 ||
+               inventory.ConcreteMaterialCandidateSolids!=1 ||
+               inventory.UnknownOrMixedMaterialSolids!=0 ||
+               inventory.Warnings.Any(w=>w.Contains("Không đọc được") ||
+                                         w.Contains("suy biến") || w.Contains("hai phía")))
+                throw new InvalidOperationException(
+                    "Solid bê tông không đơn nhất/không xác minh được. Dừng Pilot.");
+
+            // Model geometry is read-only before opening a Revit Transaction.
+            var bounds=TryRectangularPrismBounds(host,frame);
+            if(bounds==null)
+                throw new InvalidOperationException(
+                    "Không chứng minh được tiết diện lăng trụ chữ nhật, cột này không hỗ trợ.");
+            double width=bounds[1]-bounds[0],depth=bounds[3]-bounds[2],height=bounds[5]-bounds[4];
+            if(Math.Abs(width-input.WidthMm)>1 || Math.Abs(depth-input.HeightMm)>1 ||
+               height<500 || width<100 || depth<100)
+                throw new InvalidOperationException(
+                    "Kích thước nhập không khớp tiết diện Solid thực, hoặc chiều cao cột quá nhỏ.");
+            var cover=V5HostCoverInspector.Inspect(host);
+            if(!cover.CoverByFaceMm.TryGetValue("other",out double actualCover) ||
+               Math.Abs(actualCover-input.CoverMm)>0.5)
+                throw new InvalidOperationException("Cover nhập khác Rebar Cover Type Other trong Revit.");
+
+            double inset=input.CoverMm+input.TieDiameterMm+input.MainBarDiameterMm/2;
+            if(width<2*inset+2*input.MainBarDiameterMm ||
+               depth<2*inset+2*input.MainBarDiameterMm ||
+               height<2*(input.CoverMm+input.MainBarDiameterMm/2)+100)
+                throw new InvalidOperationException("Tiết diện không đủ khoảng hở cơ bản.");
+            double bottom=bounds[4]+input.CoverMm+input.MainBarDiameterMm/2;
+            double top=bounds[5]-input.CoverMm-input.MainBarDiameterMm/2;
+            var xs=new[]{bounds[0]+inset,bounds[1]-inset};
+            var ys=new[]{bounds[2]+inset,bounds[3]-inset};
+            var centers=new List<XYZ>();
+            foreach(double x in xs) foreach(double y in ys)
+            {
+                double[] p=frame.ToWorld(x,y,bottom);
+                centers.Add(new XYZ(Ft(p[0]),Ft(p[1]),Ft(p[2])));
+            }
+            XYZ normal=new XYZ(frame.X.X,frame.X.Y,frame.X.Z);
+            double length=Ft(top-bottom);
+            if(length<doc.Application.ShortCurveTolerance)
+                throw new InvalidOperationException("Thanh dọc ngắn hơn ShortCurveTolerance.");
+
+            using(var tx=new Transaction(doc,"KStruct V5 PILOT - 4 thép dọc cột"))
+            {
+                if(tx.Start()!=TransactionStatus.Started)
+                    throw new InvalidOperationException("Không mở được Transaction Pilot.");
+                try
+                {
+                    int count=0;
+                    foreach(XYZ p0 in centers)
+                    {
+                        Rebar r=ExistingProjectRebar.Create(doc,RebarStyle.Standard,barType,
+                            null,null,host,normal,
+                            new List<Curve>{Line.CreateBound(p0,p0+XYZ.BasisZ*length)},
+                            RebarHookOrientation.Right,RebarHookOrientation.Right,
+                            "V5 Pilot thanh dọc");
+                        if(r==null || !r.GetHostId().Equals(host.Id))
+                            throw new InvalidOperationException("Rebar tạo không thuộc đúng cột.");
+                        Parameter partition=r.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM);
+                        if(partition==null || partition.IsReadOnly ||
+                           !partition.Set("KSTRUCT-V5-PILOT-"+host.Id.Value))
+                            throw new InvalidOperationException("Không đóng dấu sở hữu Rebar Pilot.");
+                        count++;
+                    }
+                    // A single maximum-spacing tie set on a plain, isolated prism.
+                    // Revit must find an existing compatible stirrup shape and 135 hook.
+                    double tieCenter=input.CoverMm+input.TieDiameterMm/2;
+                    double tieStart=bounds[4]+tieCenter,tieEnd=bounds[5]-tieCenter;
+                    double tieSpan=tieEnd-tieStart;
+                    if(tieSpan<=input.TieSpacingMm || tieSpan<=0)
+                        throw new InvalidOperationException("Chiều cao phân bố đai không đủ.");
+                    XYZ[] tieCorners={
+                        Point(bounds[0]+tieCenter,bounds[2]+tieCenter,tieStart),
+                        Point(bounds[1]-tieCenter,bounds[2]+tieCenter,tieStart),
+                        Point(bounds[1]-tieCenter,bounds[3]-tieCenter,tieStart),
+                        Point(bounds[0]+tieCenter,bounds[3]-tieCenter,tieStart)
+                    };
+                    XYZ Point(double x,double y,double z)
+                    {
+                        double[] v=frame.ToWorld(x,y,z);
+                        return new XYZ(Ft(v[0]),Ft(v[1]),Ft(v[2]));
+                    }
+                    var tieCurves=new List<Curve>();
+                    for(int k=0;k<4;k++)
+                        tieCurves.Add(Line.CreateBound(tieCorners[k],tieCorners[(k+1)%4]));
+                    Rebar tie=ExistingProjectRebar.Create(doc,RebarStyle.StirrupTie,
+                        tieType,tieHook,tieHook,host,XYZ.BasisZ,tieCurves,
+                        RebarHookOrientation.Right,RebarHookOrientation.Right,
+                        "V5 Pilot đai bao 135°");
+                    if(tie==null || !tie.GetHostId().Equals(host.Id))
+                        throw new InvalidOperationException("Thép đai không thuộc đúng Host.");
+                    using(var accessor=tie.GetShapeDrivenAccessor())
+                        accessor.SetLayoutAsMaximumSpacing(Ft(input.TieSpacingMm),
+                            Ft(tieSpan),true,true,true);
+                    doc.Regenerate();
+                    int positions=tie.NumberOfBarPositions;
+                    if(positions<2 || positions>1002)
+                        throw new InvalidOperationException("Số vị trí đai Revit không hợp lệ.");
+                    using(var accessor=tie.GetShapeDrivenAccessor())
+                    {
+                        XYZ first=accessor.GetBarPositionTransform(0).Origin;
+                        XYZ last=accessor.GetBarPositionTransform(positions-1).Origin;
+                        XYZ delta=last-first;
+                        if(Math.Abs(delta.GetLength()-Ft(tieSpan))>Ft(2) ||
+                            Math.Abs(Math.Abs(delta.Normalize().DotProduct(XYZ.BasisZ))-1)>1e-4 ||
+                            delta.GetLength()/(positions-1)>Ft(input.TieSpacingMm+0.1))
+                            throw new InvalidOperationException(
+                                "Revit không tạo được bộ đai Maximum Spacing đúng hướng, nhịp và bước.");
+                    }
+                    var tiePartition=tie.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM);
+                    if(tiePartition==null || tiePartition.IsReadOnly ||
+                        !tiePartition.Set("KSTRUCT-V5-PILOT-"+host.Id.Value))
+                        throw new InvalidOperationException("Không ghi được sở hữu bộ đai.");
+                    doc.Regenerate();
+                    if(count!=4) throw new InvalidOperationException("Không đủ 4 thanh thép dọc.");
+                    if(tx.Commit()!=TransactionStatus.Committed)
+                        throw new InvalidOperationException("Không commit được Rebar Pilot.");
+                    return count;
+                }
+                catch
+                {
+                    if(tx.GetStatus()==TransactionStatus.Started) tx.RollBack();
+                    throw;
+                }
+            }
+        }
+
+        // Broad-phase interferences fail closed: this Pilot is only for isolated
+        // model samples, not for a real connected frame or column stack.
+        private static void RejectOverlappingStructuralHosts(Document doc,Element host)
+        {
+            BoundingBoxXYZ a=host.get_BoundingBox(null);
+            if(a==null) throw new InvalidOperationException("Host không có BoundingBox.");
+            var categories=new[]{
+                BuiltInCategory.OST_StructuralColumns,
+                BuiltInCategory.OST_StructuralFraming,
+                BuiltInCategory.OST_StructuralFoundation,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Walls
+            };
+            var candidates=new FilteredElementCollector(doc)
+                .WhereElementIsNotElementType()
+                .WherePasses(new ElementMulticategoryFilter(categories.ToList()))
+                .ToElements();
+            double tol=Ft(2);
+            foreach(Element other in candidates)
+            {
+                if(other==null || other.Id.Equals(host.Id)) continue;
+                BoundingBoxXYZ b;
+                try {b=other.get_BoundingBox(null);}
+                catch {throw new InvalidOperationException(
+                    "Không kiểm tra được cấu kiện lân cận "+other.Id.Value);}
+                if(b==null) continue;
+                double dx=Math.Min(a.Max.X,b.Max.X)-Math.Max(a.Min.X,b.Min.X);
+                double dy=Math.Min(a.Max.Y,b.Max.Y)-Math.Max(a.Min.Y,b.Min.Y);
+                double dz=Math.Min(a.Max.Z,b.Max.Z)-Math.Max(a.Min.Z,b.Min.Z);
+                if(dx>tol && dy>tol && dz>tol)
+                    throw new InvalidOperationException(
+                        "Pilot không dùng trên cột giao với cấu kiện "+
+                        other.Id.Value+". Dùng mô hình thử cô lập.");
+            }
+        }
+
+        // Require one unmodified six-face axis-aligned concrete prism.
+        // Bounding boxes alone are insufficient: also check actual local
+        // edge vertices, six outward face normals, and solid volume.
+        private static double[] TryRectangularPrismBounds(FamilyInstance host,
+            HostCoordinateFrame frame)
+        {
+            var geometry=host.get_Geometry(new Options{
+                DetailLevel=ViewDetailLevel.Fine,ComputeReferences=false,
+                IncludeNonVisibleObjects=false});
+            var solids=new List<Solid>();
+            Gather(geometry,solids,0);
+            if(solids.Count!=1) return null;
+            Solid solid=solids[0];
+            var min=new[]{double.PositiveInfinity,double.PositiveInfinity,double.PositiveInfinity};
+            var max=new[]{double.NegativeInfinity,double.NegativeInfinity,double.NegativeInfinity};
+            var normals=new HashSet<int>();
+            int faces=0;
+            foreach(Face face in solid.Faces)
+            {
+                if(!(face is PlanarFace planar) || face.IsTwoSided) return null;
+                faces++;
+                var n=frame.LocalDirection(RevitHostGeometryResolver.ToUnitless(planar.FaceNormal));
+                int axis=Array.FindIndex(n,a=>Math.Abs(a)>0.9999);
+                if(axis<0 || n.Where((a,i)=>i!=axis).Any(a=>Math.Abs(a)>0.0001))
+                    return null;
+                normals.Add(axis*2+(n[axis]>0?1:0));
+                foreach(EdgeArray loop in face.EdgeLoops)
+                    foreach(Edge edge in loop)
+                    {
+                        foreach(XYZ vertex in edge.Tessellate())
+                        {
+                            var v=frame.ToLocal(RevitHostGeometryResolver.ToMm(vertex));
+                            for(int i=0;i<3;i++)
+                            {
+                                min[i]=Math.Min(min[i],v[i]);
+                                max[i]=Math.Max(max[i],v[i]);
+                            }
+                        }
+                    }
+            }
+            if(faces!=6 || normals.Count!=6) return null;
+            double a=max[0]-min[0],b=max[1]-min[1],c=max[2]-min[2];
+            if(a<=0 || b<=0 || c<=0) return null;
+            double expected=a*b*c;
+            double actual=solid.Volume*Math.Pow(MmPerFoot,3);
+            if(!AuditV2Policy.IsFinite(expected) || !AuditV2Policy.IsFinite(actual) ||
+               Math.Abs(actual-expected)>expected*0.005) return null;
+            return new[]{min[0],max[0],min[1],max[1],min[2],max[2]};
+        }
+
+        private static void Gather(GeometryElement geometry,List<Solid> solids,int depth)
+        {
+            if(geometry==null || depth>6)
+                throw new InvalidOperationException("Nested Geometry không hợp lệ.");
+            foreach(GeometryObject item in geometry)
+            {
+                if(item is Solid s && s.Volume>1e-10) solids.Add(s);
+                else if(item is GeometryInstance gi)
+                    Gather(gi.GetInstanceGeometry(),solids,depth+1);
+                if(solids.Count>1) return;
+            }
+        }
+    }
+}

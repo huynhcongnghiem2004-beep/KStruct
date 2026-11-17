@@ -1,0 +1,101 @@
+using System;
+using System.IO;
+using System.Linq;
+using SDK_HD.KStruct.NativeDocumentation;
+
+internal static class Program
+{
+    private static int checks;
+    private static void Check(bool condition, string message)
+    { if (!condition) throw new Exception(message); checks++; }
+    private static void RejectSessionUnsafeXml(string directory)
+    {
+        string sessionFile = FootingDrawingSessionStore.PathFor("unsafe-session", directory);
+        File.WriteAllText(sessionFile, "<!DOCTYPE FootingDrawingSession [<!ENTITY injected 'bad'>]><FootingDrawingSession><Remember>true</Remember><Profile><Name>&injected;</Name></Profile></FootingDrawingSession>");
+        bool rejected = false;
+        try { FootingDrawingSessionStore.Load("unsafe-session", directory); }
+        catch (InvalidOperationException) { rejected = true; }
+        catch (System.Xml.XmlException) { rejected = true; }
+        Check(rejected, "Session XML DTD/entities must be rejected");
+        bool nullRejected = false;
+        try { FootingDrawingSessionStore.Save("unsafe-session", null, directory); }
+        catch (ArgumentNullException) { nullRejected = true; }
+        Check(nullRejected, "Null session must be rejected before replacing a saved session");
+    }
+    private static void Main()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "KStruct-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            Check(FootingDrawingSessionStore.Load("project-A", directory) == null, "First run must not invent settings");
+            Check(new FootingDrawingProfile().CropMarginMm == 6, "New configuration must default to six model millimeters");
+            Check(new FootingDrawingProfile().WantsDetailA && new FootingDrawingProfile().WantsDetailB, "Default settings keep both Detail views enabled");
+            Check(!new FootingDrawingProfile {CreateSections=false}.HasDetails, "Legacy disabled switch must disable both axes");
+            foreach(bool a in new[]{false,true}) foreach(bool b in new[]{false,true})
+            {
+                var axes=new FootingDrawingProfile {Name="Axes",CreateSections=!a,CreateDetailA=a,CreateDetailB=b};
+                string axesFile=Path.Combine(directory,"axes.xml");
+                FootingDrawingProfileStore.Export(axesFile,new[]{axes});
+                var restored=FootingDrawingProfileStore.Import(axesFile).Single();
+                Check(restored.WantsDetailA==a && restored.WantsDetailB==b && restored.HasDetails==(a||b),
+                    "Independent A/B flags must round-trip and override the legacy aggregate switch");
+                FootingDrawingSessionStore.Save("axes",new FootingDrawingSession {Profile=axes},directory);
+                var sessionAxes=FootingDrawingSessionStore.Load("axes",directory).Profile;
+                Check(sessionAxes.WantsDetailA==a && sessionAxes.WantsDetailB==b,"Remember per-axis selections for next run");
+            }
+            var profile = new FootingDrawingProfile { Name = "Sample", RebarMultiTagTypeName = "Móng - MultiTag", RebarMultiTagTypeUniqueId = "mra-type-01", HostPoseRecorded = true, HostPoseX = 120, HostPoseY = -40, HostPoseZ = -6, HostPoseAngle = 0.7, DetailTypeName = "Chi tiết đứng", CropMarginMm = 6, OutputLayers = "Bot", PlanScale = 50,
+                DimensionFourSides = true, UseDetailedLayout = true, SectionXOffsetMm = -125,
+                ReverseSectionY = true, BreakLineFamily = "Breakline", BreakLineType = "Line", BreakLinePaddingPaperMm = 1.5,
+                ReverseBreakLineMask = true, ApplyViewTemplatesOnce = true, SectionDepthMm = 1800, ExistingSheetUniqueId = "sheet-A", SourceViewUniqueId = "source-A" };
+            FootingDrawingSessionStore.Save("project-A", new FootingDrawingSession { Profile = profile }, directory);
+            var read = FootingDrawingSessionStore.Load("project-A", directory);
+            Check(read.Profile.HostPoseRecorded && read.Profile.HostPoseX == 120 && read.Profile.HostPoseY == -40 && read.Profile.HostPoseZ == -6 && read.Profile.HostPoseAngle == 0.7, "Host position and rotation must survive saving for subsequent Detail updates");
+            Check(read.Remember && read.Profile.CropMarginMm == 6 && read.Profile.OutputLayers == "Bot", "Selections must round-trip");
+            Check(read.Profile.PlanScale == 50 && read.Profile.DimensionFourSides && read.Profile.SectionXOffsetMm == -125 && read.Profile.ReverseSectionY && read.Profile.SectionDepthMm == 1800, "View/dimension options must round-trip");
+            Check(read.Profile.BreakLineFamily == "Breakline" && read.Profile.BreakLineType == "Line" && read.Profile.BreakLinePaddingPaperMm == 1.5 && read.Profile.ReverseBreakLineMask, "Breakline selections must round-trip");
+            Check(read.Profile.RebarMultiTagTypeName == "Móng - MultiTag" && read.Profile.RebarMultiTagTypeUniqueId == "mra-type-01", "MultiTag type and project identity must round-trip independently of single tag fields");
+            Check(read.Profile.DetailTypeName == "Chi tiết đứng", "Detail View Type selection must round-trip independently of the legacy Section Type");
+            Check(read.Profile.ApplyViewTemplatesOnce, "Local template application choice must round-trip");
+            Check(read.Profile.ExistingSheetUniqueId == "sheet-A" && read.Profile.SourceViewUniqueId == "source-A", "View/sheet identities must round-trip");
+            Check(FootingDrawingSessionStore.Load("project-B", directory) == null, "Projects must be isolated");
+            FootingDrawingSessionStore.Save("project-A", new FootingDrawingSession { Remember = false, Profile = null }, directory);
+            Check(!FootingDrawingSessionStore.Load("project-A", directory).Remember, "Remember opt-out must persist");
+            Check(FootingDrawingSessionStore.Load("project-A", directory).Profile == null, "Opt-out must clear old selections");
+            Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Atomic save must not leave temporary files");
+            string legacy = Path.Combine(directory, "legacy.xml");
+            File.WriteAllText(legacy, "<FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>Legacy</Name><SectionTypeName>Old section</SectionTypeName><RebarTagType>Old single tag</RebarTagType><CropMarginMm>300</CropMarginMm><PlanScale>20</PlanScale></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
+            var old = FootingDrawingProfileStore.Import(legacy).Single();
+            Check(old.RebarTagType == "Old single tag" && old.RebarMultiTagTypeName == null && old.RebarMultiTagTypeUniqueId == null, "Legacy single tag selection must not be silently reused as a MultiTag type");
+            Check(old.SectionTypeName == "Old section" && old.DetailTypeName == null, "Legacy section type must not be silently relabeled as a Detail Type");
+            Check(old.CreateDetailA==null && old.CreateDetailB==null && old.WantsDetailA && old.WantsDetailB,"Legacy enabled profiles without axis flags must still create both views");
+            Check(!old.HostPoseRecorded, "Legacy profiles must not invent a host pose");
+            Check(old.CropMarginMm == 300 && !old.UseDetailedLayout && !old.DimensionFourSides, "Legacy preset must retain crop/layout behavior");
+            FootingDrawingProfileStore.Export(legacy, new[] { profile });
+            Check(FootingDrawingProfileStore.Import(legacy).Single().DimensionFourSides, "Named presets must support new options");
+            // Export is atomic on overwrite, and a failed export must preserve the original.
+            FootingDrawingProfileStore.Export(legacy, new[] { new FootingDrawingProfile { Name = "Second" } });
+            Check(FootingDrawingProfileStore.Import(legacy).Single().Name == "Second", "Overwriting an exported preset must succeed");
+            string previousXml = File.ReadAllText(legacy);
+            bool invalidExport = false;
+            try { FootingDrawingProfileStore.Export(legacy, null); }
+            catch (ArgumentNullException) { invalidExport = true; }
+            Check(invalidExport && File.ReadAllText(legacy) == previousXml, "Invalid export must preserve existing preset");
+            Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Preset export must not leave temporary files");
+            string unsafeXmlPath = Path.Combine(directory, "unsafe.xml");
+            File.WriteAllText(unsafeXmlPath, "<!DOCTYPE FootingDrawingProfileFile [<!ENTITY injected 'unsafe'>]><FootingDrawingProfileFile><Profiles><FootingDrawingProfile><Name>&injected;</Name></FootingDrawingProfile></Profiles></FootingDrawingProfileFile>");
+            bool dtdRejected = false;
+            try { FootingDrawingProfileStore.Import(unsafeXmlPath); }
+            catch (InvalidOperationException) { dtdRejected = true; }
+            catch (System.Xml.XmlException) { dtdRejected = true; }
+            Check(dtdRejected, "Import must reject XML DTD / entity declarations");
+            RejectSessionUnsafeXml(directory);
+            Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "Invalid session XML must not leave temporary files");
+            File.WriteAllText(FootingDrawingSessionStore.PathFor("broken", directory), "<broken>");
+            bool failed = false; try { FootingDrawingSessionStore.Load("broken", directory); } catch (InvalidOperationException) { failed = true; }
+            Check(failed, "Corrupt settings must surface to the UI warning handler");
+            Console.WriteLine("PASS: " + checks + " preference persistence and compatibility checks");
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+}

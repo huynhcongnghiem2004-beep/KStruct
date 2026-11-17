@@ -1,0 +1,656 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+using Autodesk.Revit.UI;
+
+namespace SDK_HD.KStruct.NativeDocumentation
+{
+    internal static class FootingDrawingBuilder
+    {
+        private sealed class ViewOutput
+        {
+            internal View View;
+            internal string Role;
+        }
+
+        internal static ViewSheet CreateForFooting(Document doc, ViewPlan parent, FamilyInstance footing,
+            FootingDrawingConfiguration config, HashSet<string> names, HashSet<string> sheetNumbers,
+            int batchIndex, IList<string> warnings)
+        {
+            BoundingBoxXYZ hostBox = footing.get_BoundingBox(null);
+            LocationPoint location = footing.Location as LocationPoint;
+            if (hostBox == null || location == null) throw new InvalidOperationException("Móng cần có LocationPoint và bounding box.");
+            FootingDrawingProfile p = config.Profile;
+            var outputs = new List<ViewOutput>();
+            bool pileCap = FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(footing));
+            // Isolated footing: BOT only. Pile cap: two physically separate plan views.
+            bool top = FootingDrawingLayerPolicy.CreatePlan(pileCap, true);
+            bool bot = FootingDrawingLayerPolicy.CreatePlan(pileCap, false);
+            if (!p.CreateCallouts && (top || bot))
+            {
+                if (config.PlanType.ViewFamily != ViewFamily.StructuralPlan && config.PlanType.ViewFamily != ViewFamily.FloorPlan)
+                    throw new InvalidOperationException("View Type mặt bằng không hợp lệ.");
+            }
+            if (p.CreateCallouts && parent == null) throw new InvalidOperationException("Callout cần chạy từ mặt bằng Revit.");
+            if (!top && !bot && !p.HasDetails) throw new InvalidOperationException("Cần bật callout hoặc mặt cắt.");
+
+            if (bot) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, false, warnings), Role = "Plan-Bot" });
+            if (top) outputs.Add(new ViewOutput { View = CreatePlanOutput(doc, parent, footing, hostBox, config, names, true, warnings), Role = "Plan-Top" });
+            if (p.HasDetails && (config.DetailType == null || config.DetailType.ViewFamily != ViewFamily.Detail))
+                throw new InvalidOperationException("Hãy chọn View Family Type thuộc Detail. Lệnh không tạo Section View thay thế.");
+            var linkedDetails = new List<ViewSection>();
+            if (p.HasDetails)
+            {
+                if (!p.CreateCallouts || !outputs.Any(o => o.View is ViewPlan plan && plan.IsCallout))
+                    throw new InvalidOperationException("Mặt cắt cần callout móng để hiển thị ký hiệu gốc.");
+                List<ViewSection> details = CreateDetails(doc, footing, config, names, warnings);
+                linkedDetails.AddRange(details);
+                int detailIndex = 0;
+                if (p.WantsDetailA) outputs.Add(new ViewOutput { View = details[detailIndex++], Role = "Detail-X" });
+                if (p.WantsDetailB) outputs.Add(new ViewOutput { View = details[detailIndex], Role = "Detail-Y" });
+            }
+
+            ViewSheet sheet = config.ExistingSheet;
+            bool newSheet = p.PlaceOnNewSheet;
+            if (newSheet)
+            {
+                sheet = ViewSheet.Create(doc, config.TitleBlock.Id);
+                bool isPile = pileCap;
+                string defaultPrefix = isPile ? "KSMC-" : "KSMD-";
+                string prefix = string.IsNullOrWhiteSpace(p.SheetPrefix) ? defaultPrefix : p.SheetPrefix.Trim();
+                sheet.SheetNumber = UniqueNumber(prefix, footing.Id.Value.ToString(), sheetNumbers);
+                sheet.Name = FormatName(p.SheetNamePattern, footing, p);
+                FootingDrawingStorage.Mark(sheet, footing.UniqueId, "Sheet", p.CropMarginMm, 3);
+                sheetNumbers.Add(sheet.SheetNumber);
+            }
+            if (sheet == null) throw new InvalidOperationException("Không tìm được sheet đích.");
+
+            int index = 0;
+            foreach (ViewOutput output in outputs)
+            {
+                View view = output.View;
+                ApplyAnnotations(doc, footing, view, output.Role, config, hostBox, warnings);
+                if (view is ViewSection pileSection && (output.Role == "Detail-X" || output.Role == "Detail-Y"))
+                    FootingPileSectionDetailBuilder.Refresh(doc, pileSection, footing, p, warnings);
+                FootingDrawingBeamBreaks.Refresh(doc, footing, view, p, warnings);
+                FootingDrawingDetailState.Save(view, footing, p, view is ViewPlan ? linkedDetails : null);
+                FootingDrawingStorage.Mark(view, footing.UniqueId, output.Role, p.CropMarginMm, 3);
+                if (!names.Contains(view.Name)) names.Add(view.Name);
+                index++;
+            }
+            // Save every view/link first so Top and Bot callouts can share the native Detail markers.
+            if (linkedDetails.Count > 0)
+                foreach (ViewPlan callout in outputs.Select(output => output.View).OfType<ViewPlan>())
+                    FootingDrawingDetailLinks.Refresh(doc, footing, callout, linkedDetails, warnings);
+            if (p.UseDetailedLayout) FootingDrawingSheetLayout.Place(doc, sheet, outputs.Select(x => x.View).ToList(), p, warnings);
+            else PlaceViewports(doc, sheet, outputs.Select(x => x.View).ToList(), batchIndex, warnings);
+            // Both the simple and detailed sheet flows must prevent invalid viewport overlap.
+            FootingDrawingSheetLayout.ValidateNoOverlap(doc, sheet, outputs.Select(x => x.View).ToList());
+            return sheet;
+        }
+
+        private static View CreatePlanOutput(Document doc, ViewPlan parent, FamilyInstance footing, BoundingBoxXYZ box,
+            FootingDrawingConfiguration config, HashSet<string> names, bool topLayer, IList<string> warnings)
+        {
+            FootingDrawingProfile p = config.Profile;
+            List<Rebar> bars = GetHostedBars(doc, footing);
+            List<Rebar> layerBars = bars.Where(x => IsLayer(x, box, topLayer)).ToList();
+            ViewPlan view;
+            if (p.CreateCallouts)
+            {
+                List<XYZ> corners = WorldCorners(box);
+                XYZ right = parent.RightDirection.Normalize(), up = parent.UpDirection.Normalize();
+                XYZ origin = parent.Origin;
+                double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
+                double minX = corners.Min(x => (x - origin).DotProduct(right)) - margin;
+                double maxX = corners.Max(x => (x - origin).DotProduct(right)) + margin;
+                double minY = corners.Min(x => (x - origin).DotProduct(up)) - margin;
+                double maxY = corners.Max(x => (x - origin).DotProduct(up)) + margin;
+                double z = parent.GenLevel == null ? locationZ(footing) : parent.GenLevel.Elevation;
+                XYZ a = origin + right * minX + up * minY;
+                XYZ b = origin + right * maxX + up * maxY;
+                a = new XYZ(a.X, a.Y, z); b = new XYZ(b.X, b.Y, z);
+                View created = ViewSection.CreateCallout(doc, parent.Id, config.PlanType.Id, a, b);
+                view = created as ViewPlan;
+                if (view == null) throw new InvalidOperationException("Revit không tạo được callout mặt bằng.");
+            }
+            else
+            {
+                Level level = doc.GetElement(footing.LevelId) as Level ?? new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>()
+                    .OrderBy(x => Math.Abs(x.Elevation - locationZ(footing))).FirstOrDefault();
+                if (level == null) throw new InvalidOperationException("Không tìm được Level để tạo mặt bằng.");
+                view = ViewPlan.Create(doc, config.PlanType.Id, level.Id);
+                SetPlanCrop(view, box, p.CropMarginMm);
+            }
+            string layer = topLayer ? "Top" : "Bot";
+            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer, p), names);
+            FootingDrawingVisibility.ApplyTemplate(view, config.PlanTemplate, p.ApplyViewTemplatesOnce);
+            if (view.Scale != p.PlanScale) view.Scale = p.PlanScale;
+            if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
+            if (p.UsePlanDetailComponents)
+            {
+                FootingPlanDetailComponentBuilder.Refresh(doc, view, footing, p, topLayer, warnings);
+            }
+            else FootingDrawingVisibility.Configure(view, footing, topLayer, p.ApplyViewTemplatesOnce, warnings);
+            if (p.UseDetailedLayout) ConfigureAnnotationCrop(view, p);
+            return view;
+        }
+
+        private static List<ViewSection> CreateDetails(Document doc, FamilyInstance footing,
+            FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
+        {
+            if (config.Profile.UseDetailedLayout)
+                return CreateDetailedViews(doc, footing, config, names, warnings);
+            FootingDrawingProfile p = config.Profile;
+            BoundingBoxXYZ local = FootingDrawingGeometry.LocalBounds(footing);
+            Transform axes = local.Transform;
+            XYZ center = axes.OfPoint((local.Min + local.Max) * 0.5);
+            List<XYZ> corners = WorldCorners(footing.get_BoundingBox(null));
+            double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
+            var result = new List<ViewSection>();
+            IList<FamilyInstance> piles = p.CreatePileSectionSymbols &&
+                FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(footing))
+                ? FootingPileResolver.Resolve(doc, footing, p.PileFamilyFilter, warnings)
+                : new List<FamilyInstance>();
+            for (int i = 0; i < 2; i++)
+            {
+                if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
+                // BasisX is the HORIZONTAL direction in the rendered section.
+                // Previous code used Z cross direction, swapping Detail-X/Detail-Y.
+                XYZ right = (i == 0 ? axes.BasisX : axes.BasisY).Normalize();
+                bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
+                if (reverse) right = -right;
+                XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
+                bool autoAlign = i == 0 ? p.AutoAlignSectionXToPiles : p.AutoAlignSectionYToPiles;
+                double requestedMm = autoAlign ? 0 : (i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm);
+                double half = i == 0 ? (local.Max.Y - local.Min.Y) / 2 :
+                    (local.Max.X - local.Min.X) / 2;
+                double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
+                if (autoAlign && piles.Count > 0)
+                {
+                    double[] rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                        .Where(point => point != null)
+                        .Select(point => UnitUtils.ConvertFromInternalUnits(
+                            (point - center).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
+                    bool snapped;
+                    double selected = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
+                        !autoAlign, rows,
+                        UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+                    if (snapped)
+                    {
+                        warnings.Add((i == 0 ? "Detail-X" : "Detail-Y") +
+                            ": tự căn tuyến cắt qua hàng tim cọc tại offset " +
+                            selected.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                        offset = UnitUtils.ConvertToInternalUnits(selected, UnitTypeId.Millimeters);
+                    }
+                }
+                if (Math.Abs(offset) >= half)
+                    throw new InvalidOperationException("Offset tuyến cắt nằm ngoài móng.");
+                XYZ origin = center + across * offset;
+                Transform transform = Transform.Identity;
+                transform.Origin = origin;
+                transform.BasisX = right;
+                transform.BasisY = XYZ.BasisZ;
+                transform.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
+                XYZ depth = transform.BasisZ;
+                var crop = new BoundingBoxXYZ
+                {
+                    Transform = transform,
+                    Min = new XYZ(corners.Min(point => (point - origin).DotProduct(right)) - margin,
+                        corners.Min(point => point.Z - origin.Z) - margin,
+                        corners.Min(point => (point - origin).DotProduct(depth)) - margin),
+                    Max = new XYZ(corners.Max(point => (point - origin).DotProduct(right)) + margin,
+                        corners.Max(point => point.Z - origin.Z) + margin,
+                        corners.Max(point => (point - origin).DotProduct(depth)) + margin)
+                };
+                ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing,
+                    i == 0 ? "Detail-X" : "Detail-Y", p), names);
+                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
+                view.Scale = p.SectionScale;
+                view.CropBoxActive = true;
+                view.CropBoxVisible = false;
+                result.Add(view);
+            }
+            return result;
+        }
+
+        private static List<ViewSection> CreateDetailedViews(Document doc, FamilyInstance host,
+            FootingDrawingConfiguration config, HashSet<string> names, IList<string> warnings)
+        {
+            FootingDrawingProfile p = config.Profile;
+            BoundingBoxXYZ bounds = FootingDrawingGeometry.LocalBounds(host);
+            Transform axes = bounds.Transform;
+            XYZ center = axes.OfPoint((bounds.Min + bounds.Max) * 0.5);
+            List<XYZ> vertices = FootingDrawingGeometry.WorldVertices(host);
+            double margin = UnitUtils.ConvertToInternalUnits(p.CropMarginMm, UnitTypeId.Millimeters);
+            double bottomMargin = UnitUtils.ConvertToInternalUnits(p.CropBottomMarginMm > 0 ? p.CropBottomMarginMm : p.CropMarginMm, UnitTypeId.Millimeters);
+            var result = new List<ViewSection>();
+            // Take the real pile centers once, so the detail cut can follow a physical row
+            // when the default centerline falls between symmetric piles.
+            IList<FamilyInstance> detailPiles = p.CreatePileSectionSymbols &&
+                FootingDrawingLayerPolicy.IsPileCap(p.FootingKindMode, IsPileCap(host))
+                ? FootingPileResolver.Resolve(doc, host, p.PileFamilyFilter, warnings)
+                : new List<FamilyInstance>();
+            for (int i = 0; i < 2; i++)
+            {
+                if (i == 0 ? !p.WantsDetailA : !p.WantsDetailB) continue;
+                XYZ right = (i == 0 ? axes.BasisX : axes.BasisY).Normalize();
+                bool reverse = i == 0 ? p.ReverseSectionX : p.ReverseSectionY;
+                if (reverse) right = -right;
+                XYZ across = (i == 0 ? axes.BasisY : axes.BasisX).Normalize();
+                bool autoAlign = i == 0 ? p.AutoAlignSectionXToPiles : p.AutoAlignSectionYToPiles;
+                double requestedMm = autoAlign ? 0 : (i == 0 ? p.SectionXOffsetMm : p.SectionYOffsetMm);
+                double half = i == 0 ? (bounds.Max.Y - bounds.Min.Y) / 2 : (bounds.Max.X - bounds.Min.X) / 2;
+                double offset = UnitUtils.ConvertToInternalUnits(requestedMm, UnitTypeId.Millimeters);
+                if (autoAlign && detailPiles.Count > 0)
+                {
+                    XYZ cutOrigin = center;
+                    double[] rows = detailPiles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                        .Where(point => point != null)
+                        .Select(point => UnitUtils.ConvertFromInternalUnits(
+                            (point - cutOrigin).DotProduct(across), UnitTypeId.Millimeters)).ToArray();
+                    bool snapped;
+                    double selectedMm = FootingPileSectionAlignment.ChooseOffsetMm(requestedMm,
+                        !autoAlign, rows,
+                        UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+                    if (snapped)
+                    {
+                        warnings.Add((i == 0 ? "Detail-X" : "Detail-Y") +
+                            ": tuyến cắt giữa đài không qua tim cọc; đã dịch tuyến cắt đến hàng cọc thực " +
+                            selectedMm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                        offset = UnitUtils.ConvertToInternalUnits(selectedMm, UnitTypeId.Millimeters);
+                    }
+                }
+                if (Math.Abs(offset) >= half) throw new InvalidOperationException("Tuyến cắt nằm ngoài móng; hãy chỉnh offset.");
+                XYZ origin = center + across * offset;
+                Transform t = Transform.Identity;
+                t.Origin = origin; t.BasisX = right; t.BasisY = XYZ.BasisZ; t.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
+                // Section starts at the chosen cut plane, looking into the host rather than moving the cut to the rear edge.
+                double depth = UnitUtils.ConvertToInternalUnits(p.SectionDepthMm, UnitTypeId.Millimeters);
+                if (depth <= doc.Application.ShortCurveTolerance) throw new InvalidOperationException("Chiều sâu mặt cắt không hợp lệ.");
+                var crop = new BoundingBoxXYZ { Transform = t,
+                    Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-bottomMargin, 0),
+                    Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
+                ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y", p), names);
+                names.Add(view.Name);
+                FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
+                if (view.Scale != p.SectionScale) view.Scale = p.SectionScale;
+                view.CropBoxActive = true; view.CropBoxVisible = false;
+                view.DetailLevel = ViewDetailLevel.Fine; view.Discipline = ViewDiscipline.Structural;
+                if (view.Scale != p.SectionScale) throw new InvalidOperationException("Template mặt cắt khóa tỷ lệ khác tỷ lệ đã chọn.");
+                if (view.GetCategoryHidden(new ElementId(BuiltInCategory.OST_Rebar)))
+                    throw new InvalidOperationException("View/template mặt cắt đang ẩn cốt thép; hãy chọn template khác.");
+                ConfigureAnnotationCrop(view, p);
+                result.Add(view);
+            }
+            return result;
+        }
+
+        private static void ConfigureAnnotationCrop(View view, FootingDrawingProfile profile)
+        {
+            Parameter active = view.get_Parameter(BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE);
+            if (active != null && !active.IsReadOnly) active.Set(1);
+            var manager = view.GetCropRegionShapeManager();
+            double paper = UnitUtils.ConvertToInternalUnits(profile.DimensionOffsetPaperMm + profile.DimensionGapPaperMm + 10, UnitTypeId.Millimeters);
+            manager.LeftAnnotationCropOffset = paper; manager.RightAnnotationCropOffset = paper;
+            manager.TopAnnotationCropOffset = paper; manager.BottomAnnotationCropOffset = paper;
+        }
+
+        private static void ApplyAnnotations(Document doc, FamilyInstance footing, View view, string role,
+            FootingDrawingConfiguration config, BoundingBoxXYZ hostBox, IList<string> warnings)
+        {
+            if (config.Profile.CreateDimensions && config.DimensionType != null)
+            {
+                if (config.Profile.UseDetailedLayout && view is ViewPlan && config.Profile.DimensionFourSides)
+                    FootingDrawingDimensions.Create(doc, footing, view, config.DimensionType, config.Profile, warnings);
+                else CreateHostDimensions(doc, footing, view, config.DimensionType, hostBox, warnings);
+            }
+            if (!config.Profile.CreateTags) return;
+            if (config.FoundationTagType != null)
+            {
+                TryTag(doc, config.FoundationTagType, view, footing, SafeCenter(hostBox), warnings);
+                if (FootingDrawingLayerPolicy.IsPileCap(config.Profile.FootingKindMode, IsPileCap(footing)) && (view is ViewPlan))
+                {
+                    IList<FamilyInstance> piles = FootingPileResolver.Resolve(doc, footing, config.Profile.PileFamilyFilter, warnings);
+                    foreach (var pile in piles)
+                    {
+                        BoundingBoxXYZ pbox = pile.get_BoundingBox(view) ?? pile.get_BoundingBox(null);
+                        if (pbox != null)
+                        {
+                            TryTag(doc, config.FoundationTagType, view, pile, SafeCenter(pbox), warnings);
+                        }
+                    }
+                }
+            }
+            if (config.Profile.UsePlanDetailComponents && view is ViewPlan plan &&
+                (role == "Plan-Top" || role == "Plan-Bot"))
+                FootingPlanRebarAnnotationBuilder.Refresh(doc, plan, footing, role == "Plan-Top", config.Profile, warnings);
+            else
+                FootingDrawingRebarMultiTags.Refresh(doc, footing, view, role, config.Profile, warnings, config.RebarMultiTagType);
+        }
+
+        private static void CreateHostDimensions(Document doc, FamilyInstance footing, View view, DimensionType type, BoundingBoxXYZ box, IList<string> warnings)
+        {
+            try
+            {
+                XYZ x = view.RightDirection.Normalize(), y = view.UpDirection.Normalize();
+                List<PlanarFace> faces = GetPlanarFaces(footing);
+                TryDimensionAxis(doc, view, type, box, faces, x, y, warnings, "X");
+                if (view.ViewType == ViewType.FloorPlan || view.ViewType == ViewType.EngineeringPlan || view.ViewType == ViewType.CeilingPlan)
+                    TryDimensionAxis(doc, view, type, box, faces, y, x, warnings, "Y");
+                else
+                {
+                    XYZ vertical = XYZ.BasisZ;
+                    TryDimensionAxis(doc, view, type, box, faces, vertical, x, warnings, "Z");
+                }
+            }
+            catch (Exception ex) { warnings.Add("Không tạo được kích thước móng " + footing.Id.Value + ": " + ex.Message); }
+        }
+
+        private static void TryDimensionAxis(Document doc, View view, DimensionType type, BoundingBoxXYZ box,
+            List<PlanarFace> faces, XYZ axis, XYZ offsetAxis, IList<string> warnings, string label)
+        {
+            var candidates = faces.Where(f => Math.Abs(Math.Abs(f.FaceNormal.Normalize().DotProduct(axis)) - 1.0) < 0.02 && f.Reference != null)
+                .Select(f => new { Face = f, Value = f.Origin.DotProduct(axis) }).OrderBy(x => x.Value).ToList();
+            if (candidates.Count < 2) return;
+            PlanarFace a = candidates.First().Face, b = candidates.Last().Face;
+            if (a.Reference == null || b.Reference == null || a.Reference == b.Reference) return;
+            XYZ center = SafeCenter(box);
+            double extent = Math.Max(box.Max.X - box.Min.X, Math.Max(box.Max.Y - box.Min.Y, box.Max.Z - box.Min.Z));
+            double offset = UnitUtils.ConvertToInternalUnits(180, UnitTypeId.Millimeters) + extent * 0.12;
+            XYZ start = center - axis * (extent / 2 + offset) + offsetAxis * (extent / 2 + offset);
+            XYZ end = center + axis * (extent / 2 + offset) + offsetAxis * (extent / 2 + offset);
+            var refs = new ReferenceArray(); refs.Append(a.Reference); refs.Append(b.Reference);
+            try { doc.Create.NewDimension(view, Line.CreateBound(start, end), refs, type); }
+            catch (Exception ex) { warnings.Add("Bỏ qua dim " + label + " của " + view.Name + ": " + ex.Message); }
+        }
+
+        private static List<PlanarFace> GetPlanarFaces(FamilyInstance instance)
+        {
+            var result = new List<PlanarFace>();
+            var options = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, DetailLevel = ViewDetailLevel.Fine };
+            GeometryElement geometry = instance.get_Geometry(options);
+            if (geometry == null) return result;
+            CollectPlanarFaces(geometry, result);
+            return result;
+        }
+        private static void CollectPlanarFaces(GeometryElement geometry, List<PlanarFace> result)
+        {
+            foreach (GeometryObject obj in geometry)
+            {
+                if (obj is Solid solid)
+                {
+                    foreach (Face face in solid.Faces)
+                        if (face is PlanarFace planar) result.Add(planar);
+                }
+                else if (obj is GeometryInstance gi)
+                    CollectPlanarFaces(gi.GetInstanceGeometry(), result);
+            }
+        }
+        private static void TryTag(Document doc, ElementType tagType, View view, Element target, XYZ head, IList<string> warnings)
+        {
+            try
+            {
+                var tag = IndependentTag.Create(doc, tagType.Id, view.Id, new Reference(target), true, TagOrientation.Horizontal, head);
+                if (tag == null) warnings.Add("Không tạo được tag cho " + target.Id.Value + " trong " + view.Name);
+            }
+            catch (Exception ex) { warnings.Add("Bỏ qua tag cho " + target.Id.Value + " trong " + view.Name + ": " + ex.Message); }
+        }
+
+        private static List<Rebar> GetHostedBars(Document doc, FamilyInstance footing) => new FilteredElementCollector(doc).OfClass(typeof(Rebar)).WhereElementIsNotElementType()
+            .Cast<Rebar>().Where(x => x.GetHostId() == footing.Id).ToList();
+        private static bool IsLayer(Rebar rebar, BoundingBoxXYZ host, bool top) => FootingDrawingVisibility.InLayer(rebar, host, top);
+        private static void SetPlanCrop(ViewPlan view, BoundingBoxXYZ source, double marginMm)
+        {
+            List<XYZ> corners = WorldCorners(source);
+            double m = UnitUtils.ConvertToInternalUnits(marginMm, UnitTypeId.Millimeters);
+            view.CropBox = new BoundingBoxXYZ { Transform = Transform.Identity,
+                Min = new XYZ(corners.Min(x => x.X) - m, corners.Min(x => x.Y) - m, corners.Min(x => x.Z) - m),
+                Max = new XYZ(corners.Max(x => x.X) + m, corners.Max(x => x.Y) + m, corners.Max(x => x.Z) + m) };
+            view.CropBoxActive = true; view.CropBoxVisible = false;
+        }
+        internal static void FollowHostPose(View view,FamilyInstance host,FootingDrawingProfile saved)
+        {
+            if(!(view is ViewSection detail) || detail.ViewType!=ViewType.Detail)return;
+            if(!saved.HostPoseRecorded)
+                throw new InvalidOperationException("Detail cũ chưa lưu vị trí móng; hãy tạo lại hồ sơ để cập nhật tuyến cắt an toàn.");
+            var location=host.Location as LocationPoint;
+            if(location==null)throw new InvalidOperationException("Không đọc được vị trí móng.");
+            XYZ oldPoint=new XYZ(saved.HostPoseX,saved.HostPoseY,saved.HostPoseZ),newPoint=location.Point;
+            double angle=location.Rotation-saved.HostPoseAngle;
+            XYZ shift=newPoint-oldPoint;
+            Transform rotation=Transform.CreateRotationAtPoint(XYZ.BasisZ,angle,newPoint);
+            XYZ expectedOrigin=rotation.OfPoint(view.Origin+shift);
+            XYZ expectedDirection=rotation.OfVector(view.ViewDirection).Normalize();
+            if(shift.GetLength()>1e-8)ElementTransformUtils.MoveElement(view.Document,view.Id,shift);
+            if(Math.Abs(angle)>1e-8)ElementTransformUtils.RotateElement(view.Document,view.Id,Line.CreateBound(newPoint,newPoint+XYZ.BasisZ),angle);
+            view.Document.Regenerate();
+            if(view.ViewDirection.Normalize().DotProduct(expectedDirection)<1-1e-8 ||
+                Math.Abs((view.Origin-expectedOrigin).DotProduct(expectedDirection))>1e-6)
+                throw new InvalidOperationException("Revit không dịch/xoay đúng tuyến Detail theo móng; đã hủy cập nhật để giữ hồ sơ.");
+        }
+        // Auto-row sections must follow the physical pile layout on Update as well as creation.
+        // Explicit offsets, including an explicit zero, are never overridden.
+        internal static void AlignDetailRowOnUpdate(ViewSection view, FamilyInstance footing,
+            FootingDrawingProfile profile, string role, IList<string> warnings)
+        {
+            bool x = role == "Detail-X", y = role == "Detail-Y";
+            if ((!x && !y) || !profile.CreatePileSectionSymbols ||
+                !FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode, IsPileCap(footing)))
+                return;
+            bool automatic = x ? profile.AutoAlignSectionXToPiles : profile.AutoAlignSectionYToPiles;
+            if (!automatic) return;
+            BoundingBoxXYZ bounds = FootingDrawingGeometry.LocalBounds(footing);
+            Transform axes = bounds.Transform;
+            XYZ center = axes.OfPoint((bounds.Min + bounds.Max) * 0.5);
+            XYZ across = (x ? axes.BasisY : axes.BasisX).Normalize();
+            double half = x ? (bounds.Max.Y-bounds.Min.Y)/2 : (bounds.Max.X-bounds.Min.X)/2;
+            var piles = FootingPileResolver.Resolve(view.Document, footing, profile.PileFamilyFilter, warnings);
+            if (piles.Count == 0)
+            {
+                warnings.Add(view.Name + ": không tìm thấy cọc để căn lại tuyến cắt tự động.");
+                return;
+            }
+            var rows = piles.Select(pile => (pile.Location as LocationPoint)?.Point)
+                .Where(point => point != null).Select(point =>
+                    UnitUtils.ConvertFromInternalUnits((point-center).DotProduct(across),
+                        UnitTypeId.Millimeters)).ToArray();
+            bool snapped;
+            double targetMm = FootingPileSectionAlignment.ChooseOffsetMm(0, false, rows,
+                UnitUtils.ConvertFromInternalUnits(half, UnitTypeId.Millimeters), out snapped);
+            double currentFt = (view.Origin-center).DotProduct(across);
+            double wantedFt = UnitUtils.ConvertToInternalUnits(targetMm, UnitTypeId.Millimeters);
+            double shiftFt = wantedFt-currentFt;
+            double toleranceFt = UnitUtils.ConvertToInternalUnits(0.5, UnitTypeId.Millimeters);
+            if (Math.Abs(shiftFt) <= toleranceFt) return;
+            ElementTransformUtils.MoveElement(view.Document, view.Id, across*shiftFt);
+            view.Document.Regenerate();
+            double actualFt = (view.Origin-center).DotProduct(across);
+            if (Math.Abs(actualFt-wantedFt) > toleranceFt)
+                throw new InvalidOperationException("Không thể đưa tuyến " + role +
+                    " qua hàng tim cọc sau Update; đã hủy cập nhật để bảo vệ hồ sơ.");
+            warnings.Add(view.Name + ": đã căn lại mặt cắt theo hàng cọc thực tại " +
+                targetMm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+        }
+
+        internal static void UpdateCrop(View view, FamilyInstance footing, double marginMm, string role, IList<string> warnings = null)
+        {
+            BoundingBoxXYZ source = footing.get_BoundingBox(null), prior = view.CropBox;
+            if (source == null || prior == null) throw new InvalidOperationException("Không đọc được móng hoặc vùng crop.");
+            Transform transform = prior.Transform ?? Transform.Identity;
+            bool detailed = FootingDrawingStorage.Version(view) >= 2;
+            if (!detailed && role != null && role.StartsWith("Section-", StringComparison.OrdinalIgnoreCase))
+            {
+                LocationPoint location = footing.Location as LocationPoint;
+                if (location != null)
+                {
+                    double angle = location.Rotation;
+                    XYZ direction = role.EndsWith("X", StringComparison.OrdinalIgnoreCase)
+                        ? new XYZ(Math.Cos(angle), Math.Sin(angle), 0).Normalize()
+                        : new XYZ(-Math.Sin(angle), Math.Cos(angle), 0).Normalize();
+                    XYZ right = XYZ.BasisZ.CrossProduct(direction).Normalize();
+                    transform = Transform.Identity; transform.Origin = location.Point;
+                    transform.BasisX = right; transform.BasisY = XYZ.BasisZ;
+                    transform.BasisZ = right.CrossProduct(XYZ.BasisZ).Normalize();
+                }
+            }
+            List<XYZ> corners = FootingDrawingStorage.Version(view) >= 2 ? FootingDrawingGeometry.WorldVertices(footing) : WorldCorners(source);
+            XYZ x = transform.BasisX.Normalize(), y = transform.BasisY.Normalize(), z = transform.BasisZ.Normalize(), origin = transform.Origin;
+            double margin = UnitUtils.ConvertToInternalUnits(marginMm, UnitTypeId.Millimeters);
+            view.CropBox = new BoundingBoxXYZ
+            {
+                Transform = transform,
+                Min = new XYZ(corners.Min(p => (p-origin).DotProduct(x))-margin,
+                    corners.Min(p => (p-origin).DotProduct(y))-margin,
+                    detailed && view is ViewSection ? prior.Min.Z : corners.Min(p => (p-origin).DotProduct(z))-margin),
+                Max = new XYZ(corners.Max(p => (p-origin).DotProduct(x))+margin,
+                    corners.Max(p => (p-origin).DotProduct(y))+margin,
+                    detailed && view is ViewSection ? prior.Max.Z : corners.Max(p => (p-origin).DotProduct(z))+margin)
+            };
+            view.CropBoxActive = true;
+            if (view is ViewPlan exactPlan && FootingDrawingStorage.Version(view) >= 2)
+                FootingDrawingGeometry.SetPlanCrop(exactPlan, footing, marginMm);
+            if (view is ViewPlan plan && role != null &&
+                (role.EndsWith("Top", StringComparison.OrdinalIgnoreCase) || role.EndsWith("Bot", StringComparison.OrdinalIgnoreCase)))
+            {
+                FootingDrawingProfile saved = FootingDrawingDetailState.Read(view, footing, out IList<string> ignoredSections);
+                // The Detail Item mode deliberately hides the native Rebar only in generated plan views.
+                // Do not re-enable Rebar or alter view filters when recomputing the crop.
+                if (saved == null || !saved.UsePlanDetailComponents)
+                    FootingDrawingVisibility.Configure(plan, footing, role.EndsWith("Top", StringComparison.OrdinalIgnoreCase),
+                        saved?.ApplyViewTemplatesOnce ?? true, warnings ?? new List<string>());
+            }
+        }
+        private static void PlaceViewports(Document doc, ViewSheet sheet, IList<View> views, int batchIndex, IList<string> warnings)
+        {
+            BoundingBoxUV outline = sheet.Outline;
+            double minX = outline.Min.U, maxX = outline.Max.U, minY = outline.Min.V, maxY = outline.Max.V;
+            double width = maxX - minX, height = maxY - minY;
+            if (width <= 0 || height <= 0) throw new InvalidOperationException("Khổ sheet không hợp lệ.");
+
+            int columns = 2, rows = (views.Count + columns - 1) / columns;
+            double cellWidth = width * 0.42;
+            double usableTop = maxY - height * 0.10, usableBottom = minY + height * 0.10;
+            double cellHeight = (usableTop - usableBottom) / Math.Max(1, rows);
+            double targetWidth = cellWidth * 0.92;
+            double targetHeight = cellHeight * 0.76;
+            double leftCenter = minX + width * 0.28;
+            double rightCenter = maxX - width * 0.28;
+
+            for (int i = 0; i < views.Count; i++)
+            {
+                int row = i / columns, column = i % columns;
+                XYZ center = new XYZ(column == 0 ? leftCenter : rightCenter,
+                    usableTop - (row + 0.5) * cellHeight, 0);
+                Viewport viewport = Viewport.Create(doc, sheet.Id, views[i].Id, center);
+                doc.Regenerate();
+
+                FitViewportToCell(doc, views[i], viewport, targetWidth, targetHeight, warnings);
+                viewport.SetBoxCenter(center);
+                doc.Regenerate();
+                FootingDrawingViewportTitles.Center(viewport, warnings);
+                doc.Regenerate();
+            }
+        }
+
+        private static void FitViewportToCell(Document doc, View view, Viewport viewport,
+            double targetWidth, double targetHeight, IList<string> warnings)
+        {
+            try
+            {
+                Outline bounds = viewport.GetBoxOutline();
+                double viewWidth = bounds.MaximumPoint.X - bounds.MinimumPoint.X;
+                double viewHeight = bounds.MaximumPoint.Y - bounds.MinimumPoint.Y;
+                if (viewWidth <= 0 || viewHeight <= 0) return;
+
+                double factor = Math.Max(viewWidth / targetWidth, viewHeight / targetHeight);
+                int currentScale = view.Scale;
+                int fittedScale = Math.Max(1, Math.Min(200, (int)Math.Ceiling(currentScale * factor)));
+                if (fittedScale != currentScale && (factor > 1.03 || factor < 0.97))
+                {
+                    view.Scale = fittedScale;
+                    doc.Regenerate();
+                    bounds = viewport.GetBoxOutline();
+                    viewWidth = bounds.MaximumPoint.X - bounds.MinimumPoint.X;
+                    viewHeight = bounds.MaximumPoint.Y - bounds.MinimumPoint.Y;
+                }
+
+                if (viewWidth > targetWidth * 1.02 || viewHeight > targetHeight * 1.02)
+                    warnings.Add("View " + view.Name + " vượt vùng fit sheet ở tỷ lệ 1:" + view.Scale + ".");
+            }
+            catch (Exception ex)
+            {
+                warnings.Add("Không thể fit crop view " + view.Name + ": " + ex.Message);
+            }
+        }
+
+        private static double locationZ(FamilyInstance fi) => (fi.Location as LocationPoint)?.Point.Z ?? 0;
+        private static XYZ SafeCenter(BoundingBoxXYZ box) => new XYZ((box.Min.X+box.Max.X)/2, (box.Min.Y+box.Max.Y)/2, (box.Min.Z+box.Max.Z)/2);
+        private static List<XYZ> WorldCorners(BoundingBoxXYZ box)
+        {
+            Transform t = box.Transform ?? Transform.Identity; var result = new List<XYZ>();
+            for (int x=0;x<2;x++) for(int y=0;y<2;y++) for(int z=0;z<2;z++) result.Add(t.OfPoint(new XYZ(x==0?box.Min.X:box.Max.X,y==0?box.Min.Y:box.Max.Y,z==0?box.Min.Z:box.Max.Z)));
+            return result;
+        }
+        internal static bool IsPileCapForPolicy(FamilyInstance footing) => IsPileCap(footing);
+        private static bool IsPileCap(FamilyInstance footing)
+        {
+            if (footing == null) return false;
+            string fam = footing.Symbol?.FamilyName ?? "";
+            string typ = footing.Name ?? "";
+            return fam.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   fam.IndexOf("coc", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   fam.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   fam.IndexOf("cap", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   fam.IndexOf("đài", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   fam.IndexOf("dai", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   typ.IndexOf("cọc", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   typ.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string FormatName(string pattern, FamilyInstance footing, FootingDrawingProfile profile)
+        {
+            string mark = footing.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
+            string type = footing.Symbol == null ? "Móng" : footing.Symbol.Name;
+            string level = footing.LevelId == ElementId.InvalidElementId ? "" : footing.Document.GetElement(footing.LevelId)?.Name ?? "";
+            bool isPile = FootingDrawingLayerPolicy.IsPileCap(profile.FootingKindMode, IsPileCap(footing));
+            string defaultPattern = isPile ? "Đài cọc - {Mark}" : "Móng đơn - {Mark}";
+            string actualPattern = string.IsNullOrWhiteSpace(pattern) ? defaultPattern : pattern;
+            return actualPattern.Replace("{Mark}", string.IsNullOrWhiteSpace(mark) ? footing.Id.Value.ToString() : mark.Trim())
+                .Replace("{Id}", footing.Id.Value.ToString()).Replace("{Type}", type).Replace("{Level}", level);
+        }
+        private static string FormatViewName(string pattern, FamilyInstance footing, string role, FootingDrawingProfile profile)
+        {
+            bool isPile = IsPileCap(footing);
+            string defaultPattern = isPile ? "KStruct - ĐC {Id} - {Role}" : "KStruct - MĐ {Id} - {Role}";
+            string actualPattern = string.IsNullOrWhiteSpace(pattern) ? defaultPattern : pattern;
+            return actualPattern
+                .Replace("{Mark}", (footing.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString() ?? "").Trim())
+                .Replace("{Id}", footing.Id.Value.ToString()).Replace("{Role}", role);
+        }
+        private static string UniqueName(string value, HashSet<string> names)
+        {
+            if (!names.Contains(value)) return value;
+            for (int i=2;;i++) { string test=value+" ("+i+")"; if (!names.Contains(test)) return test; }
+        }
+        private static string UniqueNumber(string prefix, string id, HashSet<string> numbers)
+        {
+            string value=prefix+id; for(int i=2;numbers.Contains(value);i++) value=prefix+id+"-"+i; return value;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+

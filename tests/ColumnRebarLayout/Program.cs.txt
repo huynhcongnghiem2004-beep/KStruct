@@ -1,0 +1,240 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using ColumnRebarPro.V3;
+
+static class Program
+{
+    static int assertions;
+    static void Check(bool condition, string message)
+    {
+        assertions++;
+        if (!condition) throw new Exception(message);
+    }
+    static void Reject(Action action)
+    {
+        bool rejected = false;
+        try { action(); } catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "Invalid layout must be rejected");
+    }
+    static List<V3TieBand> Plan(double zone = 500, bool fixedCount = false,
+        bool joint = false, double spacing = 175, double height = 3000) =>
+        V3TieLayoutPlan.Create(height, 30, 8, zone, 100, spacing, fixedCount,
+            6, 9, joint, 400, 80);
+    static double[] Positions(List<V3TieBand> bands) => bands.SelectMany(b =>
+        Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
+    static void Main()
+    {
+        Check(!V4TieSetPlacementPolicy.NeedsFixedNumber(7, 7, 600, 100),
+            "Matching Maximum Spacing set preserves its Revit layout rule");
+        Check(V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 100),
+            "Count disagreement can fall back to exactly seven ties at 100 mm");
+        Check(V4TieSetPlacementPolicy.NeedsFixedNumber(6, 5, 500, 100),
+            "Shared zone boundary still uses the approved maximum spacing");
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(3, 4, 500, 100));
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, double.NaN, 100));
+        Reject(() => V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 0));
+        // Anchor plane validation: two-point bars, L anchor, tilted transition,
+        // out-of-plane kinks and unsafe array directions.
+        var P = new Func<double,double,double,V3Point3>((x,y,z)=>new V3Point3(x,y,z));
+        var straight = V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,1000) }, P(1,0,0));
+        Check(Math.Abs(straight.X-1)<1e-8, "Straight bars use perpendicular set direction");
+        var bend = V4AnchorGeometry.PlaneNormal(
+            new[] { P(-250,0,0), P(0,0,0), P(0,0,2000) });
+        Check(Math.Abs(Math.Abs(bend.Y)-1)<1e-8, "L-shaped anchor plane derives from actual legs");
+        var tilted = V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,700), P(50,50,1000) });
+        Check(Math.Abs(tilted.Dot(P(1,1,0)))<1e-7, "Tilted in-plane transition computes correct plane");
+        Reject(()=>V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,500), P(100,0,600), P(100,100,1000) }));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(0,0,0) }));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(0,0,1000) },P(0,0,50)));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(
+            new[] { P(0,0,0), P(0,0,1000), P(100,0,1500) }, P(0,1,0.1)));
+        Reject(()=>V4AnchorGeometry.PlaneNormal(new[] { P(0,0,0), P(double.NaN,0,1000) }));
+        Check(V4ShapeCreationPolicy.CanCreate("thanh neo/chuyển tiếp"), "Only anchor paths can create a new Shape");
+        Check(V4ShapeCreationPolicy.CanCreate("thanh dọc") &&
+            V4ShapeCreationPolicy.CanCreate("đai bao") &&
+            V4ShapeCreationPolicy.CanCreate("đai phụ/cross-tie"),
+            "Generate missing project Shapes for all supported column bar groups");
+        Check(!V4ShapeCreationPolicy.CanCreate(null) &&
+            !V4ShapeCreationPolicy.CanCreate("unknown") &&
+            !V4ShapeCreationPolicy.CanCreate("foundation"),
+            "Do not generate Shapes for unrelated or unknown commands");
+        // No auto-generated RebarBarType allowed for bottleneck bends.
+        V4ExistingBarTypePolicy.RequireAdequateBend("D20",120,120);
+        V4ExistingBarTypePolicy.RequireAdequateBend("D20",150,120);
+        Reject(()=>V4ExistingBarTypePolicy.RequireAdequateBend("D20",100,120));
+        Reject(()=>V4ExistingBarTypePolicy.RequireAdequateBend("D20",double.NaN,120));
+        // Do not place ties inside beam/slab joint intervals. Split Rebar Sets
+        // at excluded positions, preserving spacing on each remaining run.
+        var jointSource = new[] { new V3TieBand {
+            Start=0, End=600, Count=7, MaximumSpacing=100, FixedNumber=false
+        }};
+        var split = V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(250.0,350.0) });
+        Check(split.Count==2 && split[0].Count==3 && split[1].Count==3 &&
+              split[0].End==200 && split[1].Start==400,
+            "Intersecting joint must remove tie at 300mm and split sets");
+        Check(V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(0.0,600.0) }).Count==0,
+            "Entirely intersected joint cannot create a tie");
+        Reject(() => V4TieBandExclusion.RequireAtLeastOneTie(jointSource,
+            V4TieBandExclusion.KeepOutside(jointSource, new[] { Tuple.Create(0.0,600.0) })));
+        V4TieBandExclusion.RequireAtLeastOneTie(jointSource, split);
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(double.NaN, 300.0) }));
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(400.0, 300.0) }));
+        Reject(() => V4TieBandExclusion.KeepOutside(jointSource,
+            new[] { Tuple.Create(0.0, double.PositiveInfinity) }));
+        Check(V4TieBandExclusion.KeepOutside(jointSource,
+            new Tuple<double,double>[0]).Single().Count==7,
+            "No intersection preserves all seven ties");
+        // The node-tie option is persisted with the same V4 per-floor profile.
+        var nodeConfig = new V3RebarConfig { ShowJointTies = false };
+        Check(!nodeConfig.Copy().ShowJointTies, "Disabled joint ties survive profile copy");
+        using (var nodeWriter = new System.IO.StringWriter())
+        {
+            new System.Xml.Serialization.XmlSerializer(typeof(V3RebarConfig)).Serialize(nodeWriter, nodeConfig);
+            var nodeRead = V3LegacySplice.Read(new System.IO.StringReader(nodeWriter.ToString()));
+            Check(!nodeRead.ShowJointTies, "Disabled joint ties survive XML profile");
+        }
+        Check(new V3RebarConfig().ShowJointTies, "New V4 profiles retain joint ties by default");
+        var typeA = new V3RebarConfig { TieStyle=V3TieStyle.Hook135, TieDiameter=8,
+            TieBarTypeUniqueId="D8a", TieHook135UniqueId="H135",
+            TieLayout=V3TieLayout.MaximumSpacing };
+        var typeB = new V3RebarConfig { TieStyle=V3TieStyle.ClosedLoop,
+            TieDiameter=8, TieBarTypeUniqueId="D8a", TieHook135UniqueId="" };
+        var typeC = new V3RebarConfig { TieStyle=V3TieStyle.ClosedLoop,
+            TieDiameter=10, TieBarTypeUniqueId="D10", TieHook135UniqueId="" };
+        V4StackTieSettings.Apply(typeA,new[]{typeA,typeB,typeC});
+        Check(typeB.TieStyle==V3TieStyle.Hook135 && typeB.TieHook135UniqueId=="H135",
+            "Tie style and Hook selected once apply to compatible floors");
+        Check(typeC.TieStyle==V3TieStyle.Hook135 && typeC.TieHook135UniqueId=="",
+            "All floors share tie style but differing bar types never inherit Hook");
+        Check(typeA.TieLayout==V3TieLayout.MaximumSpacing &&
+              typeB.TieLayout==V3TieLayout.MaximumSpacing,
+            "All floors use Maximum Spacing");
+        var bands = Plan();
+        var zs = Positions(bands);
+        Check(bands.Count == 3, "Three bands");
+        Check(Math.Abs(zs.First() - 34) < 1e-7 && Math.Abs(zs.Last() - 2966) < 1e-7, "Cover at both ends");
+        Check(zs.Zip(zs.Skip(1), (a,b) => b > a).All(x=>x), "No duplicate boundaries");
+        foreach (var b in bands)
+            Check(b.Count == 1 || (b.End-b.Start)/(b.Count-1) <= b.MaximumSpacing + 1e-7, "Maximum spacing");
+        Check(Positions(Plan(fixedCount:true)).Length == 6 + 9 + 6 - 2, "Fixed counts share boundaries");
+        Check(Plan(zone:0).Count == 1, "Zero end region");
+        Check(Plan(zone:1466).Count == 2, "End regions meet without a duplicate middle");
+        Check(Plan(joint:true).Last().FixedNumber == false, "Joint always uses its spacing");
+        Check(Math.Abs(Positions(Plan(joint:true)).Last() - 3366) < 1e-7, "Joint height is included");
+        Check(Positions(Plan(zone:1466,fixedCount:true)).Length == 11, "Meeting fixed end regions");
+        Check(Plan(zone:1, spacing:10000)[1].Count == 1, "Boundary removal can leave a singleton");
+        foreach (var zone in new[]{0.0, 1.0, 100.0, 500.0, 1466.0})
+        foreach (var space in new[]{10.0, 100.0, 333.0, 5000.0})
+        foreach (var joint in new[]{false, true})
+        {
+            var plan = Plan(zone:zone,spacing:space,joint:joint);
+            var positions = Positions(plan);
+            Check(positions.Zip(positions.Skip(1), (a,b)=> b-a > 1e-7).All(x=>x), "Strictly ordered tie positions");
+            // Spacing across band boundaries is also bounded by the incoming band's spacing.
+            double previous = positions[0];
+            foreach (var band in plan)
+            foreach (var pos in Enumerable.Range(0,band.Count).Select(band.Position))
+            {
+                Check(pos-previous <= band.MaximumSpacing + 1e-7, "Boundary spacing bound");
+                previous = pos;
+            }
+        }
+        Reject(()=>Plan(zone:1467));
+        Reject(()=>Plan(zone:-1));
+        Reject(()=>Plan(spacing:0));
+        Reject(()=>Plan(spacing:double.NaN));
+        Reject(()=>Plan(spacing:double.PositiveInfinity));
+        Reject(()=>Plan(spacing:0.0001));
+        Reject(()=>Plan(height:60));
+        Reject(()=>V3TieLayoutPlan.Create(3000,30,8,500,100,175,true,1,9,false,0,0));
+        Reject(()=>V3TieLayoutPlan.Create(3000,30,8,500,100,175,false,0,0,true,400,0));
+        Check(V3RebarOwnership.Matches(42,"KSTR_V3_42"), "Recognize legacy V3 partition, regardless of column/foundation host");
+        foreach (string partition in new[]{null,"","KSTR_V3_420","KSTR_V3_41","kstr_v3_42","Manual"," KSTR_V3_42"})
+            Check(!V3RebarOwnership.Matches(42,partition), "Keep foreign/untagged steel");
+        V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 2, 1 }, "test");
+        Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { 1, 2 }, new[] { 1, 2, 99 }, "test"));
+        Reject(() => V4DeletionGuard.EnsureOnlyExpected(new[] { "bar-a" }, new[] { "bar-a", "tag-a" }, "test"));
+        Check(true, "V4 deletion guard keeps exact planned IDs and detects cascade deletion");
+        Check(V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1 - DRAFT", "KSTR V3 MCN C1 - DRAFT" }), "V4 accepts unmodified KStruct-only sheet");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCD C1", "User Detail View" }), "V4 never adopts mixed sheets");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new[] { "KSTR V3 MCN C1" }), "V4 requires a longitudinal view");
+        Check(!V4SheetUpdateGuard.CanReplaceViews(new string[0]), "V4 never adopts empty sheets");
+        Check(V4SheetOwnershipRules.Matches("C1|C2", "C1|C2", new[] { "21", "22" }, new[] { "22", "21" }),
+            "Owned sheet accepts the exact same view identities regardless of order");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C2", new[] { "21", "22" }, new[] { "21", "22" }),
+            "Sheet from another column stack must never be adopted");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new[] { "21", "22" }, new[] { "21", "22", "99" }),
+            "User-added view blocks replacement");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new[] { "21", "22" }, new[] { "21" }),
+            "Missing generated view blocks replacement");
+        Check(!V4SheetOwnershipRules.Matches("C1", "C1", new string[0], new string[0]),
+            "Empty sheet identity is not owned");
+        var printable = new V4SheetLayoutGuard.Rect(0, 0, 100, 100);
+        V4SheetLayoutGuard.Validate(printable, new[] {
+            new V4SheetLayoutGuard.Rect(5, 5, 45, 60),
+            new V4SheetLayoutGuard.Rect(55, 5, 95, 60)
+        });
+        Reject(() => V4SheetLayoutGuard.Validate(printable,
+            new[] { new V4SheetLayoutGuard.Rect(90, 10, 110, 50) }));
+        Reject(() => V4SheetLayoutGuard.Validate(printable, new[] {
+            new V4SheetLayoutGuard.Rect(5, 5, 55, 60),
+            new V4SheetLayoutGuard.Rect(50, 10, 95, 55)
+        }));
+        Reject(() => V4SheetLayoutGuard.Validate(printable,
+            new[] { new V4SheetLayoutGuard.Rect(double.NaN, 0, 10, 10) }));
+        Check(V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8;102:9"),
+            "Unchanged view annotation ownership permits refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8;102:9", "101:7,8,99;102:9"),
+            "User-added annotation must block destructive refresh");
+        Check(!V4SheetOwnershipRules.SameViewContents("101:7,8", "101:7"),
+            "Removed annotation must block destructive refresh");
+        Check(V4ShapeAutoSelection.Choose(null, new[] { "shape-A" }) == "shape-A",
+            "Automatically select the only compatible project shape");
+        Check(V4ShapeAutoSelection.Choose("", new[] { "shape-A", "shape-A" }) == "shape-A",
+            "Duplicate identities do not create false ambiguity");
+        Check(V4ShapeAutoSelection.Choose("", new[] { "shape-A", "shape-B" }) == null,
+            "Never guess between different compatible RebarShapes");
+        Check(V4ShapeAutoSelection.Choose("shape-B", new[] { "shape-A", "shape-B" }) == "shape-B",
+            "Preserve previously selected compatible shape");
+        Check(V4ShapeAutoSelection.Choose("stale-shape", new[] { "shape-A" }) == null,
+            "Do not silently replace a saved but incompatible RebarShape");
+        Check(V4ShapeAutoSelection.Choose(null, new string[0]) == null,
+            "Missing compatible RebarShape must not be fabricated");
+        AnchorTests.Run();
+        StarterTests.Run();
+        PairingTests.Run();
+        LegacySpliceTests.Run();
+        HookTests.Run();
+        var savedShapeConfig = new V3RebarConfig {
+            LongitudinalShapeUniqueId = "long-shape",
+            AnchorShapeUniqueId = "anchor-shape",
+            OuterTieShapeUniqueId = "outer-shape",
+            CrossTieShapeUniqueId = "cross-shape"
+        };
+        var copiedShapeConfig = savedShapeConfig.Copy();
+        Check(copiedShapeConfig.LongitudinalShapeUniqueId == "long-shape" &&
+            copiedShapeConfig.AnchorShapeUniqueId == "anchor-shape" &&
+            copiedShapeConfig.OuterTieShapeUniqueId == "outer-shape" &&
+            copiedShapeConfig.CrossTieShapeUniqueId == "cross-shape",
+            "Shape selections are copied per column");
+        using (var writer = new System.IO.StringWriter())
+        {
+            new System.Xml.Serialization.XmlSerializer(typeof(V3RebarConfig)).Serialize(writer, savedShapeConfig);
+            var restored = V3LegacySplice.Read(new System.IO.StringReader(writer.ToString()));
+            Check(restored.LongitudinalShapeUniqueId == "long-shape" &&
+                restored.AnchorShapeUniqueId == "anchor-shape" &&
+                restored.OuterTieShapeUniqueId == "outer-shape" &&
+                restored.CrossTieShapeUniqueId == "cross-shape",
+                "Shape selections persist through XML profiles");
+        }
+        Console.WriteLine($"PASS: {assertions} checks (layout, boundary spacing, invalid inputs, ownership)");
+    }
+}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs>
+  <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#173b58"/><stop offset="1" stop-color="#0a2539"/></linearGradient>
+  <linearGradient id="coral" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#ff8b61"/><stop offset=".55" stop-color="#ef4e3e"/><stop offset="1" stop-color="#b92d33"/></linearGradient>
+  <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b9ebec"/><stop offset="1" stop-color="#3b95a0"/></linearGradient>
+</defs><rect x="2" y="2" width="60" height="60" rx="11" fill="url(#panel)" /><path d="M9 28L43 14L55 20L21 34Z" fill="#9fe1e2"/><path d="M9 28L21 34V49L9 43Z" fill="#407e9b"/><path d="M21 34L55 20V35L21 49Z" fill="#4d9db4"/><path d="M9 28L43 14L55 20L21 34V49L9 43Z" fill="none" stroke="#c8f1ed" stroke-width="2" stroke-linejoin="round"/></svg>

@@ -1,0 +1,240 @@
+<UserControl x:Class="ColumnRebarPro.V3.V3DeploymentControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="12">
+            <CheckBox x:Name="EnableCheck"
+                      Content="Cài đặt triển khai bản vẽ cột"
+                      FontWeight="SemiBold"
+                      Foreground="#A52B29"
+                      Margin="0,0,0,12"
+                      Checked="Enable_Changed"
+                      Unchecked="Enable_Changed"/>
+
+            <StackPanel x:Name="SettingsPanel" IsEnabled="False">
+                <GroupBox Header="Tên theo Mark" Padding="10" Margin="0,0,0,12">
+                    <StackPanel>
+                        <CheckBox x:Name="UseMarkForStackName" Content="Dùng Mark làm tên nhóm cột / stack" IsChecked="True" Margin="0,0,0,8"/>
+                        <CheckBox x:Name="UseMarkForSheetName" Content="Dùng Mark làm tên sheet" IsChecked="True" Margin="0,0,0,8"/>
+                        <CheckBox x:Name="UseMarkForViewportName" Content="Dùng Mark làm tên viewport / view" IsChecked="True"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Thông tin bản vẽ" Padding="10" Margin="0,0,0,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="210"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="Sheet Name" Margin="0,0,0,6"/>
+                            <TextBox x:Name="SheetName" Text="CHI TIẾT THÉP CỘT" MinHeight="28"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                            <TextBlock Text="Sheet Number" Margin="0,0,0,6"/>
+                            <TextBox x:Name="SheetNumber" Text="KC-05-01" MinHeight="28"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Title Block" Margin="0,0,0,6"/>
+                            <ComboBox x:Name="TitleBlock" MinHeight="28"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="Chừa vùng khung tên bên phải (mm)" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox x:Name="SheetRightMargin" Text="180" Width="100" MinHeight="28"/>
+                </StackPanel>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <GroupBox Header="Thiết lập mặt cắt ngang" Padding="12" Margin="0,0,6,0">
+                        <StackPanel>
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tỷ lệ bản vẽ" VerticalAlignment="Center"/>
+                                <TextBox x:Name="CrossScale" Grid.Column="1" MinHeight="28" Text="25"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="View Template" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CrossTemplate" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="View Family Type" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CrossSectionType" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Dimension Type" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CrossDimension" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Cỡ chữ ghi chú" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CrossTextType" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tag thép đai" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CrossStirrupTag" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tag thép dọc" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CrossMainTag" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <GroupBox Header="Kéo thép mặt cắt ngang" Padding="8" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <CheckBox x:Name="PullBars" Content="Kéo thép và ghi chú ra ngoài tiết diện"/>
+                                    <TextBlock Text="Kéo đường tâm một đai thực tế ra ngoài tiết diện; giữ nguyên hình dạng và kích thước."
+                                               TextWrapping="Wrap"
+                                               Foreground="#80604A"
+                                               Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,18,0,6">
+                                <CheckBox x:Name="CrossShowTag" IsChecked="True" Content="Hiện Tag" Margin="0,0,30,0"/>
+                                <CheckBox x:Name="CrossShowValue" IsChecked="True" Content="Hiện giá trị"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Grid.Column="1" Header="Thiết lập mặt cắt dọc" Padding="12" Margin="6,0,0,0">
+                        <StackPanel>
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tỷ lệ bản vẽ" VerticalAlignment="Center"/>
+                                <TextBox x:Name="LongScale" Grid.Column="1" MinHeight="28" Text="50"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Break Line" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongBreakLine" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="View Template" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongTemplate" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="View Family Type" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongSectionType" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Dimension Type" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongDimension" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Cỡ chữ ghi chú" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongTextType" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tag thép đai" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongStirrupTag" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <Grid Margin="0,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Tag thép dọc" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="LongMainTag" Grid.Column="1" MinHeight="28"/>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,18,0,6">
+                                <CheckBox x:Name="LongShowTag" IsChecked="True" Content="Hiện Tag" Margin="0,0,30,0"/>
+                                <CheckBox x:Name="LongShowValue" IsChecked="True" Content="Hiện giá trị"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+            </StackPanel>
+
+            <Border Background="#FFF0F4FA" Padding="10" Margin="0,14,0,0">
+                <TextBlock Text="Bật triển khai và nhấn Tạo thép / Bản vẽ để tạo một sheet toàn tuyến: mặt cắt dọc bên trái, các mặt cắt ngang và bảng thép bên phải. Chọn loại Tag/Text khi bật hiển thị. Sheet trùng số sẽ bị chặn; các thay đổi cùng một bước Undo."
+                           TextWrapping="Wrap"
+                           Foreground="#344965"/>
+            </Border>
+
+            <DockPanel Margin="0,12,0,0">
+                <Button DockPanel.Dock="Right" Content="Lưu thiết lập triển khai" Padding="14,7" Click="Save_Click"/>
+                <TextBlock x:Name="StatusText"
+                           Text="Chọn loại bản vẽ có sẵn trong project."
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0"/>
+            </DockPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,132 @@
+using System;
+using System.Collections.Generic;
+using ColumnRebarPro.V3;
+
+// Test doubles replace Revit objects only. V3StarterConnection and TCVN rules below are production code.
+namespace ColumnRebarPro.V3
+{
+    public sealed class TestVector
+    {
+        public double X,Y;
+        public TestVector(double x=0,double y=0){X=x;Y=y;}
+    }
+    public sealed class V3Geometry
+    {
+        public double Bottom, Top;
+        public double Width=V3Units.Ft(600),Depth=V3Units.Ft(800);
+        public TestVector Center=new TestVector(),X=new TestVector(1,0),Y=new TestVector(0,1);
+        public double Height => Top - Bottom;
+    }
+    public sealed class ColumnSegment { public string LevelName; }
+    public sealed class V3SegmentWork
+    {
+        public V3RebarConfig Config;
+        public V3Geometry Geometry;
+        public ColumnSegment Segment;
+        public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper, VerifiedBeamJoint;
+        public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
+        public double IncomingSupplementalAnchorLengthMm;
+        internal readonly List<V3Point2> IncomingSupplementalPositions = new List<V3Point2>();
+        internal readonly List<V3PositionOffset> IncomingSpliceOffsets = new List<V3PositionOffset>();
+        public string StarterWarning;
+        public object TransitionUp, TransitionDown;
+        public object FoundationHost;
+        internal V3ColumnConnectionPlan ConnectionPlan;
+    }
+    public static class V3Units
+    {
+        public static double Ft(double mm) => mm / 304.8;
+        public static double Mm(double ft) => ft * 304.8;
+    }
+
+}
+
+static class StarterTests
+{
+    static int checks;
+    static void Check(bool value, string message) { checks++; if(!value) throw new Exception(message); }
+    static void Near(double value, double expected, string message) => Check(Math.Abs(value-expected)<1e-6,message);
+    static void Reject(Action action, string message)
+    {
+        bool rejected=false;
+        string actual="No exception";
+        try { action(); } catch(InvalidOperationException ex) { actual=ex.Message; rejected=actual.Contains(message); }
+        Check(rejected,"Must reject with a useful message: "+message+"; actual: "+actual);
+    }
+    static V3SegmentWork Work(string name, double bottom, double top, bool starter=false, double length=1400) => new V3SegmentWork
+    {
+        Config = new V3RebarConfig { Cx=4,Cy=4,MainDiameter=20,TieDiameter=8,Cover=30,StarterBars=starter,StarterLength=length,BottleneckSlope=6,JointBeamHeight=400 },
+        Geometry = new V3Geometry {Bottom=V3Units.Ft(bottom),Top=V3Units.Ft(top)},
+        Segment = new ColumnSegment {LevelName=name}
+    };
+    static List<V3SegmentWork> Pair(double gap=400, double length=1400, double upperHeight=3000) => new List<V3SegmentWork>
+        { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
+    internal static void Run()
+    {
+        var roofOnly=new List<V3SegmentWork>{Work("Mái",0,2500,true)};
+        V3StarterConnection.Resolve(roofOnly);
+        Check(!roofOnly[0].BottleneckToUpper && roofOnly[0].IncomingStarterLength==0,
+            "2500 mm roof terminal column has no upper joint and must not require beam detection");
+        var pair=Pair();V3StarterConnection.Resolve(pair);
+        Near(pair[1].IncomingStarterLength,1000,"400 mm beam/slab gap must be deducted from entered extension");
+        Near(pair[0].Config.StarterLength,1400,"Never silently change the user's length");
+        Near(V3Units.Mm(pair[0].BottleneckUpperBarStart),3440,"Lap starts at the upper bar end, not column solid base");
+        Check(pair[0].BottleneckToUpper && !pair[1].BottleneckToUpper,"Neck the lower bar only for an actual pair");
+        pair[0].Config.StarterLength=1600;V3StarterConnection.Resolve(pair);
+        Near(pair[1].IncomingStarterLength,1200,"Repeated resolution must not accumulate the gap");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:0,length:1400)),"chưa xác minh");
+        var touching=Pair(gap:0,length:1400);touching[0].VerifiedBeamJoint=true;
+        V3StarterConnection.Resolve(touching);
+        Near(touching[1].IncomingStarterLength,1400,"Verified beam joint permits touching columns without deducting a fictional gap");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-1,length:1400)),"chưa xác minh");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-2,length:1400)),"chưa xác minh");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:-3)),"chồng lấn");
+        var wideGap=Pair(gap:1500,length:2600);wideGap[0].Config.JointBeamHeight=1500;V3StarterConnection.Resolve(wideGap);
+        V3StarterConnection.Resolve(Pair(length:1400,upperHeight:1800));
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:1400,upperHeight:900)),"chiều cao");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:840)),"không đủ vừa nối tối thiểu"); // minimum lap alone is insufficient for 50% stagger
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:839.9)),"840");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:400)),"840");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:600)),"840");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:double.NaN)),"hữu hạn");
+        Reject(()=>V3StarterConnection.Resolve(Pair(gap:double.PositiveInfinity)),"không hợp lệ");
+        pair=Pair();pair[1].Config.Cx=5;
+        Reject(()=>V3StarterConnection.Resolve(pair),"chiều dài neo thẳng trong dầm"); // additional upper bars require approved supplemental anchorage
+        pair=Pair();pair[0].Config.StaggerSplices=true;
+        V3StarterConnection.Resolve(pair);
+        Check(pair[1].IncomingStagger && pair[1].IncomingSpliceOffsets.Count > 0,
+            "Explicit stagger setting must preserve a staggered connection plan");
+        pair=Pair();pair[0].Config.BottleneckRibbed=false;
+        Reject(()=>V3StarterConnection.Resolve(pair),"thép trơn");
+        pair=Pair();pair[0].Config.BottleneckSlope=1000;
+        Reject(()=>V3StarterConnection.Resolve(pair),"nhấn cổ chai");
+        pair=Pair();pair[0].Config.StarterBars=false;
+        pair[0].BottleneckToUpper=true;pair[0].BottleneckUpperBarStart=99;
+        pair[1].IncomingStarterLength=99;pair[0].HasNext=true;pair[1].HasPrevious=true;
+        V3StarterConnection.Resolve(pair);
+        Check(!pair[0].BottleneckToUpper && pair[1].IncomingStarterLength==0 && pair[0].BottleneckUpperBarStart==0,
+            "Turning starter off must clear derived geometry");
+        Check(!pair[0].HasNext && !pair[1].HasPrevious,"Do not enter unsupported legacy transition mode");
+        var three=new List<V3SegmentWork>{Work("T0",0,3000,true),Work("T1",3400,6400,true),Work("T2",6800,9800,true)};
+        V3StarterConnection.Resolve(three);
+        Check(three[0].BottleneckToUpper && three[1].BottleneckToUpper && !three[2].BottleneckToUpper,"Each real pair is independent; topmost starters stay free");
+        Near(three[1].IncomingStarterLength,1000,"First pair");Near(three[2].IncomingStarterLength,1000,"Second pair");
+        Near(V3BottleneckRules.MinimumBendDiameter(16,true),80,"TCVN ribbed below 20");
+        Near(V3BottleneckRules.MinimumBendDiameter(20,true),160,"TCVN ribbed 20 and above");
+        Near(V3BottleneckRules.MinimumBendDiameter(16,false),40,"TCVN plain below 20");
+        Near(V3BottleneckRules.MinimumBendDiameter(20,false),80,"TCVN plain 20 and above");
+        Reject(()=>V3BottleneckRules.MinimumLap(41),"40 mm");
+        Near(V3BottleneckRules.MinimumLap(10),250,"250 mm lower bound");Near(V3BottleneckRules.MinimumLap(20),400,"20d lower bound");
+        Check(V3BottleneckRules.TangentLength(20,2,6,160)>0,"Default geometric neck fits minimum mandrel");
+        Reject(()=>V3BottleneckRules.TangentLength(20,2,.1,160),"quá ngắn");
+        Reject(()=>V3BottleneckRules.Shift(20,-1),"Khe hở");
+        foreach(V3AnchorDirection dir in Enum.GetValues(typeof(V3AnchorDirection)))
+        {
+            var arrays=V3AnchorLayoutPlan.Create(4,5,600,800,30,8,20,dir);
+            V3BottleneckRules.ValidateCenters(arrays,252,352,20,2);
+            checks++;
+        }
+        Reject(()=>V3BottleneckRules.ValidateCenters(V3AnchorLayoutPlan.Create(20,20,400,400,30,8,20,V3AnchorDirection.Inward),152,152,20,2),"giao");
+        Console.WriteLine($"PASS: {checks} starter-gap and bottleneck regression checks");
+    }
+}

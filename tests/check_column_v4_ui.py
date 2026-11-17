@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Static safety checks for the KStruct Column V4 WPF four-tab migration.
+
+Run from repository root: python tests/check_column_v4_ui.py
+Does not replace a Windows/MSBuild or Revit 2024 runtime test.
+"""
+from pathlib import Path
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+XAML = ROOT / "ColumnRebarPro/V3/ColumnRebarV3Window.xaml"
+CS = ROOT / "ColumnRebarPro/V3/ColumnRebarV3Window.xaml.cs"
+ns = {"w": "http://schemas.microsoft.com/winfx/2006/xaml/presentation"}
+xns = "{http://schemas.microsoft.com/winfx/2006/xaml}Name"
+
+def main():
+    tree = ET.parse(XAML)
+    root = tree.getroot()
+    text = XAML.read_text(encoding="utf-8")
+    code = CS.read_text(encoding="utf-8")
+    main = next(t for t in root.iter(f"{{{ns['w']}}}TabControl") if t.get(xns) == "MainTabs")
+    tabs = [t.attrib.get("Header", "") for t in main.findall("w:TabItem", ns)]
+    expected = [
+        "▥  1. TẠO THÉP CỘT",
+        "▤  2. THÉP ĐAI",
+        "⌁  3. NEO & NỐI TẦNG",
+        "▧  4. TRIỂN KHAI BẢN VẼ",
+    ]
+    assert tabs == expected, f"Unexpected tab order: {tabs}"
+    names = [e.attrib[xns] for e in root.iter() if xns in e.attrib]
+    assert len(names) == len(set(names)), "Duplicate WPF x:Name"
+    assert "DeploymentHost" in names, "Existing drawing deployment host lost"
+    assert "ColumnModeTabs" in names, "Nested quick/detail tabs missing"
+    assert "Tạo thép nhanh" in text and "Thiết lập chi tiết" in text
+    assert "ColumnModeTabs.SelectedIndex = 0;" in code
+    assert 'Header="Thiết lập chi tiết" Visibility="Collapsed" IsEnabled="False"' in text
+    assert 'x:Name="QuickAdvancedCheck" Visibility="Collapsed"' in text
+    assert 'if (caption.Contains("Hook")) MainTabs.SelectedIndex = 1;' in code
+    assert 'else if (caption.Contains("Neo")) MainTabs.SelectedIndex = 2;' in code
+    for key in ("KStructNavy", "KStructEarth", "KStructCream"):
+        assert key in text, f"Missing color resource: {key}"
+    # WPF BrushConverter does not accept the SVG-style token "None".
+    # It may compile into BAML but fail only when the window is opened.
+    invalid_brushes = re.findall(
+        r'\b(?:Fill|Stroke|Background|Foreground|BorderBrush)="None"', text)
+    assert not invalid_brushes, "Invalid WPF Brush value None; use Transparent"
+    for brush in re.findall(
+        r'\b(?:Fill|Stroke|Background|Foreground|BorderBrush)="(#[^"]+)"', text):
+        assert re.fullmatch(r"#[0-9A-Fa-f]{3,4}|#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}", brush), (
+            f"Invalid hexadecimal WPF brush: {brush}")
+    # Every V4 tab must have a data-driven preview. Detail canvases must
+    # be redrawn by code, not remain hard-coded decorative drawings.
+    dynamic = (ROOT / "ColumnRebarPro/V3/V4DynamicPreviews.cs").read_text(encoding="utf-8")
+    for canvas in (
+        "TiePlanPreviewCanvas", "TieElevationPreviewCanvas", "SpliceDetailCanvas",
+        "JointDetailCanvas", "RoofDetailCanvas", "DrawingPreviewCanvas"):
+        assert canvas in names, f"Missing live preview: {canvas}"
+        assert canvas in dynamic, f"Preview not connected to renderer: {canvas}"
+    for required in (
+        "DrawTieDynamicPreview()", "DrawSpliceDynamicPreview()",
+        "DrawJointDynamicPreview()", "DrawRoofDynamicPreview()",
+        "DrawDrawingDynamicPreview()"):
+        assert required in dynamic, f"Missing preview draw method: {required}"
+    assert "DrawV4DynamicPreviews();" in code
+    assert 'SizeChanged="DynamicPreview_SizeChanged"' in text
+    assert "Preview-only WPF drawings" in dynamic
+    handlers = set(re.findall(
+        r'\b(?:Click|Checked|Unchecked|SelectionChanged|LostFocus|SizeChanged)="([A-Za-z_]\w*)"',
+        text))
+    missing = sorted(h for h in handlers if not re.search(r'\b' + re.escape(h) + r'\s*\(', code))
+    assert not missing, f"XAML handlers missing from code-behind: {missing}"
+    print("PASS: 4 tab order, unique names, existing deployment host, routing, palette, handler references")
+    print("NOT VERIFIED: .NET compilation, actual Revit transactions, geometry, visual parity, V5 integration")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (AssertionError, ET.ParseError, OSError) as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        sys.exit(1)

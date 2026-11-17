@@ -1,0 +1,247 @@
+using System;
+
+namespace SDK_HD.KStruct.FootingRebar
+{
+    /// <summary>
+    /// Phân loại móng theo giải pháp kết cấu.
+    /// </summary>
+    public enum FootingType
+    {
+        /// <summary>Móng đơn / móng nông (Spread Footing).</summary>
+        SpreadFooting,
+        /// <summary>Móng cọc / đài cọc (Pile Cap).</summary>
+        PileCap
+    }
+
+    /// <summary>
+    /// Thông tin hình học cọc trong hệ tọa độ cục bộ của đài (mm).
+    /// </summary>
+    public sealed class PileInfo
+    {
+        /// <summary>Tọa độ X tâm cọc (mm, gốc tại góc min của đài).</summary>
+        public double CenterX { get; }
+        /// <summary>Tọa độ Y tâm cọc (mm, gốc tại góc min của đài).</summary>
+        public double CenterY { get; }
+        /// <summary>Đường kính cọc tròn hoặc bề rộng cọc vuông (mm).</summary>
+        public double DiameterOrWidth { get; }
+        /// <summary>Chiều sâu cọc ngàm vào đài (mm, mặc định 100mm theo TCVN 10304).</summary>
+        public double EmbedmentDepth { get; }
+        /// <summary>Cọc tròn (true) hay cọc vuông (false).</summary>
+        public bool IsRound { get; }
+
+        public PileInfo(double centerX, double centerY, double diameterOrWidth, double embedmentDepth = 100, bool isRound = true)
+        {
+            CenterX = centerX;
+            CenterY = centerY;
+            DiameterOrWidth = diameterOrWidth > 0 ? diameterOrWidth : 300;
+            EmbedmentDepth = embedmentDepth >= 0 ? embedmentDepth : 100;
+            IsRound = isRound;
+        }
+    }
+
+    /// <summary>
+    /// Mô hình hình học móng chữ nhật. Toàn bộ đơn vị: mm.
+    /// Gốc tọa độ cục bộ: góc dưới (min) của hộp bao móng.
+    /// </summary>
+    public sealed class FootingModel
+    {
+        public double LengthX { get; }
+        public double WidthY { get; }
+        public double Height { get; }
+        public FootingType FootingType { get; }
+        public string Name { get; }
+        public System.Collections.Generic.IReadOnlyList<PileInfo> Piles { get; }
+
+        public FootingModel(double lengthX, double widthY, double height,
+                            FootingType footingType = FootingType.SpreadFooting,
+                            string name = "",
+                            System.Collections.Generic.IEnumerable<PileInfo> piles = null)
+        {
+            if (!IsPositiveFinite(lengthX) || !IsPositiveFinite(widthY) || !IsPositiveFinite(height))
+                throw new ArgumentException("Kích thước móng phải lớn hơn 0.");
+            LengthX = lengthX;
+            WidthY = widthY;
+            Height = height;
+            FootingType = footingType;
+            Name = name ?? string.Empty;
+            Piles = piles != null ? new System.Collections.Generic.List<PileInfo>(piles).AsReadOnly()
+                                  : new System.Collections.Generic.List<PileInfo>().AsReadOnly();
+        }
+
+        private static bool IsPositiveFinite(double value) =>
+            !double.IsNaN(value) && !double.IsInfinity(value) && value > 0;
+    }
+
+    /// <summary>
+    /// Thiết lập chiều dày lớp bê tông bảo vệ theo TCVN 5574:2018 (mm).
+    /// </summary>
+    public sealed class CoverSettings
+    {
+        public double Bottom { get; }
+        public double Top { get; }
+        public double Side { get; }
+        /// <summary>Có lớp bê tông lót (TCVN 5574:2018 quy định c_min=35mm khi có lót, 70mm khi không có lót).</summary>
+        public bool HasLeanConcrete { get; }
+
+        public CoverSettings(double bottom, double top, double side, bool hasLeanConcrete = true)
+        {
+            if (!IsNonNegativeFinite(bottom) || !IsNonNegativeFinite(top) || !IsNonNegativeFinite(side))
+                throw new ArgumentException("Lớp bảo vệ không được âm.");
+            Bottom = bottom;
+            Top = top;
+            Side = side;
+            HasLeanConcrete = hasLeanConcrete;
+        }
+
+        private static bool IsNonNegativeFinite(double value) =>
+            !double.IsNaN(value) && !double.IsInfinity(value) && value >= 0;
+    }
+
+    public enum SpacingMode
+    {
+        /// <summary>Khoảng cách nhập là TỐI ĐA: chia đều, khoảng cách thực tế &lt;= giá trị nhập (mặc định).</summary>
+        EvenWithinMaxSpacing,
+        /// <summary>Đặt đúng khoảng cách nhập từ mép, phần dư dồn về cuối.</summary>
+        FixedFromEdge
+    }
+
+    /// <summary>
+    /// Kiểu bẻ móc neo của thanh thép ở hai đầu theo TCVN 5574:2018.
+    /// </summary>
+    public enum HookTypeOption
+    {
+        /// <summary>Thanh thẳng không móc.</summary>
+        None,
+        /// <summary>Móc vuông 90° bẻ lên (chữ L / U hướng lên).</summary>
+        HookUp,
+        /// <summary>Móc vuông 90° bẻ xuống (chữ L / U hướng chúc xuống).</summary>
+        HookDown
+    }
+
+    /// <summary>
+    /// Thiết lập cho một hướng/lớp cốt thép.
+    /// </summary>
+    public sealed class BarLayerSettings
+    {
+        public bool Enabled { get; }
+        public double Diameter { get; }
+        public double Spacing { get; }
+        public SpacingMode Mode { get; }
+        public bool HasHook { get; }
+        public HookTypeOption HookType { get; }
+        public double HookLength { get; }
+
+        public BarLayerSettings(bool enabled, double diameter, double spacing,
+                                SpacingMode mode = SpacingMode.EvenWithinMaxSpacing,
+                                bool hasHook = false, double hookLength = 0,
+                                HookTypeOption hookType = HookTypeOption.None)
+        {
+            if (enabled && (!IsPositiveFinite(diameter) || !IsPositiveFinite(spacing)))
+                throw new ArgumentException("Đường kính và khoảng cách phải lớn hơn 0.");
+            if (!Enum.IsDefined(typeof(SpacingMode), mode) || !Enum.IsDefined(typeof(HookTypeOption), hookType))
+                throw new ArgumentException("Chế độ chia khoảng cách hoặc kiểu móc không hợp lệ.");
+            if (double.IsNaN(hookLength) || double.IsInfinity(hookLength))
+                throw new ArgumentException("Chiều dài móc không được NaN hoặc Infinity.");
+            Enabled = enabled;
+            Diameter = diameter;
+            Spacing = spacing;
+            Mode = mode;
+            HookLength = hookLength >= 0 ? hookLength : 0;
+
+            if (hookType != HookTypeOption.None)
+            {
+                HookType = hookType;
+                HasHook = true;
+            }
+            else if (hasHook)
+            {
+                HookType = HookTypeOption.HookUp;
+                HasHook = true;
+            }
+            else
+            {
+                HookType = HookTypeOption.None;
+                HasHook = false;
+            }
+        }
+
+        private static bool IsPositiveFinite(double value) =>
+            !double.IsNaN(value) && !double.IsInfinity(value) && value > 0;
+    }
+
+    /// <summary>Lớp thép đáy: hai phương, phương X nằm dưới, phương Y nằm trên.</summary>
+    public sealed class BottomLayerSettings
+    {
+        public BarLayerSettings AlongX { get; }
+        public BarLayerSettings AlongY { get; }
+
+        public BottomLayerSettings(BarLayerSettings alongX, BarLayerSettings alongY)
+        {
+            AlongX = alongX ?? throw new ArgumentNullException(nameof(alongX));
+            AlongY = alongY ?? throw new ArgumentNullException(nameof(alongY));
+        }
+    }
+
+    /// <summary>Lớp thép đỉnh (thường dùng cho đài cọc, hoặc móng chịu tải nhổ/uốn ngược).</summary>
+    public sealed class TopLayerSettings
+    {
+        public bool Enabled { get; }
+        public BarLayerSettings AlongX { get; }
+        public BarLayerSettings AlongY { get; }
+
+        public TopLayerSettings(bool enabled, BarLayerSettings alongX, BarLayerSettings alongY)
+        {
+            Enabled = enabled;
+            AlongX = alongX ?? throw new ArgumentNullException(nameof(alongX));
+            AlongY = alongY ?? throw new ArgumentNullException(nameof(alongY));
+        }
+    }
+
+    /// <summary>
+    /// Cốt thép đai cấu tạo hông đài theo TCVN 198:1997 (khi H > 700 mm).
+    /// </summary>
+    public sealed class SideTiesSettings
+    {
+        public bool Enabled { get; }
+        public double Diameter { get; }
+        public double Spacing { get; }
+        public bool HasCStirrups { get; }
+
+        public SideTiesSettings(bool enabled, double diameter = 10, double spacing = 200, bool hasCStirrups = true)
+        {
+            if (double.IsNaN(diameter) || double.IsInfinity(diameter) ||
+                double.IsNaN(spacing) || double.IsInfinity(spacing))
+                throw new ArgumentException("Đường kính và bước thép đai hông không được NaN hoặc Infinity.");
+            Enabled = enabled;
+            Diameter = diameter > 0 ? diameter : 10;
+            Spacing = spacing > 0 ? spacing : 200;
+            HasCStirrups = hasCStirrups;
+        }
+    }
+
+    /// <summary>
+    /// Tổng hợp cấu hình cốt thép móng/đài cọc theo TCVN 5574:2018 &amp; TCVN 198:1997.
+    /// </summary>
+    public sealed class FootingRebarFullSettings
+    {
+        public FootingType FootingType { get; }
+        public CoverSettings Cover { get; }
+        public BottomLayerSettings Bottom { get; }
+        public TopLayerSettings Top { get; }
+        public SideTiesSettings SideTies { get; }
+
+        public FootingRebarFullSettings(
+            FootingType footingType,
+            CoverSettings cover,
+            BottomLayerSettings bottom,
+            TopLayerSettings top,
+            SideTiesSettings sideTies)
+        {
+            FootingType = footingType;
+            Cover = cover ?? throw new ArgumentNullException(nameof(cover));
+            Bottom = bottom ?? throw new ArgumentNullException(nameof(bottom));
+            Top = top ?? throw new ArgumentNullException(nameof(top));
+            SideTies = sideTies ?? throw new ArgumentNullException(nameof(sideTies));
+        }
+    }
+}

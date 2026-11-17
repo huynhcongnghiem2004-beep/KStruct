@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs>
+  <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#173b58"/><stop offset="1" stop-color="#0a2539"/></linearGradient>
+  <linearGradient id="coral" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#ff8b61"/><stop offset=".55" stop-color="#ef4e3e"/><stop offset="1" stop-color="#b92d33"/></linearGradient>
+  <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b9ebec"/><stop offset="1" stop-color="#3b95a0"/></linearGradient>
+</defs><rect x="2" y="2" width="60" height="60" rx="11" fill="url(#panel)" />
+<g fill="none" stroke-linejoin="round" stroke-linecap="round">
+  <g stroke="#0a1d2a" stroke-width="6"><path d="M19 12V53M31 8V50M45 12V53"/></g>
+  <g stroke="url(#coral)" stroke-width="4.1"><path d="M19 12V53M31 8V50M45 12V53"/></g>
+  <g stroke="#123047" stroke-width="6.8"><path d="M12 20L31 25L52 19L33 14Z M12 34L31 39L52 33L33 28Z M12 47L31 52L52 46L33 41Z"/></g>
+  <g stroke="url(#steel)" stroke-width="3.8"><path d="M12 20L31 25L52 19L33 14Z M12 34L31 39L52 33L33 28Z M12 47L31 52L52 46L33 41Z"/></g>
+</g></svg>

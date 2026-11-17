@@ -1,0 +1,98 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Xml.Serialization;
+using ColumnRebarPro.V3;
+
+static class AnchorTests
+{
+    static int checks;
+    static void Check(bool condition, string message)
+    {
+        checks++;
+        if (!condition) throw new Exception(message);
+    }
+    static void Reject(Action action)
+    {
+        bool rejected = false;
+        try { action(); } catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "Invalid anchor input must fail");
+    }
+    internal static void Run()
+    {
+        foreach (int cx in Enumerable.Range(2,19))
+        foreach (int cy in Enumerable.Range(2,19))
+        foreach (V3AnchorDirection direction in Enum.GetValues(typeof(V3AnchorDirection)))
+        {
+            var plan=V3AnchorLayoutPlan.Create(cx,cy,600,800,30,8,20,direction);
+            var positions=new HashSet<string>();
+            double hx=252,hy=352;
+            Check(plan.Sum(a=>a.Count)==2*(cx+cy)-4,"Correct total bars");
+            foreach (var a in plan)
+            {
+                Check(a.Count>0,"Nonempty array");
+                Check(Math.Abs(a.StepX*a.HookX+a.StepY*a.HookY)<1e-7,"L plane perpendicular to distribution");
+                Check(Math.Abs(a.HookX*a.HookX+a.HookY*a.HookY-1)<1e-7,"Unit hook vector");
+                for (int i=0;i<a.Count;i++)
+                {
+                    double x=a.X+a.StepX*i,y=a.Y+a.StepY*i;
+                    string key=Math.Round(x,6).ToString(CultureInfo.InvariantCulture)+":"+Math.Round(y,6).ToString(CultureInfo.InvariantCulture);
+                    Check(positions.Add(key),"Corner bars must not be duplicated");
+                    Check(Math.Abs(Math.Abs(x)-hx)<1e-7 || Math.Abs(Math.Abs(y)-hy)<1e-7,"Bar on perimeter");
+                    Check(Math.Abs(x)<=hx+1e-7 && Math.Abs(y)<=hy+1e-7,"Bar within column");
+                    double dot=x*a.HookX+y*a.HookY;
+                    if(direction==V3AnchorDirection.Inward)Check(dot<0,"Inward direction");
+                    if(direction==V3AnchorDirection.Outward)Check(dot>0,"Outward direction");
+                    if(direction==V3AnchorDirection.PositiveX)Check(a.HookX==1 && a.HookY==0,"+X direction");
+                    if(direction==V3AnchorDirection.NegativeX)Check(a.HookX==-1 && a.HookY==0,"-X direction");
+                    if(direction==V3AnchorDirection.PositiveY)Check(a.HookY==1 && a.HookX==0,"+Y direction");
+                    if(direction==V3AnchorDirection.NegativeY)Check(a.HookY==-1 && a.HookX==0,"-Y direction");
+                }
+            }
+            Check(positions.Count==2*(cx+cy)-4,"Grouped and single layouts cover exactly the perimeter bars");
+        }
+        // For rotated and mirrored columns, a local axis must transform rather than remain world +X.
+        foreach (double angle in new[]{0.0,Math.PI/6,Math.PI/2})
+        foreach (int mirror in new[]{1,-1})
+        {
+            double xx=Math.Cos(angle),xy=Math.Sin(angle),yx=-mirror*Math.Sin(angle),yy=mirror*Math.Cos(angle);
+            foreach(var a in V3AnchorLayoutPlan.Create(4,5,600,800,30,8,20,V3AnchorDirection.PositiveY))
+            {
+                double hx=xx*a.HookX+yx*a.HookY,hy=xy*a.HookX+yy*a.HookY;
+                double sx=xx*a.StepX+yx*a.StepY,sy=xy*a.StepX+yy*a.StepY;
+                Check(Math.Abs(hx-yx)<1e-7 && Math.Abs(hy-yy)<1e-7,"Hook follows mirrored/rotated local Y");
+                Check(Math.Abs(hx*sx+hy*sy)<1e-7,"Transform preserves shape plane");
+            }
+        }
+        Check(V3AnchorLayoutPlan.HorizontalLength(1100,650)==450,"Horizontal leg from vertical-plus-horizontal dimensions");
+        Reject(()=>V3AnchorLayoutPlan.HorizontalLength(650,650));
+        Reject(()=>V3AnchorLayoutPlan.HorizontalLength(500,650));
+        Reject(()=>V3AnchorLayoutPlan.HorizontalLength(double.NaN,650));
+        Reject(()=>V3AnchorLayoutPlan.HorizontalLength(1100,double.PositiveInfinity));
+        Reject(()=>V3AnchorLayoutPlan.Create(1,4,600,800,30,8,20,V3AnchorDirection.Inward));
+        Reject(()=>V3AnchorLayoutPlan.Create(21,4,600,800,30,8,20,V3AnchorDirection.Inward));
+        Reject(()=>V3AnchorLayoutPlan.Create(4,4,60,80,30,8,20,V3AnchorDirection.Inward));
+        Reject(()=>V3AnchorLayoutPlan.Create(4,4,double.PositiveInfinity,800,30,8,20,V3AnchorDirection.Inward));
+        Reject(()=>V3AnchorLayoutPlan.Create(4,4,600,800,30,8,20,(V3AnchorDirection)99));
+        var serializer=new XmlSerializer(typeof(V3RebarConfig));
+        var legacy=(V3RebarConfig)serializer.Deserialize(new StringReader("<V3RebarConfig><Cx>4</Cx><Cy>5</Cy><GroupLongBars>true</GroupLongBars></V3RebarConfig>"));
+        Check(legacy.Cx==4 && legacy.Cy==5 && !legacy.FoundationAnchorEnabled && legacy.FoundationAnchorDirection==V3AnchorDirection.Inward,"Legacy XML defaults preserve old profile");
+        foreach(V3AnchorDirection direction in Enum.GetValues(typeof(V3AnchorDirection)))
+        {
+            legacy.FoundationAnchorEnabled=true;legacy.FoundationAnchorDirection=direction;
+            legacy.FoundationAnchorLength=1100;legacy.FoundationAnchorCover=50;
+            var copy=legacy.Copy();
+            using(var writer=new StringWriter())
+            {
+                serializer.Serialize(writer,copy);
+                var read=(V3RebarConfig)serializer.Deserialize(new StringReader(writer.ToString()));
+                Check(read.FoundationAnchorEnabled && read.FoundationAnchorDirection==direction &&
+                    read.FoundationAnchorLength==1100 && read.FoundationAnchorCover==50 && read.Cx==4 && read.Cy==5,
+                    "Roundtrip anchor settings without losing existing reinforcement settings");
+            }
+        }
+        Console.WriteLine($"PASS: {checks} anchor checks (counts, planes, directions, rotation/mirror math, XML compatibility)");
+    }
+}

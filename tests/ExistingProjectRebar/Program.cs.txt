@@ -1,0 +1,134 @@
+using System;
+using System.Collections;
+using System.IO;
+using System.Collections.Generic;
+using SDK_HD.KStruct.NativeRebar;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+
+// API doubles exercise the production strict factory's flags/error paths, not native shape matching.
+namespace Autodesk.Revit.DB
+{
+    public class ElementId { public long Value; public ElementId(long v){Value=v;} }
+    public class Element { public ElementId Id; public string Name; }
+    public class Document { public List<Element> Shapes=new List<Element>(); }
+    public class XYZ {}
+    public class Curve {}
+    public class CurveLoop : List<Curve> { public void Append(Curve curve) => Add(curve); }
+    public class FilteredElementCollector : IEnumerable<Element>
+    {
+        readonly Document doc;
+        public FilteredElementCollector(Document d){doc=d;}
+        public FilteredElementCollector OfClass(Type t)=>this;
+        public IEnumerator<Element> GetEnumerator()=>doc.Shapes.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator()=>GetEnumerator();
+    }
+}
+namespace Autodesk.Revit.DB.Structure
+{
+    public enum RebarStyle { Standard,StirrupTie }
+    public enum RebarHookOrientation { Left,Right }
+    public enum RebarFreeFormValidationResult { Valid, Invalid }
+    public class RebarShape : Element {}
+    public class RebarBarType : Element {}
+    public class RebarHookType : Element {}
+    public class Rebar : Element
+    {
+        public static int Calls;
+        public static bool Existing,NewShape;
+        public static RebarHookType Start,End;
+        public static Rebar Result;
+        public static bool Throw;
+        public ElementId GetShapeId()=>Id;
+        public static Rebar CreateFromCurves(Document d,RebarStyle s,RebarBarType t,RebarHookType a,RebarHookType b,
+            Element h,XYZ n,IList<Curve> c,RebarHookOrientation so,RebarHookOrientation eo,bool existing,bool create)
+        {Calls++;Existing=existing;NewShape=create;Start=a;End=b;if(Throw)throw new InvalidOperationException("native shape mismatch");return Result;}
+        public static Rebar CreateFreeForm(Document d,RebarBarType t,Element host,IList<CurveLoop> loops,
+            out RebarFreeFormValidationResult result)
+        {result=RebarFreeFormValidationResult.Valid;return Result;}
+    }
+}
+static class Program
+{
+    static int checks;
+    static void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
+    static Rebar Create(Document d,RebarHookType start=null,RebarHookType end=null)=>ExistingProjectRebar.Create(d,
+        RebarStyle.StirrupTie,new RebarBarType(),start,end,new Element(),new XYZ(),new List<Curve>{new Curve()},
+        RebarHookOrientation.Left,RebarHookOrientation.Right,"Đai thử");
+    static void Reject(Action a,string text){bool ok=false;try{a();}catch(InvalidOperationException e){ok=e.Message.Contains(text);}Check(ok,text);}
+    static void Main()
+    {
+        var d=new Document();
+        Reject(()=>Create(d),"chưa có Rebar Shape");Check(Rebar.Calls==0,"No creation without loaded shapes");
+        d.Shapes.Add(new RebarShape {Id=new ElementId(10)});
+        var hook=new RebarHookType {Name="Loaded project hook",Id=new ElementId(20)};
+        Rebar.Result=new Rebar{Id=new ElementId(10)};
+        Check(Create(d,hook,hook)==Rebar.Result,"Use matching pre-existing shape");
+        Check(Rebar.Existing&&!Rebar.NewShape,"Native API must reuse shapes and prohibit shape creation");
+        Check(Rebar.Start==hook&&Rebar.End==hook,"Pass exact selected project hook instances");
+        Rebar.Result=null;Reject(()=>Create(d),"không tự sinh shape");
+        Check(Rebar.Calls==2,"One attempt only; no fallback creation");
+        Rebar.Result=new Rebar{Id=new ElementId(999)};Reject(()=>Create(d),"không tự sinh shape");
+        Rebar.Throw=true;Reject(()=>Create(d,hook,hook),"native shape mismatch");
+        Check(d.Shapes.Count==1,"Project shape inventory stays unchanged in strict factory test");
+        var root=new DirectoryInfo(Directory.GetCurrentDirectory());
+        while(root!=null&&!Directory.Exists(Path.Combine(root.FullName,".github")))root=root.Parent;
+        Check(root!=null,"Locate repository for strict creation route checks");
+        foreach(var file in new[]{"ColumnRebarPro/V3/V3RebarBuilder.cs","ColumnRebarPro/V3/V3RebarSetCreator.cs",
+            "NativeRebar/BeamRebar/ReinforceStraightBeamsCommand.cs","NativeRebar/CurvedBeamRebar/ReinforceHorizontalCurvedBeamsCommand.cs",
+            "NativeRebar/ReinforceLintelsCommand.cs"})
+        {
+            var source=File.ReadAllText(Path.Combine(root.FullName,file));
+            foreach(var forbidden in new[]{"NativeRebarFactory.CreateFromCurves(","Rebar.CreateFromCurves(","Rebar.CreateFreeForm(doc,type,host,","RebarShape.Create("})
+                Check(!source.Contains(forbidden),file+" bypasses strict factory: "+forbidden);
+            string requiredRoute = file.StartsWith("ColumnRebarPro/V3/", StringComparison.Ordinal)
+                ? "V3RebarShapeFactory."
+                : file == "NativeRebar/BeamRebar/ReinforceStraightBeamsCommand.cs"
+                    ? "CreateFromCurvesAndShape("
+                    : "ExistingProjectRebar.Create(";
+            Check(source.Contains(requiredRoute),file+" must use explicit existing-shape creation: "+requiredRoute);
+        }
+        // Guard against regression to name-only auto assignment for bent beam bars.
+        var shapeSelectionSource = File.ReadAllText(Path.Combine(root.FullName,
+            "NativeRebar/BeamRebar/BeamRebarShapeSelectionWindow.cs"));
+        Check(shapeSelectionSource.Contains("GetUnverifiedBentBarWarning(row, options)"),
+            "Bent longitudinal bar groups must have an explicit preflight policy");
+        Check(shapeSelectionSource.Contains("hasBentAnchor") &&
+            shapeSelectionSource.Contains("hasSteppedBottom"),
+            "Shape preflight must distinguish bent anchors and stepped-bottom curves");
+        Check(shapeSelectionSource.Contains("string.IsNullOrEmpty(row.GeometryWarning)") &&
+            shapeSelectionSource.Contains("FindSuggestedShapeIndex(available, row.Style, null) : 0"),
+            "Auto-reselect must not reassign a name-ranked straight Shape to bent bars");
+        var beamSource = File.ReadAllText(Path.Combine(root.FullName,
+            "NativeRebar/BeamRebar/ReinforceStraightBeamsCommand.cs"));
+        Check(beamSource.Contains("ResolveExistingLongitudinalShape(doc, shape, expectedStyle, type,"),
+            "Longitudinal creation must use the geometry-based resolver");
+        Check(beamSource.Contains("Rebar.RebarShapeMatchesCurvesAndHooks(candidate, type, normal, curves,"),
+            "Shape resolution must compare actual bar curves and hooks");
+        Check(beamSource.Contains("if (matches.Count == 1) return matches[0];"),
+            "Only one geometrically compatible fallback Shape may be selected automatically");
+        Check(beamSource.Contains("if (matches.Count == 0)") &&
+            beamSource.Contains("matches.Count +") &&
+            beamSource.Contains("không thể tự chọn an toàn"),
+            "Ambiguous project Shape definitions must not be selected by name");
+        // Guard the approved 1:6 bottleneck transition from dense preview sampling.
+        Check(beamSource.Contains("public List<BeamPreviewSection> RebarBeamSections"),
+            "Creation stations must be independent of dense preview-only stations");
+        Check(beamSource.Contains("DetectLegacyRebarSectionChanges(") &&
+            beamSource.Contains("BuildPreviewSections(beamRun)"),
+            "Creation must retain the pre-regression legacy section sources");
+        Check(beamSource.Contains("? options.RebarBeamSections : options.PreviewBeamSections"),
+            "Bottom bar production path must consume creation profiles");
+        Check(beamSource.Contains("double transitionLength = Math.Abs(difference) * 6;"),
+            "Keep the previously implemented 1:6 necking geometry");
+        Check(beamSource.Contains("bool allowVaryingSectionFallback = false"),
+            "Only explicit necking path enables strict Revit existing-shape matching");
+        Check(beamSource.Contains("ExistingProjectRebar.Create(doc, expectedStyle, type,") &&
+            beamSource.Contains("groupName + \" (thép nhấn tự động)\""),
+            "Necked-bar fallback must reuse strict existing project shapes");
+        Check(beamSource.Contains("native.GetHookTypeId(0)") &&
+            beamSource.Contains("native.GetHookTypeId(1)"),
+            "Native matching must verify the realized hook IDs");
+        Console.WriteLine($"PASS: {checks} existing project shape policy checks (API doubles)");
+    }
+}

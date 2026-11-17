@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4TieSetPlacementPolicy.cs" Link="V4TieSetPlacementPolicy.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3RebarOwnership.cs" Link="V3RebarOwnership.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4DeletionGuard.cs" Link="V4DeletionGuard.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4SheetUpdateGuard.cs" Link="V4SheetUpdateGuard.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4SheetOwnershipRules.cs" Link="V4SheetOwnershipRules.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4SheetLayoutGuard.cs" Link="V4SheetLayoutGuard.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ShapeAutoSelection.cs" Link="V4ShapeAutoSelection.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3AnchorLayoutPlan.cs" Link="V3AnchorLayoutPlan.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3RebarConfig.cs" Link="V3RebarConfig.cs" />
+    <Compile Include="AnchorTests.cs.txt" />
+    <Compile Include="../../ColumnRebarPro/V3/V3BottleneckRules.cs" Link="V3BottleneckRules.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3StarterConnection.cs" Link="V3StarterConnection.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3ColumnPairing.cs" Link="V3ColumnPairing.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3ConnectionAdapter.cs" Link="V3ConnectionAdapter.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V3ProfileGeometry.cs" Link="V3ProfileGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4AnchorGeometry.cs" Link="V4AnchorGeometry.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4TieBandExclusion.cs" Link="V4TieBandExclusion.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4StackTieSettings.cs" Link="V4StackTieSettings.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ShapeCreationPolicy.cs" Link="V4ShapeCreationPolicy.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4ExistingBarTypePolicy.cs" Link="V4ExistingBarTypePolicy.cs" />
+    <Compile Include="PairingTests.cs.txt" />
+    <Compile Include="HookTests.cs.txt" />
+    <Compile Include="../../ColumnRebarPro/V3/V3HookSelection.cs" Link="V3HookSelection.cs" />
+    <Compile Include="../../ColumnRebarPro/V3/V4FloorHookInheritance.cs" Link="V4FloorHookInheritance.cs" />
+    <Compile Include="LegacySpliceTests.cs.txt" />
+    <Compile Include="../../ColumnRebarPro/V3/V3LegacySplice.cs" Link="V3LegacySplice.cs" />
+    <Compile Include="StarterTests.cs.txt" />
+    <Compile Include="Program.cs.txt" />
+  </ItemGroup>
+</Project>
