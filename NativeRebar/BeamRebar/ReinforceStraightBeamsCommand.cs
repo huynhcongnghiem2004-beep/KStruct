@@ -1697,7 +1697,7 @@ namespace SDK_HD.KStruct.NativeRebar
 
             // Every candidate below passed Revit's exact curve/HookType matcher.
             // If the saved/name-suggested Shape was incompatible, choose a stable
-            // project-preferred candidate instead of rejecting equivalent valid options.
+            // project-preferred candidate instead of rejecting multiple valid options.
             RebarShape selected = matches
                 .OrderByDescending(candidate => BeamRebarShapeSelectionWindow.ScoreShapeName(candidate, expectedStyle))
                 .ThenBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
