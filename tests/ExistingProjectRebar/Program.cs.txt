@@ -105,12 +105,14 @@ static class Program
             "Longitudinal creation must use the geometry-based resolver");
         Check(beamSource.Contains("Rebar.RebarShapeMatchesCurvesAndHooks(candidate, type, normal, curves,"),
             "Shape resolution must compare actual bar curves and hooks");
-        Check(beamSource.Contains("if (matches.Count == 1) return matches[0];"),
-            "Only one geometrically compatible fallback Shape may be selected automatically");
-        Check(beamSource.Contains("if (matches.Count == 0)") &&
-            beamSource.Contains("matches.Count +") &&
-            beamSource.Contains("không thể tự chọn an toàn"),
-            "Ambiguous project Shape definitions must not be selected by name");
+        Check(beamSource.Contains("if (matches.Count == 0)"),
+            "No fallback Shape may be selected unless Revit confirms a geometry match");
+        Check(beamSource.Contains("RebarShape selected = matches") &&
+            beamSource.Contains(".OrderByDescending(candidate => BeamRebarShapeSelectionWindow.ScoreShapeName(candidate, expectedStyle))"),
+            "Multiple geometrically compatible Shapes must use the stable project-preferred ranking");
+        Check(beamSource.Contains("selected compatible Shape") &&
+            beamSource.Contains("RebarShapeMatchesCurvesAndHooks(candidate, type, normal, curves,"),
+            "Fallback choice must remain limited to candidates verified against actual curves and hooks");
         // Guard the approved 1:6 bottleneck transition from dense preview sampling.
         Check(beamSource.Contains("public List<BeamPreviewSection> RebarBeamSections"),
             "Creation stations must be independent of dense preview-only stations");
