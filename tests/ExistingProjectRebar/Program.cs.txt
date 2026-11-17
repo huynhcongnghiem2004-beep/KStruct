@@ -107,7 +107,8 @@ static class Program
             "Shape resolution must compare actual bar curves and hooks");
         Check(beamSource.Contains("if (matches.Count == 0)"),
             "No fallback Shape may be selected unless Revit confirms a geometry match");
-        Check(beamSource.Contains("matches.OrderByDescending(candidate => BeamRebarShapeSelectionWindow.ScoreShapeName(candidate, expectedStyle))"),
+        Check(beamSource.Contains("RebarShape selected = matches") &&
+            beamSource.Contains(".OrderByDescending(candidate => BeamRebarShapeSelectionWindow.ScoreShapeName(candidate, expectedStyle))"),
             "Multiple geometrically compatible Shapes must use the stable project-preferred ranking");
         Check(beamSource.Contains("selected compatible Shape") &&
             beamSource.Contains("RebarShapeMatchesCurvesAndHooks(candidate, type, normal, curves,"),
