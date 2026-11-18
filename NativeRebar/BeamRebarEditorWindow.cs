@@ -1162,13 +1162,57 @@ namespace SDK_HD.KStruct.NativeRebar
                 BorderBrush = Earth, BorderThickness = new Thickness(2, 0, 0, 0),
                 Child = inspectorGrid
             };
+            // Two-tier WPF Grid: elevation + Properties above, sections + live 3D
+            // + Validation below. Keep the configuration editor scrollable at left.
+            // Move the actual WPF controls; do not duplicate static mockup graphics.
+            combinedPreview.Children.Remove(sectionHeading);
+            combinedPreview.Children.Remove(sectionCanvas);
+            preview3DTab.Content = null;
+            previewTabs.Items.Remove(preview3DTab);
+            var sectionPanel = new Grid { Background = Brushes.White, Margin = new Thickness(4, 4, 4, 4) };
+            sectionPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            sectionPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            Grid.SetRow(sectionHeading, 0);
+            sectionPanel.Children.Add(sectionHeading);
+            var sectionScroll = new ScrollViewer
+            {
+                Content = sectionCanvas,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            Grid.SetRow(sectionScroll, 1);
+            sectionPanel.Children.Add(sectionScroll);
+            var lowerPreview = new Grid { Background = PaleNavy };
+            lowerPreview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(728, GridUnitType.Star), MinWidth = 170 });
+            lowerPreview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(290, GridUnitType.Star), MinWidth = 160 });
+            Grid.SetColumn(sectionPanel, 0);
+            Grid.SetColumn(preview3DHost, 1);
+            lowerPreview.Children.Add(sectionPanel);
+            lowerPreview.Children.Add(preview3DHost);
+            var preview3DLabel = new TextBlock
+            {
+                Text = "PREVIEW 3D  ·  Trái: xoay  |  Giữa: pan  |  Cuộn: zoom",
+                Foreground = Blue, FontSize = 11, Margin = new Thickness(10, 6, 4, 2),
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+                IsHitTestVisible = false
+            };
+            preview3DHost.Children.Add(preview3DLabel);
             var main = new Grid();
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(366), MinWidth = 320 });
-            Grid.SetColumn(leftScroll, 0); main.Children.Add(leftScroll);
-            Grid.SetColumn(previewGrid, 1); main.Children.Add(previewGrid);
-            Grid.SetColumn(inspectorBorder, 2); main.Children.Add(inspectorBorder);
+            main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 180 });
+            main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 180 });
+            Grid.SetColumn(leftScroll, 0); Grid.SetRowSpan(leftScroll, 2); main.Children.Add(leftScroll);
+            Grid.SetColumn(previewGrid, 1); Grid.SetRow(previewGrid, 0); main.Children.Add(previewGrid);
+            Grid.SetColumn(lowerPreview, 1); Grid.SetRow(lowerPreview, 1); main.Children.Add(lowerPreview);
+            // Properties and Validation are separate panels, not two scroll regions
+            // inside one shared right-hand card.
+            inspectorBorder.Child = null;
+            Grid.SetColumn(inspectorScroll, 2); Grid.SetRow(inspectorScroll, 0);
+            Grid.SetColumn(verificationScroll, 2); Grid.SetRow(verificationScroll, 1);
+            main.Children.Add(inspectorScroll);
+            main.Children.Add(verificationScroll);
 
             var footer = new DockPanel { Margin = new Thickness(0),
                 Background = PaleNavy, LastChildFill = false };
@@ -1219,9 +1263,9 @@ namespace SDK_HD.KStruct.NativeRebar
             sectionNav.Click += (sender, args) =>
             {
                 previewTabs.SelectedItem = beamTab;
-                combinedScroll.ScrollToVerticalOffset(beamCanvas.Height);
+                sectionScroll.ScrollToTop();
             };
-            checkNav.Click += (sender, args) => inspectorScroll.ScrollToEnd();
+            checkNav.Click += (sender, args) => verificationScroll.ScrollToTop();
             createNav.Click += (sender, args) =>
                 createButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             var contentColumns = new Grid();
