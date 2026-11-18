@@ -1054,7 +1054,10 @@ namespace SDK_HD.KStruct.NativeRebar
                     }
                 }
             }, new Thickness(12));
-            var inspectorContent = new StackPanel { Children = { inspectorHeader, selectedBarInfoCard, verificationCard } };
+            // Separate Properties and Validation into two independently scrollable Grid rows.
+            // The 344:352 proportions follow the approved WPF mockup without clipping
+            // controls on smaller windows or at 125% / 150% display scaling.
+            var inspectorContent = new StackPanel { Children = { inspectorHeader, selectedBarInfoCard } };
             var inspectorScroll = new ScrollViewer
             {
                 Content = inspectorContent,
@@ -1062,11 +1065,25 @@ namespace SDK_HD.KStruct.NativeRebar
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Margin = new Thickness(5, 0, 9, 3)
             };
+            var verificationScroll = new ScrollViewer
+            {
+                Content = verificationCard,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Margin = new Thickness(5, 6, 9, 3)
+            };
+            var inspectorGrid = new Grid();
+            inspectorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 120 });
+            inspectorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 120 });
+            Grid.SetRow(inspectorScroll, 0);
+            Grid.SetRow(verificationScroll, 1);
+            inspectorGrid.Children.Add(inspectorScroll);
+            inspectorGrid.Children.Add(verificationScroll);
             var inspectorBorder = new Border
             {
                 Background = Ivory,
                 BorderBrush = Earth, BorderThickness = new Thickness(2, 0, 0, 0),
-                Child = inspectorScroll
+                Child = inspectorGrid
             };
             var main = new Grid();
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
