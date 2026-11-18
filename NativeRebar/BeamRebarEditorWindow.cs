@@ -990,12 +990,31 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             var beamTab = new TabItem { Header = "Toàn nhịp + Mặt cắt", Content = combinedScroll };
             var previewTabs = new TabControl { Items = { beamTab }, Margin = new Thickness(4) };
-            previewTabs.Items.Add(new TabItem
+            // WPF Viewport3D displays the editable bar geometry, not a static image.
+            // The preview is a design-stage model; final Revit Shape/Hook verification
+            // remains mandatory before committing actual reinforcement elements.
+            var rebarViewport3D = new System.Windows.Controls.Viewport3D
             {
-                Header = "Preview 3D",
-                IsEnabled = false,
-                ToolTip = "Preview 3D chưa được triển khai; không hiển thị mô hình giả."
-            });
+                ClipToBounds = true, Margin = new Thickness(8),
+                Camera = new System.Windows.Media.Media3D.PerspectiveCamera(
+                    new System.Windows.Media.Media3D.Point3D(0, -8, 5),
+                    new System.Windows.Media.Media3D.Vector3D(0, 1, -0.4),
+                    new System.Windows.Media.Media3D.Vector3D(0, 0, 1), 48)
+            };
+            var preview3DHost = new Grid { Background = Brushes.White };
+            preview3DHost.Children.Add(rebarViewport3D);
+            var preview3DTab = new TabItem { Header = "Preview 3D · Hình học thanh", Content = preview3DHost };
+            previewTabs.Items.Add(preview3DTab);
+            Action render3D = () => RenderBeamGeometry3D(rebarViewport3D, rows,
+                beamLengthMm, beamWidthMm, beamHeightMm,
+                Number(coverBox.Text, defaults?.CoverMm > 0 ? defaults.CoverMm : 30),
+                activePreviewRow);
+            preview3DTab.GotFocus += (sender, args) => render3D();
+            previewTabs.SelectionChanged += (sender, args) =>
+            {
+                if (ReferenceEquals(previewTabs.SelectedItem, preview3DTab))
+                    render3D();
+            };
             var previewHeader = new DockPanel { Margin = new Thickness(8, 4, 8, 2) };
             var previewTitle = new TextBlock { Text = "SƠ ĐỒ THÉP  /  LIVE PREVIEW", FontSize = 15,
                 FontWeight = FontWeights.Bold, Foreground = Blue, VerticalAlignment = VerticalAlignment.Center };
@@ -1291,6 +1310,8 @@ namespace SDK_HD.KStruct.NativeRebar
                 // Both previews are recomputed from the same edited bar geometry.
                 DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<double>,
                     beamLengthMm, beamWidthMm, beamHeightMm, defaults?.PreviewBeamSections);
+                if (ReferenceEquals(previewTabs.SelectedItem, preview3DTab))
+                    render3D();
             };
             // Only redraw on meaningful width changes; labels and cuts share
             // the 68px beam margins and must respond to resizing together.
@@ -1683,6 +1704,78 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
         // are the single source of truth for gallery position and naming.
         // Unlike the old fixed 350px card grid, a section is centered directly
         // beneath its corresponding marker on the common elevation scale.
+        // True WPF 3D geometry, projected from the same editable BarRow / BarGeometry
+        // ranges as the elevation and section preview. No fake screenshot or bitmap.
+        private static void RenderBeamGeometry3D(System.Windows.Controls.Viewport3D viewport,
+            IList<BarRow> rows, double lengthMm, double widthMm, double heightMm,
+            double coverMm, BarRow selectedRow)
+        {
+            viewport.Children.Clear();
+            if (lengthMm <= 0 || widthMm <= 0 || heightMm <= 0) return;
+            var group = new System.Windows.Media.Media3D.Model3DGroup();
+            group.Children.Add(new System.Windows.Media.Media3D.AmbientLight(
+                System.Windows.Media.Color.FromRgb(180, 185, 190)));
+            group.Children.Add(new System.Windows.Media.Media3D.DirectionalLight(
+                System.Windows.Media.Colors.White,
+                new System.Windows.Media.Media3D.Vector3D(-1, -2, -3)));
+            double scale = 5.0 / lengthMm;
+            double halfW = widthMm * scale / 2.0;
+            double halfH = heightMm * scale / 2.0;
+            double inset = Math.Max(0, Math.Min(coverMm * scale, Math.Min(halfW, halfH) * 0.7));
+            var upper = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(229, 57, 53));
+            var lower = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 85, 217));
+            var other = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(155, 77, 219));
+            var selected = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 166, 38));
+            foreach (var row in rows)
+            {
+                if (row == null || row.Count <= 0 || row.Key == "tie") continue;
+                var bars = row.Bars != null && row.Bars.Count > 0 ? row.Bars :
+                    new List<BarGeometry> { new BarGeometry { StartMm = row.StartMm, EndMm = row.EndMm } };
+                foreach (var bar in bars)
+                {
+                    double x0 = (Math.Max(0, Math.Min(lengthMm, bar.StartMm)) / lengthMm - 0.5) * 5.0;
+                    double x1 = (Math.Max(0, Math.Min(lengthMm, bar.EndMm)) / lengthMm - 0.5) * 5.0;
+                    if (x1 <= x0) continue;
+                    double z = row.Key.StartsWith("top", StringComparison.OrdinalIgnoreCase) ?
+                        halfH - inset : row.Key.StartsWith("bottom", StringComparison.OrdinalIgnoreCase) ?
+                        -halfH + inset : 0;
+                    int count = Math.Max(1, Math.Min(row.Count, 24));
+                    for (int i = 0; i < count; i++)
+                    {
+                        double y = count == 1 ? 0 : (-halfW + inset) +
+                            i * (2 * Math.Max(0, halfW - inset) / (count - 1));
+                        var brush = ReferenceEquals(row, selectedRow) ? selected :
+                            row.Key.StartsWith("top", StringComparison.OrdinalIgnoreCase) ? upper :
+                            row.Key.StartsWith("bottom", StringComparison.OrdinalIgnoreCase) ? lower : other;
+                        AddPreviewRod3D(group, x0, x1, y, z, Math.Max(0.009, Math.Min(0.026, widthMm * scale * 0.035)), brush);
+                    }
+                }
+            }
+            viewport.Children.Add(new System.Windows.Media.Media3D.ModelVisual3D { Content = group });
+        }
+
+        private static void AddPreviewRod3D(System.Windows.Media.Media3D.Model3DGroup group,
+            double x0, double x1, double y, double z, double radius, System.Windows.Media.Brush brush)
+        {
+            var mesh = new System.Windows.Media.Media3D.MeshGeometry3D();
+            const int segments = 8;
+            for (int i = 0; i < segments; i++)
+            {
+                double angle = i * 2 * Math.PI / segments;
+                double yy = y + radius * Math.Cos(angle), zz = z + radius * Math.Sin(angle);
+                mesh.Positions.Add(new System.Windows.Media.Media3D.Point3D(x0, yy, zz));
+                mesh.Positions.Add(new System.Windows.Media.Media3D.Point3D(x1, yy, zz));
+            }
+            for (int i = 0; i < segments; i++)
+            {
+                int a = 2 * i, b = 2 * ((i + 1) % segments);
+                mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
+                mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
+            }
+            var material = new System.Windows.Media.Media3D.DiffuseMaterial(brush);
+            group.Children.Add(new System.Windows.Media.Media3D.GeometryModel3D(mesh, material) { BackMaterial = material });
+        }
+
         private static void DrawAlignedSectionGallery(Canvas canvas, IList<BarRow> rows,
             IList<double> stations, double beamLengthMm, double widthMm, double heightMm,
             IList<ReinforceStraightBeamsCommand.BeamPreviewSection> beamSections = null)
