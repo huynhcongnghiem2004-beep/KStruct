@@ -997,11 +997,11 @@ namespace SDK_HD.KStruct.NativeRebar
             {
                 ClipToBounds = true, Margin = new Thickness(8),
                 Camera = new System.Windows.Media.Media3D.PerspectiveCamera(
-                    new System.Windows.Media.Media3D.Point3D(0, -8, 5),
-                    new System.Windows.Media.Media3D.Vector3D(0, 1, -0.4),
+                    new System.Windows.Media.Media3D.Point3D(5, -8, 5),
+                    new System.Windows.Media.Media3D.Vector3D(-5, 8, -5),
                     new System.Windows.Media.Media3D.Vector3D(0, 0, 1), 48)
             };
-            var preview3DHost = new Grid { Background = Brushes.White };
+            var preview3DHost = new Grid { Background = new SolidColorBrush(Color.FromRgb(246, 248, 250)) };
             preview3DHost.Children.Add(rebarViewport3D);
             // Mouse orbit, wheel zoom and middle-button pan act on the actual 3D camera.
             Point last3DPoint = new Point();
@@ -1083,7 +1083,7 @@ namespace SDK_HD.KStruct.NativeRebar
             spanTools.Children.Add(fitAllButton); spanTools.Children.Add(zoomOutButton); spanTools.Children.Add(zoomInButton); spanTools.Children.Add(fitSpanButton);
             spanTools.Children.Add(lockDiagramEdit);
             DockPanel.SetDock(spanTools, Dock.Right); previewHeader.Children.Add(spanTools);
-            var previewGrid = new Grid { Background = PaleNavy };
+            var previewGrid = new Grid { Background = PaleNavy, ClipToBounds = true };
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(previewHeader, 0); previewGrid.Children.Add(previewHeader);
@@ -1169,7 +1169,7 @@ namespace SDK_HD.KStruct.NativeRebar
             combinedPreview.Children.Remove(sectionCanvas);
             preview3DTab.Content = null;
             previewTabs.Items.Remove(preview3DTab);
-            var sectionPanel = new Grid { Background = Brushes.White, Margin = new Thickness(4, 4, 4, 4) };
+            var sectionPanel = new Grid { Background = Brushes.White, Margin = new Thickness(4, 4, 4, 4), ClipToBounds = true };
             sectionPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             sectionPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(sectionHeading, 0);
@@ -1182,7 +1182,7 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             Grid.SetRow(sectionScroll, 1);
             sectionPanel.Children.Add(sectionScroll);
-            var lowerPreview = new Grid { Background = PaleNavy };
+            var lowerPreview = new Grid { Background = PaleNavy, ClipToBounds = true };
             lowerPreview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(728, GridUnitType.Star), MinWidth = 170 });
             lowerPreview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(290, GridUnitType.Star), MinWidth = 160 });
             Grid.SetColumn(sectionPanel, 0);
@@ -1276,7 +1276,10 @@ namespace SDK_HD.KStruct.NativeRebar
             Grid.SetColumn(navRail, 0); contentColumns.Children.Add(navRail);
             Grid.SetColumn(main, 1); contentColumns.Children.Add(main);
             var root = new DockPanel { Background = Page };
-            var heading = new StackPanel { Margin = new Thickness(20, 16, 20, 16), Children = { title, subtitle } };
+            // Keep the header compact: the beam section description can be very long.
+            subtitle.MaxHeight = 20;
+            subtitle.TextTrimming = TextTrimming.CharacterEllipsis;
+            var heading = new StackPanel { Margin = new Thickness(14, 8, 14, 8), Children = { title, subtitle } };
             var titleBand = new Border { Background = Blue, BorderBrush = Earth,
                 BorderThickness = new Thickness(0, 0, 0, 4), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
