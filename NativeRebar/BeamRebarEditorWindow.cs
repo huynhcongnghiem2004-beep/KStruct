@@ -78,8 +78,8 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "Thép dầm",
-                Width = 1530,
-                Height = 890,
+                Width = 1648,
+                Height = 928,
                 MinWidth = 1200,
                 MinHeight = 720,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
@@ -92,7 +92,7 @@ namespace SDK_HD.KStruct.NativeRebar
             List<BarRow> rows = BuildRows(types, defaults);
             var nav = new ListBox
             {
-                Width = 150,
+                Width = 208,
                 Margin = new Thickness(8, 0, 8, 0),
                 Background = Brushes.White,
                 BorderBrush = BorderBrush,
@@ -100,7 +100,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 SelectedIndex = 1
             };
             var navItemStyle = new Style(typeof(ListBoxItem));
-            navItemStyle.Setters.Add(new Setter(WpfControl.PaddingProperty, new Thickness(12, 11, 8, 11)));
+            navItemStyle.Setters.Add(new Setter(WpfControl.PaddingProperty, new Thickness(12, 12, 8, 12)));
             navItemStyle.Setters.Add(new Setter(WpfControl.MarginProperty, new Thickness(3, 2, 3, 2)));
             navItemStyle.Setters.Add(new Setter(WpfControl.BorderThicknessProperty, new Thickness(1)));
             navItemStyle.Setters.Add(new Setter(WpfControl.BorderBrushProperty, Brushes.Transparent));
@@ -117,8 +117,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // throws "already the logical child of another element" during fast tab changes.
             var editorPages = new Dictionary<string, FrameworkElement>(StringComparer.Ordinal);
             var editorPageRows = new Dictionary<string, BarRow>(StringComparer.Ordinal);
-            var sectionCanvas = new Canvas { Height = 200, Background = Brushes.White };
-            var beamCanvas = new Canvas { MinHeight = 220, Background = Brushes.White, ClipToBounds = false, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
+            var sectionCanvas = new Canvas { Height = 244, Background = Brushes.White };
+            var beamCanvas = new Canvas { MinHeight = 244, Background = Brushes.White, ClipToBounds = false, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
             var beamViewport = new Grid { ClipToBounds = true, Background = Brushes.White, Cursor = Cursors.Hand };
             beamViewport.Children.Add(beamCanvas);
             double beamLengthMm = defaults?.PreviewBeamLengthMm > 0 ? defaults.PreviewBeamLengthMm : 4000.0;
