@@ -1003,6 +1003,64 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             var preview3DHost = new Grid { Background = Brushes.White };
             preview3DHost.Children.Add(rebarViewport3D);
+            // Mouse orbit, wheel zoom and middle-button pan act on the actual 3D camera.
+            Point last3DPoint = new Point();
+            bool orbiting3D = false, panning3D = false;
+            rebarViewport3D.MouseDown += (sender, args) =>
+            {
+                orbiting3D = args.ChangedButton == MouseButton.Left;
+                panning3D = args.ChangedButton == MouseButton.Middle;
+                if (!orbiting3D && !panning3D) return;
+                last3DPoint = args.GetPosition(rebarViewport3D);
+                rebarViewport3D.CaptureMouse();
+                args.Handled = true;
+            };
+            rebarViewport3D.MouseUp += (sender, args) =>
+            {
+                orbiting3D = false; panning3D = false;
+                rebarViewport3D.ReleaseMouseCapture();
+            };
+            rebarViewport3D.MouseMove += (sender, args) =>
+            {
+                if (!orbiting3D && !panning3D) return;
+                var camera = rebarViewport3D.Camera as System.Windows.Media.Media3D.PerspectiveCamera;
+                if (camera == null) return;
+                Point next = args.GetPosition(rebarViewport3D);
+                double dx = next.X - last3DPoint.X, dy = next.Y - last3DPoint.Y;
+                last3DPoint = next;
+                if (panning3D)
+                {
+                    camera.Position = new System.Windows.Media.Media3D.Point3D(
+                        camera.Position.X - dx * 0.008, camera.Position.Y,
+                        camera.Position.Z + dy * 0.008);
+                }
+                else
+                {
+                    var p = camera.Position;
+                    double distance = Math.Sqrt(p.X * p.X + p.Y * p.Y + p.Z * p.Z);
+                    double azimuth = Math.Atan2(p.Y, p.X) + dx * 0.008;
+                    double elevation = Math.Asin(p.Z / Math.Max(0.001, distance)) + dy * 0.008;
+                    elevation = Math.Max(-1.2, Math.Min(1.2, elevation));
+                    camera.Position = new System.Windows.Media.Media3D.Point3D(
+                        distance * Math.Cos(elevation) * Math.Cos(azimuth),
+                        distance * Math.Cos(elevation) * Math.Sin(azimuth),
+                        distance * Math.Sin(elevation));
+                    camera.LookDirection = new System.Windows.Media.Media3D.Vector3D(
+                        -camera.Position.X, -camera.Position.Y, -camera.Position.Z);
+                }
+            };
+            rebarViewport3D.MouseWheel += (sender, args) =>
+            {
+                var camera = rebarViewport3D.Camera as System.Windows.Media.Media3D.PerspectiveCamera;
+                if (camera == null) return;
+                double factor = args.Delta > 0 ? 0.88 : 1.12;
+                var p = camera.Position;
+                camera.Position = new System.Windows.Media.Media3D.Point3D(
+                    p.X * factor, p.Y * factor, p.Z * factor);
+                camera.LookDirection = new System.Windows.Media.Media3D.Vector3D(
+                    -camera.Position.X, -camera.Position.Y, -camera.Position.Z);
+                args.Handled = true;
+            };
             var preview3DTab = new TabItem { Header = "Preview 3D · Hình học thanh", Content = preview3DHost };
             previewTabs.Items.Add(preview3DTab);
             Action render3D = () => RenderBeamGeometry3D(rebarViewport3D, rows,
