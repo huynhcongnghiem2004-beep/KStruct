@@ -217,13 +217,15 @@ namespace SDK_HD.KStruct.NativeRebar
             Border sideCard = Card(sectionDock, new Thickness(10));
 
             var mainGrid = new Grid();
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(158) });
+            // Reserve the full navigation rail width: the ListBox is 208 DIP plus 16 DIP margins.
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
             mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
+            // Match the approved right-side Properties / section panel width.
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(366) });
             Grid.SetColumn(nav, 0); mainGrid.Children.Add(nav);
             var center = new Grid();
             center.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(330) });
+            center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(330) });
             center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(pageTitle, 0); center.Children.Add(pageTitle);
             Grid.SetRow(editorHost, 1); center.Children.Add(editorHost);
