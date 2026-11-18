@@ -664,7 +664,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "KStruct | THÉP DẦM PRO V3 | Properties + Live Preview",
-                Width = 1680, Height = 960, MinWidth = 1350, MinHeight = 760,
+                Width = 1648, Height = 928, MinWidth = 1200, MinHeight = 720,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -1069,9 +1069,9 @@ namespace SDK_HD.KStruct.NativeRebar
                 Child = inspectorScroll
             };
             var main = new Grid();
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(385) });
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(345) });
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(366), MinWidth = 320 });
             Grid.SetColumn(leftScroll, 0); main.Children.Add(leftScroll);
             Grid.SetColumn(previewGrid, 1); main.Children.Add(previewGrid);
             Grid.SetColumn(inspectorBorder, 2); main.Children.Add(inspectorBorder);
@@ -1093,8 +1093,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // Each navigation button targets the actual WPF view or action.
             Button RailButton(string caption, string hint)
             {
-                var button = Button(caption, 112);
-                button.Height = 58; button.Margin = new Thickness(4, 5, 4, 5);
+                var button = Button(caption, 200);
+                button.Height = 48; button.Margin = new Thickness(8, 5, 8, 5);
                 button.Background = new SolidColorBrush(Color.FromRgb(32, 66, 89));
                 button.Foreground = Brushes.White;
                 button.BorderBrush = new SolidColorBrush(Color.FromRgb(75, 98, 108));
@@ -1131,7 +1131,7 @@ namespace SDK_HD.KStruct.NativeRebar
             createNav.Click += (sender, args) =>
                 createButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             var contentColumns = new Grid();
-            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124) });
+            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
             contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             Grid.SetColumn(navRail, 0); contentColumns.Children.Add(navRail);
             Grid.SetColumn(main, 1); contentColumns.Children.Add(main);
@@ -1141,7 +1141,8 @@ namespace SDK_HD.KStruct.NativeRebar
                 BorderThickness = new Thickness(0, 0, 0, 4), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
             root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(contentColumns);
-            window.Width = 1800; window.Height = 980; window.MinWidth = 1450; window.MinHeight = 790;
+            // Match the approved 1648 × 928 DIP mockup; retain scrollable editing panels.
+            window.Width = 1648; window.Height = 928; window.MinWidth = 1200; window.MinHeight = 720;
             window.Content = root; new WindowInteropHelper(window).Owner = owner;
             bool refreshingLayerChoices = false;
             refreshLayerChoices = () =>
