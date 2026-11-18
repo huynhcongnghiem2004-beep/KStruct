@@ -1809,7 +1809,65 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                     }
                 }
             }
+            // Stirrup loops are generated from the same beam dimensions and cover.
+            // Spacing here is a schematic default until the zone-specific spacing
+            // configuration is passed through to this preview renderer.
+            var tieRow = rows.FirstOrDefault(r => r != null && r.Key == "tie");
+            if (tieRow != null && tieRow.Count > 0)
+            {
+                double spacingMm = 200.0;
+                int loops = Math.Min(160, Math.Max(1, (int)Math.Floor(lengthMm / spacingMm) + 1));
+                double yy = Math.Max(0.01, halfW - inset);
+                double zz = Math.Max(0.01, halfH - inset);
+                var tieBrush = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(48, 136, 124));
+                for (int i = 0; i < loops; i++)
+                {
+                    double x = (Math.Min(lengthMm, i * spacingMm) / lengthMm - 0.5) * 5.0;
+                    var p0 = new System.Windows.Media.Media3D.Point3D(x, -yy, -zz);
+                    var p1 = new System.Windows.Media.Media3D.Point3D(x, yy, -zz);
+                    var p2 = new System.Windows.Media.Media3D.Point3D(x, yy, zz);
+                    var p3 = new System.Windows.Media.Media3D.Point3D(x, -yy, zz);
+                    AddPreviewSegment3D(group, p0, p1, 0.009, tieBrush);
+                    AddPreviewSegment3D(group, p1, p2, 0.009, tieBrush);
+                    AddPreviewSegment3D(group, p2, p3, 0.009, tieBrush);
+                    AddPreviewSegment3D(group, p3, p0, 0.009, tieBrush);
+                }
+            }
             viewport.Children.Add(new System.Windows.Media.Media3D.ModelVisual3D { Content = group });
+        }
+
+        private static void AddPreviewSegment3D(System.Windows.Media.Media3D.Model3DGroup group,
+            System.Windows.Media.Media3D.Point3D start, System.Windows.Media.Media3D.Point3D end,
+            double radius, System.Windows.Media.Brush brush)
+        {
+            var direction = end - start;
+            if (direction.Length < 0.00001) return;
+            direction.Normalize();
+            var reference = Math.Abs(direction.Z) > 0.9 ?
+                new System.Windows.Media.Media3D.Vector3D(0, 1, 0) :
+                new System.Windows.Media.Media3D.Vector3D(0, 0, 1);
+            var u = System.Windows.Media.Media3D.Vector3D.CrossProduct(direction, reference);
+            u.Normalize();
+            var v = System.Windows.Media.Media3D.Vector3D.CrossProduct(direction, u);
+            v.Normalize();
+            var mesh = new System.Windows.Media.Media3D.MeshGeometry3D();
+            const int sides = 8;
+            for (int i = 0; i < sides; i++)
+            {
+                double a = 2 * Math.PI * i / sides;
+                var radial = radius * (Math.Cos(a) * u + Math.Sin(a) * v);
+                mesh.Positions.Add(start + radial);
+                mesh.Positions.Add(end + radial);
+            }
+            for (int i = 0; i < sides; i++)
+            {
+                int a = 2 * i, b = 2 * ((i + 1) % sides);
+                mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
+                mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
+            }
+            var material = new System.Windows.Media.Media3D.DiffuseMaterial(brush);
+            group.Children.Add(new System.Windows.Media.Media3D.GeometryModel3D(mesh, material) { BackMaterial = material });
         }
 
         private static void AddPreviewRod3D(System.Windows.Media.Media3D.Model3DGroup group,
