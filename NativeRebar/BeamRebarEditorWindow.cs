@@ -1209,6 +1209,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // Properties and Validation are separate panels, not two scroll regions
             // inside one shared right-hand card.
             inspectorBorder.Child = null;
+            inspectorGrid.Children.Remove(inspectorScroll);
+            inspectorGrid.Children.Remove(verificationScroll);
             Grid.SetColumn(inspectorScroll, 2); Grid.SetRow(inspectorScroll, 0);
             Grid.SetColumn(verificationScroll, 2); Grid.SetRow(verificationScroll, 1);
             main.Children.Add(inspectorScroll);
