@@ -1414,8 +1414,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 // Both previews are recomputed from the same edited bar geometry.
                 DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<double>,
                     beamLengthMm, beamWidthMm, beamHeightMm, defaults?.PreviewBeamSections);
-                if (ReferenceEquals(previewTabs.SelectedItem, preview3DTab))
-                    render3D();
+                render3D();
             };
             // Only redraw on meaningful width changes; labels and cuts share
             // the 68px beam margins and must respond to resizing together.
