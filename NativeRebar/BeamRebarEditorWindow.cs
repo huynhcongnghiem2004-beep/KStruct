@@ -78,8 +78,8 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "Thép dầm",
-                Width = 1530,
-                Height = 890,
+                Width = 1648,
+                Height = 928,
                 MinWidth = 1200,
                 MinHeight = 720,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
@@ -92,7 +92,7 @@ namespace SDK_HD.KStruct.NativeRebar
             List<BarRow> rows = BuildRows(types, defaults);
             var nav = new ListBox
             {
-                Width = 150,
+                Width = 208,
                 Margin = new Thickness(8, 0, 8, 0),
                 Background = Brushes.White,
                 BorderBrush = BorderBrush,
@@ -100,7 +100,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 SelectedIndex = 1
             };
             var navItemStyle = new Style(typeof(ListBoxItem));
-            navItemStyle.Setters.Add(new Setter(WpfControl.PaddingProperty, new Thickness(12, 11, 8, 11)));
+            navItemStyle.Setters.Add(new Setter(WpfControl.PaddingProperty, new Thickness(12, 12, 8, 12)));
             navItemStyle.Setters.Add(new Setter(WpfControl.MarginProperty, new Thickness(3, 2, 3, 2)));
             navItemStyle.Setters.Add(new Setter(WpfControl.BorderThicknessProperty, new Thickness(1)));
             navItemStyle.Setters.Add(new Setter(WpfControl.BorderBrushProperty, Brushes.Transparent));
@@ -117,8 +117,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // throws "already the logical child of another element" during fast tab changes.
             var editorPages = new Dictionary<string, FrameworkElement>(StringComparer.Ordinal);
             var editorPageRows = new Dictionary<string, BarRow>(StringComparer.Ordinal);
-            var sectionCanvas = new Canvas { Height = 200, Background = Brushes.White };
-            var beamCanvas = new Canvas { MinHeight = 220, Background = Brushes.White, ClipToBounds = false, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
+            var sectionCanvas = new Canvas { Height = 244, Background = Brushes.White };
+            var beamCanvas = new Canvas { MinHeight = 244, Background = Brushes.White, ClipToBounds = false, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
             var beamViewport = new Grid { ClipToBounds = true, Background = Brushes.White, Cursor = Cursors.Hand };
             beamViewport.Children.Add(beamCanvas);
             double beamLengthMm = defaults?.PreviewBeamLengthMm > 0 ? defaults.PreviewBeamLengthMm : 4000.0;
@@ -217,13 +217,15 @@ namespace SDK_HD.KStruct.NativeRebar
             Border sideCard = Card(sectionDock, new Thickness(10));
 
             var mainGrid = new Grid();
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(158) });
+            // Reserve the full navigation rail width: the ListBox is 208 DIP plus 16 DIP margins.
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
             mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
+            // Match the approved right-side Properties / section panel width.
+            mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(366) });
             Grid.SetColumn(nav, 0); mainGrid.Children.Add(nav);
             var center = new Grid();
             center.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(330) });
+            center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(330) });
             center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(pageTitle, 0); center.Children.Add(pageTitle);
             Grid.SetRow(editorHost, 1); center.Children.Add(editorHost);
@@ -662,7 +664,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "KStruct | THÉP DẦM PRO V3 | Properties + Live Preview",
-                Width = 1680, Height = 960, MinWidth = 1350, MinHeight = 760,
+                Width = 1648, Height = 928, MinWidth = 1200, MinHeight = 720,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -703,7 +705,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var zonedRadio = new RadioButton { Content = "Chia vùng", GroupName = "QuickTieMode", IsChecked = defaults == null || defaults.UseZonedTies, VerticalAlignment = VerticalAlignment.Center };
             var tieRow = rows.First(r => r.Key == "tie");
             var tieCombo = MakeTypeCombo(types, tieRow);
-            var title = new TextBlock { Text = "KSTRUCT   /   THÉP DẦM PRO V3", FontSize = 24, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            var title = new TextBlock { Text = "KSTRUCT   /   THÉP DẦM PRO V3", FontSize = 17, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
             var subtitle = new TextBlock
             {
                 Text = "Dầm · " + previewSpans.Count + " nhịp · " + beamWidthMm.ToString("0") + " × " +
@@ -713,8 +715,7 @@ namespace SDK_HD.KStruct.NativeRebar
             };
 
             Action redraw = null;
-            if (!string.IsNullOrWhiteSpace(defaults?.PreviewSectionDescription))
-                subtitle.Text += "\n" + defaults.PreviewSectionDescription;
+            // Keep detailed section descriptions in the tooltip, not in the title bar.
             Action refreshLayerChoices = () => { };
             BarRow activePreviewRow = rows.First(r => r.Key == "top");
             bool syncingBarEditor = false;
@@ -984,16 +985,10 @@ namespace SDK_HD.KStruct.NativeRebar
             var combinedScroll = new ScrollViewer
             {
                 Content = combinedPreview, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
             };
             var beamTab = new TabItem { Header = "Toàn nhịp + Mặt cắt", Content = combinedScroll };
             var previewTabs = new TabControl { Items = { beamTab }, Margin = new Thickness(4) };
-            previewTabs.Items.Add(new TabItem
-            {
-                Header = "Preview 3D",
-                IsEnabled = false,
-                ToolTip = "Preview 3D chưa được triển khai; không hiển thị mô hình giả."
-            });
             var previewHeader = new DockPanel { Margin = new Thickness(8, 4, 8, 2) };
             var previewTitle = new TextBlock { Text = "SƠ ĐỒ THÉP  /  LIVE PREVIEW", FontSize = 15,
                 FontWeight = FontWeights.Bold, Foreground = Blue, VerticalAlignment = VerticalAlignment.Center };
@@ -1004,7 +999,7 @@ namespace SDK_HD.KStruct.NativeRebar
             spanTools.Children.Add(fitAllButton); spanTools.Children.Add(zoomOutButton); spanTools.Children.Add(zoomInButton); spanTools.Children.Add(fitSpanButton);
             spanTools.Children.Add(lockDiagramEdit);
             DockPanel.SetDock(spanTools, Dock.Right); previewHeader.Children.Add(spanTools);
-            var previewGrid = new Grid { Background = PaleNavy };
+            var previewGrid = new Grid { Background = PaleNavy, ClipToBounds = true };
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid.SetRow(previewHeader, 0); previewGrid.Children.Add(previewHeader);
@@ -1052,7 +1047,10 @@ namespace SDK_HD.KStruct.NativeRebar
                     }
                 }
             }, new Thickness(12));
-            var inspectorContent = new StackPanel { Children = { inspectorHeader, selectedBarInfoCard, verificationCard } };
+            // Separate Properties and Validation into two independently scrollable Grid rows.
+            // The 344:352 proportions follow the approved WPF mockup without clipping
+            // controls on smaller windows or at 125% / 150% display scaling.
+            var inspectorContent = new StackPanel { Children = { inspectorHeader, selectedBarInfoCard } };
             var inspectorScroll = new ScrollViewer
             {
                 Content = inspectorContent,
@@ -1060,19 +1058,46 @@ namespace SDK_HD.KStruct.NativeRebar
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Margin = new Thickness(5, 0, 9, 3)
             };
+            var verificationScroll = new ScrollViewer
+            {
+                Content = verificationCard,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Margin = new Thickness(5, 6, 9, 3)
+            };
+            var inspectorGrid = new Grid();
+            inspectorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 120 });
+            inspectorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 120 });
+            Grid.SetRow(inspectorScroll, 0);
+            Grid.SetRow(verificationScroll, 1);
+            inspectorGrid.Children.Add(inspectorScroll);
+            inspectorGrid.Children.Add(verificationScroll);
             var inspectorBorder = new Border
             {
                 Background = Ivory,
                 BorderBrush = Earth, BorderThickness = new Thickness(2, 0, 0, 0),
-                Child = inspectorScroll
+                Child = inspectorGrid
             };
+            // Keep sections directly under the full-span diagram in the same
+            // ScrollViewer and coordinate system. No separate section panel.
             var main = new Grid();
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(385) });
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(345) });
-            Grid.SetColumn(leftScroll, 0); main.Children.Add(leftScroll);
-            Grid.SetColumn(previewGrid, 1); main.Children.Add(previewGrid);
-            Grid.SetColumn(inspectorBorder, 2); main.Children.Add(inspectorBorder);
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(366), MinWidth = 320 });
+            main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 180 });
+            main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 180 });
+            Grid.SetColumn(leftScroll, 0); Grid.SetRowSpan(leftScroll, 2); main.Children.Add(leftScroll);
+            Grid.SetColumn(previewGrid, 1); Grid.SetRow(previewGrid, 0);
+            Grid.SetRowSpan(previewGrid, 2); main.Children.Add(previewGrid);
+            // Properties and Validation are separate panels, not two scroll regions
+            // inside one shared right-hand card.
+            inspectorBorder.Child = null;
+            inspectorGrid.Children.Remove(inspectorScroll);
+            inspectorGrid.Children.Remove(verificationScroll);
+            Grid.SetColumn(inspectorScroll, 2); Grid.SetRow(inspectorScroll, 0);
+            Grid.SetColumn(verificationScroll, 2); Grid.SetRow(verificationScroll, 1);
+            main.Children.Add(inspectorScroll);
+            main.Children.Add(verificationScroll);
 
             var footer = new DockPanel { Margin = new Thickness(0),
                 Background = PaleNavy, LastChildFill = false };
@@ -1091,8 +1116,15 @@ namespace SDK_HD.KStruct.NativeRebar
             // Each navigation button targets the actual WPF view or action.
             Button RailButton(string caption, string hint)
             {
-                var button = Button(caption, 112);
-                button.Height = 58; button.Margin = new Thickness(4, 5, 4, 5);
+                var button = Button(caption, 96);
+                button.Height = 48; button.Margin = new Thickness(8, 5, 8, 5);
+                button.FontSize = 10;
+                button.Content = new TextBlock
+                {
+                    Text = caption, TextWrapping = TextWrapping.Wrap,
+                    TextAlignment = TextAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
                 button.Background = new SolidColorBrush(Color.FromRgb(32, 66, 89));
                 button.Foreground = Brushes.White;
                 button.BorderBrush = new SolidColorBrush(Color.FromRgb(75, 98, 108));
@@ -1123,23 +1155,28 @@ namespace SDK_HD.KStruct.NativeRebar
             sectionNav.Click += (sender, args) =>
             {
                 previewTabs.SelectedItem = beamTab;
-                combinedScroll.ScrollToVerticalOffset(beamCanvas.Height);
+                combinedScroll.ScrollToEnd();
             };
-            checkNav.Click += (sender, args) => inspectorScroll.ScrollToEnd();
+            checkNav.Click += (sender, args) => verificationScroll.ScrollToTop();
             createNav.Click += (sender, args) =>
                 createButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             var contentColumns = new Grid();
-            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124) });
+            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
             contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             Grid.SetColumn(navRail, 0); contentColumns.Children.Add(navRail);
             Grid.SetColumn(main, 1); contentColumns.Children.Add(main);
             var root = new DockPanel { Background = Page };
-            var heading = new StackPanel { Margin = new Thickness(20, 16, 20, 16), Children = { title, subtitle } };
+            // Keep the header compact: the beam section description can be very long.
+            subtitle.FontSize = 10;
+            subtitle.MaxHeight = 14;
+            subtitle.TextTrimming = TextTrimming.CharacterEllipsis;
+            var heading = new StackPanel { Margin = new Thickness(12, 4, 12, 3), Children = { title, subtitle } };
             var titleBand = new Border { Background = Blue, BorderBrush = Earth,
-                BorderThickness = new Thickness(0, 0, 0, 4), Child = heading };
+                BorderThickness = new Thickness(0, 0, 0, 2), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
             root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(contentColumns);
-            window.Width = 1800; window.Height = 980; window.MinWidth = 1450; window.MinHeight = 790;
+            // Match the approved 1648 × 928 DIP mockup; retain scrollable editing panels.
+            window.Width = 1648; window.Height = 928; window.MinWidth = 1200; window.MinHeight = 720;
             window.Content = root; new WindowInteropHelper(window).Owner = owner;
             bool refreshingLayerChoices = false;
             refreshLayerChoices = () =>
@@ -1663,6 +1700,136 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
         // are the single source of truth for gallery position and naming.
         // Unlike the old fixed 350px card grid, a section is centered directly
         // beneath its corresponding marker on the common elevation scale.
+        // True WPF 3D geometry, projected from the same editable BarRow / BarGeometry
+        // ranges as the elevation and section preview. No fake screenshot or bitmap.
+        private static void RenderBeamGeometry3D(System.Windows.Controls.Viewport3D viewport,
+            IList<BarRow> rows, double lengthMm, double widthMm, double heightMm,
+            double coverMm, BarRow selectedRow)
+        {
+            viewport.Children.Clear();
+            if (lengthMm <= 0 || widthMm <= 0 || heightMm <= 0) return;
+            var group = new System.Windows.Media.Media3D.Model3DGroup();
+            group.Children.Add(new System.Windows.Media.Media3D.AmbientLight(
+                System.Windows.Media.Color.FromRgb(180, 185, 190)));
+            group.Children.Add(new System.Windows.Media.Media3D.DirectionalLight(
+                System.Windows.Media.Colors.White,
+                new System.Windows.Media.Media3D.Vector3D(-1, -2, -3)));
+            double scale = 5.0 / lengthMm;
+            double halfW = widthMm * scale / 2.0;
+            double halfH = heightMm * scale / 2.0;
+            double inset = Math.Max(0, Math.Min(coverMm * scale, Math.Min(halfW, halfH) * 0.7));
+            var upper = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(229, 57, 53));
+            var lower = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 85, 217));
+            var other = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(155, 77, 219));
+            var selected = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 166, 38));
+            foreach (var row in rows)
+            {
+                if (row == null || row.Count <= 0 || row.Key == "tie") continue;
+                var bars = row.Bars != null && row.Bars.Count > 0 ? row.Bars :
+                    new List<BarGeometry> { new BarGeometry { StartMm = row.StartMm, EndMm = row.EndMm } };
+                foreach (var bar in bars)
+                {
+                    double x0 = (Math.Max(0, Math.Min(lengthMm, bar.StartMm)) / lengthMm - 0.5) * 5.0;
+                    double x1 = (Math.Max(0, Math.Min(lengthMm, bar.EndMm)) / lengthMm - 0.5) * 5.0;
+                    if (x1 <= x0) continue;
+                    double z = row.Key.StartsWith("top", StringComparison.OrdinalIgnoreCase) ?
+                        halfH - inset : row.Key.StartsWith("bottom", StringComparison.OrdinalIgnoreCase) ?
+                        -halfH + inset : 0;
+                    int count = Math.Max(1, Math.Min(row.Count, 24));
+                    for (int i = 0; i < count; i++)
+                    {
+                        double y = count == 1 ? 0 : (-halfW + inset) +
+                            i * (2 * Math.Max(0, halfW - inset) / (count - 1));
+                        var brush = ReferenceEquals(row, selectedRow) ? selected :
+                            row.Key.StartsWith("top", StringComparison.OrdinalIgnoreCase) ? upper :
+                            row.Key.StartsWith("bottom", StringComparison.OrdinalIgnoreCase) ? lower : other;
+                        AddPreviewRod3D(group, x0, x1, y, z, Math.Max(0.009, Math.Min(0.026, widthMm * scale * 0.035)), brush);
+                    }
+                }
+            }
+            // Stirrup loops are generated from the same beam dimensions and cover.
+            // Spacing here is a schematic default until the zone-specific spacing
+            // configuration is passed through to this preview renderer.
+            var tieRow = rows.FirstOrDefault(r => r != null && r.Key == "tie");
+            if (tieRow != null && tieRow.Count > 0)
+            {
+                double spacingMm = 200.0;
+                int loops = Math.Min(160, Math.Max(1, (int)Math.Floor(lengthMm / spacingMm) + 1));
+                double yy = Math.Max(0.01, halfW - inset);
+                double zz = Math.Max(0.01, halfH - inset);
+                var tieBrush = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(48, 136, 124));
+                for (int i = 0; i < loops; i++)
+                {
+                    double x = (Math.Min(lengthMm, i * spacingMm) / lengthMm - 0.5) * 5.0;
+                    var p0 = new System.Windows.Media.Media3D.Point3D(x, -yy, -zz);
+                    var p1 = new System.Windows.Media.Media3D.Point3D(x, yy, -zz);
+                    var p2 = new System.Windows.Media.Media3D.Point3D(x, yy, zz);
+                    var p3 = new System.Windows.Media.Media3D.Point3D(x, -yy, zz);
+                    AddPreviewSegment3D(group, p0, p1, 0.009, tieBrush);
+                    AddPreviewSegment3D(group, p1, p2, 0.009, tieBrush);
+                    AddPreviewSegment3D(group, p2, p3, 0.009, tieBrush);
+                    AddPreviewSegment3D(group, p3, p0, 0.009, tieBrush);
+                }
+            }
+            viewport.Children.Add(new System.Windows.Media.Media3D.ModelVisual3D { Content = group });
+        }
+
+        private static void AddPreviewSegment3D(System.Windows.Media.Media3D.Model3DGroup group,
+            System.Windows.Media.Media3D.Point3D start, System.Windows.Media.Media3D.Point3D end,
+            double radius, System.Windows.Media.Brush brush)
+        {
+            var direction = end - start;
+            if (direction.Length < 0.00001) return;
+            direction.Normalize();
+            var reference = Math.Abs(direction.Z) > 0.9 ?
+                new System.Windows.Media.Media3D.Vector3D(0, 1, 0) :
+                new System.Windows.Media.Media3D.Vector3D(0, 0, 1);
+            var u = System.Windows.Media.Media3D.Vector3D.CrossProduct(direction, reference);
+            u.Normalize();
+            var v = System.Windows.Media.Media3D.Vector3D.CrossProduct(direction, u);
+            v.Normalize();
+            var mesh = new System.Windows.Media.Media3D.MeshGeometry3D();
+            const int sides = 8;
+            for (int i = 0; i < sides; i++)
+            {
+                double a = 2 * Math.PI * i / sides;
+                var radial = radius * (Math.Cos(a) * u + Math.Sin(a) * v);
+                mesh.Positions.Add(start + radial);
+                mesh.Positions.Add(end + radial);
+            }
+            for (int i = 0; i < sides; i++)
+            {
+                int a = 2 * i, b = 2 * ((i + 1) % sides);
+                mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
+                mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
+            }
+            var material = new System.Windows.Media.Media3D.DiffuseMaterial(brush);
+            group.Children.Add(new System.Windows.Media.Media3D.GeometryModel3D(mesh, material) { BackMaterial = material });
+        }
+
+        private static void AddPreviewRod3D(System.Windows.Media.Media3D.Model3DGroup group,
+            double x0, double x1, double y, double z, double radius, System.Windows.Media.Brush brush)
+        {
+            var mesh = new System.Windows.Media.Media3D.MeshGeometry3D();
+            const int segments = 8;
+            for (int i = 0; i < segments; i++)
+            {
+                double angle = i * 2 * Math.PI / segments;
+                double yy = y + radius * Math.Cos(angle), zz = z + radius * Math.Sin(angle);
+                mesh.Positions.Add(new System.Windows.Media.Media3D.Point3D(x0, yy, zz));
+                mesh.Positions.Add(new System.Windows.Media.Media3D.Point3D(x1, yy, zz));
+            }
+            for (int i = 0; i < segments; i++)
+            {
+                int a = 2 * i, b = 2 * ((i + 1) % segments);
+                mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(a + 1);
+                mesh.TriangleIndices.Add(a + 1); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(b + 1);
+            }
+            var material = new System.Windows.Media.Media3D.DiffuseMaterial(brush);
+            group.Children.Add(new System.Windows.Media.Media3D.GeometryModel3D(mesh, material) { BackMaterial = material });
+        }
+
         private static void DrawAlignedSectionGallery(Canvas canvas, IList<BarRow> rows,
             IList<double> stations, double beamLengthMm, double widthMm, double heightMm,
             IList<ReinforceStraightBeamsCommand.BeamPreviewSection> beamSections = null)
@@ -1677,22 +1844,19 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 AddCanvasText(canvas, "Chưa có mặt cắt khác nhau trong phạm vi dầm.", 68, 20, Blue, 12);
                 return;
             }
-            double left = 68, plotWidth = canvasWidth - 136;
-            // Keep the geometry in a narrow card so it can align with the
-            // cutting station instead of being placed in an unrelated grid.
-            const double cardWidth = 136;
-            const double cardHeight = 180;
-            var occupiedUntil = new List<double>();
+            // Independent horizontal gallery: cards follow their section order,
+            // not the X coordinates of cutting stations in the beam elevation.
+            const double cardWidth = 68;
+            const double cardHeight = 90;
+            const double gap = 12;
+            const double margin = 12;
+            double requiredWidth = 2 * margin + cuts.Count * cardWidth + Math.Max(0, cuts.Count - 1) * gap;
+            canvas.Width = Math.Max(canvasWidth, requiredWidth);
             for (int i = 0; i < cuts.Count; i++)
             {
                 double station = cuts[i];
-                double centerX = left + plotWidth * station / Math.Max(1, beamLengthMm);
-                double x = Math.Max(0, Math.Min(canvasWidth - cardWidth, centerX - cardWidth / 2));
-                int lane = 0;
-                while (lane < occupiedUntil.Count && x < occupiedUntil[lane] + 8) lane++;
-                if (lane == occupiedUntil.Count) occupiedUntil.Add(x + cardWidth);
-                else occupiedUntil[lane] = x + cardWidth;
-                double y = 26 + lane * (cardHeight + 12);
+                double x = margin + i * (cardWidth + gap);
+                double y = 12;
                 var actual = (beamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>())
                     .FirstOrDefault(section => section != null && station >= section.StartMm && station <= section.EndMm);
                 double sectionWidth = actual?.WidthMm > 0 ? actual.WidthMm : widthMm;
@@ -1706,24 +1870,26 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                     profile.Add(new BarRow { Key = row.Key, Caption = row.Caption, Count = count,
                         Type = crossing.FirstOrDefault()?.Type ?? row.Type });
                 }
-                // Dashed station leader runs from the elevation marker's x.
-                canvas.Children.Add(new Line { X1 = centerX, X2 = centerX, Y1 = 0, Y2 = y + 5,
-                    Stroke = Earth, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 4, 3 } });
-                var card = new Canvas { Width = cardWidth, Height = cardHeight, Background = Ivory };
-                card.Children.Add(new Rectangle { Width = cardWidth - 2, Height = cardHeight - 2,
+                // No dashed station leader: sections form one continuous row.
+                // Scale the entire original card to 50% using a Viewbox so the
+                // section drawing, labels and dimensions remain proportional.
+                var cardContent = new Canvas { Width = 136, Height = 180, Background = Ivory };
+                cardContent.Children.Add(new Rectangle { Width = 134, Height = 178,
                     RadiusX = 7, RadiusY = 7, Stroke = BorderBrush, StrokeThickness = 1,
                     Fill = Brushes.Transparent });
-                AddCanvasText(card, "MẶT CẮT " + (i + 1) + "-" + (i + 1), 10, 7, Blue, 11);
-                AddCanvasText(card, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
+                AddCanvasText(cardContent, "MẶT CẮT " + (i + 1) + "-" + (i + 1), 10, 7, Blue, 11);
+                AddCanvasText(cardContent, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
                 var sectionDiagram = new Canvas { Width = 86, Height = 110, Background = Ivory };
                 DrawQuickSection(sectionDiagram, profile, sectionWidth, sectionHeight);
                 Canvas.SetLeft(sectionDiagram, 25); Canvas.SetTop(sectionDiagram, 36);
-                card.Children.Add(sectionDiagram);
-                AddCanvasText(card, sectionWidth.ToString("0") + " × " +
+                cardContent.Children.Add(sectionDiagram);
+                AddCanvasText(cardContent, sectionWidth.ToString("0") + " × " +
                     sectionHeight.ToString("0") + " mm", 14, 153, Blue, 10);
+                var card = new Viewbox { Width = cardWidth, Height = cardHeight,
+                    Stretch = Stretch.Uniform, Child = cardContent };
                 Canvas.SetLeft(card, x); Canvas.SetTop(card, y); canvas.Children.Add(card);
             }
-            canvas.Height = Math.Max(210, 26 + occupiedUntil.Count * (cardHeight + 12));
+            canvas.Height = 114;
         }
 
         private static void DrawSectionGallery(Canvas canvas, IList<BarRow> rows, IList<double> stations,
