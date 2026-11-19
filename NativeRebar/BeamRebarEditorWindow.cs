@@ -705,7 +705,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var zonedRadio = new RadioButton { Content = "Chia vùng", GroupName = "QuickTieMode", IsChecked = defaults == null || defaults.UseZonedTies, VerticalAlignment = VerticalAlignment.Center };
             var tieRow = rows.First(r => r.Key == "tie");
             var tieCombo = MakeTypeCombo(types, tieRow);
-            var title = new TextBlock { Text = "KSTRUCT   /   THÉP DẦM PRO V3", FontSize = 24, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            var title = new TextBlock { Text = "KSTRUCT   /   THÉP DẦM PRO V3", FontSize = 17, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
             var subtitle = new TextBlock
             {
                 Text = "Dầm · " + previewSpans.Count + " nhịp · " + beamWidthMm.ToString("0") + " × " +
@@ -715,8 +715,7 @@ namespace SDK_HD.KStruct.NativeRebar
             };
 
             Action redraw = null;
-            if (!string.IsNullOrWhiteSpace(defaults?.PreviewSectionDescription))
-                subtitle.Text += "\n" + defaults.PreviewSectionDescription;
+            // Keep detailed section descriptions in the tooltip, not in the title bar.
             Action refreshLayerChoices = () => { };
             BarRow activePreviewRow = rows.First(r => r.Key == "top");
             bool syncingBarEditor = false;
@@ -1188,11 +1187,12 @@ namespace SDK_HD.KStruct.NativeRebar
             Grid.SetColumn(main, 1); contentColumns.Children.Add(main);
             var root = new DockPanel { Background = Page };
             // Keep the header compact: the beam section description can be very long.
-            subtitle.MaxHeight = 20;
+            subtitle.FontSize = 10;
+            subtitle.MaxHeight = 14;
             subtitle.TextTrimming = TextTrimming.CharacterEllipsis;
-            var heading = new StackPanel { Margin = new Thickness(14, 8, 14, 8), Children = { title, subtitle } };
+            var heading = new StackPanel { Margin = new Thickness(12, 4, 12, 3), Children = { title, subtitle } };
             var titleBand = new Border { Background = Blue, BorderBrush = Earth,
-                BorderThickness = new Thickness(0, 0, 0, 4), Child = heading };
+                BorderThickness = new Thickness(0, 0, 0, 2), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
             root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(contentColumns);
             // Match the approved 1648 × 928 DIP mockup; retain scrollable editing panels.
