@@ -985,7 +985,7 @@ namespace SDK_HD.KStruct.NativeRebar
             var combinedScroll = new ScrollViewer
             {
                 Content = combinedPreview, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
             };
             var beamTab = new TabItem { Header = "Toàn nhịp + Mặt cắt", Content = combinedScroll };
             var previewTabs = new TabControl { Items = { beamTab }, Margin = new Thickness(4) };
@@ -1844,23 +1844,19 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 AddCanvasText(canvas, "Chưa có mặt cắt khác nhau trong phạm vi dầm.", 68, 20, Blue, 12);
                 return;
             }
-            double left = 68, plotWidth = canvasWidth - 136;
-            // Keep the geometry in a narrow card so it can align with the
-            // cutting station instead of being placed in an unrelated grid.
-            // Half-size cards, while preserving station alignment with the elevation.
+            // Independent horizontal gallery: cards follow their section order,
+            // not the X coordinates of cutting stations in the beam elevation.
             const double cardWidth = 68;
             const double cardHeight = 90;
-            var occupiedUntil = new List<double>();
+            const double gap = 12;
+            const double margin = 12;
+            double requiredWidth = 2 * margin + cuts.Count * cardWidth + Math.Max(0, cuts.Count - 1) * gap;
+            canvas.Width = Math.Max(canvasWidth, requiredWidth);
             for (int i = 0; i < cuts.Count; i++)
             {
                 double station = cuts[i];
-                double centerX = left + plotWidth * station / Math.Max(1, beamLengthMm);
-                double x = Math.Max(0, Math.Min(canvasWidth - cardWidth, centerX - cardWidth / 2));
-                int lane = 0;
-                while (lane < occupiedUntil.Count && x < occupiedUntil[lane] + 8) lane++;
-                if (lane == occupiedUntil.Count) occupiedUntil.Add(x + cardWidth);
-                else occupiedUntil[lane] = x + cardWidth;
-                double y = 14 + lane * (cardHeight + 6);
+                double x = margin + i * (cardWidth + gap);
+                double y = 12;
                 var actual = (beamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>())
                     .FirstOrDefault(section => section != null && station >= section.StartMm && station <= section.EndMm);
                 double sectionWidth = actual?.WidthMm > 0 ? actual.WidthMm : widthMm;
@@ -1874,9 +1870,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                     profile.Add(new BarRow { Key = row.Key, Caption = row.Caption, Count = count,
                         Type = crossing.FirstOrDefault()?.Type ?? row.Type });
                 }
-                // Dashed station leader runs from the elevation marker's x.
-                canvas.Children.Add(new Line { X1 = centerX, X2 = centerX, Y1 = 0, Y2 = y + 5,
-                    Stroke = Earth, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 4, 3 } });
+                // No dashed station leader: sections form one continuous row.
                 // Scale the entire original card to 50% using a Viewbox so the
                 // section drawing, labels and dimensions remain proportional.
                 var cardContent = new Canvas { Width = 136, Height = 180, Background = Ivory };
@@ -1895,7 +1889,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                     Stretch = Stretch.Uniform, Child = cardContent };
                 Canvas.SetLeft(card, x); Canvas.SetTop(card, y); canvas.Children.Add(card);
             }
-            canvas.Height = Math.Max(115, 14 + occupiedUntil.Count * (cardHeight + 6));
+            canvas.Height = 114;
         }
 
         private static void DrawSectionGallery(Canvas canvas, IList<BarRow> rows, IList<double> stations,
