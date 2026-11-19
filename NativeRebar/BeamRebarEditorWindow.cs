@@ -1233,8 +1233,15 @@ namespace SDK_HD.KStruct.NativeRebar
             // Each navigation button targets the actual WPF view or action.
             Button RailButton(string caption, string hint)
             {
-                var button = Button(caption, 200);
+                var button = Button(caption, 96);
                 button.Height = 48; button.Margin = new Thickness(8, 5, 8, 5);
+                button.FontSize = 10;
+                button.Content = new TextBlock
+                {
+                    Text = caption, TextWrapping = TextWrapping.Wrap,
+                    TextAlignment = TextAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
                 button.Background = new SolidColorBrush(Color.FromRgb(32, 66, 89));
                 button.Foreground = Brushes.White;
                 button.BorderBrush = new SolidColorBrush(Color.FromRgb(75, 98, 108));
@@ -1271,7 +1278,7 @@ namespace SDK_HD.KStruct.NativeRebar
             createNav.Click += (sender, args) =>
                 createButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             var contentColumns = new Grid();
-            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
+            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
             contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             Grid.SetColumn(navRail, 0); contentColumns.Children.Add(navRail);
             Grid.SetColumn(main, 1); contentColumns.Children.Add(main);
