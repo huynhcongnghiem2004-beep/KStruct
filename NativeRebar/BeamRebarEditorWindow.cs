@@ -1078,28 +1078,8 @@ namespace SDK_HD.KStruct.NativeRebar
                 BorderBrush = Earth, BorderThickness = new Thickness(2, 0, 0, 0),
                 Child = inspectorGrid
             };
-            // Two-tier WPF Grid: elevation + Properties above, sections + live 3D
-            // + Validation below. Keep the configuration editor scrollable at left.
-            // Move the actual WPF controls; do not duplicate static mockup graphics.
-            combinedPreview.Children.Remove(sectionHeading);
-            combinedPreview.Children.Remove(sectionCanvas);
-            var sectionPanel = new Grid { Background = Brushes.White, Margin = new Thickness(4, 4, 4, 4), ClipToBounds = true };
-            sectionPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            sectionPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            Grid.SetRow(sectionHeading, 0);
-            sectionPanel.Children.Add(sectionHeading);
-            var sectionScroll = new ScrollViewer
-            {
-                Content = sectionCanvas,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
-            };
-            Grid.SetRow(sectionScroll, 1);
-            sectionPanel.Children.Add(sectionScroll);
-            // Section gallery now occupies the entire lower preview area.
-            // The unwanted 3D viewport and its reserved column are removed.
-            var lowerPreview = new Grid { Background = PaleNavy, ClipToBounds = true };
-            lowerPreview.Children.Add(sectionPanel);
+            // Keep sections directly under the full-span diagram in the same
+            // ScrollViewer and coordinate system. No separate section panel.
             var main = new Grid();
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1107,8 +1087,8 @@ namespace SDK_HD.KStruct.NativeRebar
             main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 180 });
             main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 180 });
             Grid.SetColumn(leftScroll, 0); Grid.SetRowSpan(leftScroll, 2); main.Children.Add(leftScroll);
-            Grid.SetColumn(previewGrid, 1); Grid.SetRow(previewGrid, 0); main.Children.Add(previewGrid);
-            Grid.SetColumn(lowerPreview, 1); Grid.SetRow(lowerPreview, 1); main.Children.Add(lowerPreview);
+            Grid.SetColumn(previewGrid, 1); Grid.SetRow(previewGrid, 0);
+            Grid.SetRowSpan(previewGrid, 2); main.Children.Add(previewGrid);
             // Properties and Validation are separate panels, not two scroll regions
             // inside one shared right-hand card.
             inspectorBorder.Child = null;
@@ -1175,7 +1155,7 @@ namespace SDK_HD.KStruct.NativeRebar
             sectionNav.Click += (sender, args) =>
             {
                 previewTabs.SelectedItem = beamTab;
-                sectionScroll.ScrollToTop();
+                combinedScroll.ScrollToEnd();
             };
             checkNav.Click += (sender, args) => verificationScroll.ScrollToTop();
             createNav.Click += (sender, args) =>
@@ -1867,8 +1847,9 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             double left = 68, plotWidth = canvasWidth - 136;
             // Keep the geometry in a narrow card so it can align with the
             // cutting station instead of being placed in an unrelated grid.
-            const double cardWidth = 136;
-            const double cardHeight = 180;
+            // Half-size cards, while preserving station alignment with the elevation.
+            const double cardWidth = 68;
+            const double cardHeight = 90;
             var occupiedUntil = new List<double>();
             for (int i = 0; i < cuts.Count; i++)
             {
@@ -1879,7 +1860,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 while (lane < occupiedUntil.Count && x < occupiedUntil[lane] + 8) lane++;
                 if (lane == occupiedUntil.Count) occupiedUntil.Add(x + cardWidth);
                 else occupiedUntil[lane] = x + cardWidth;
-                double y = 26 + lane * (cardHeight + 12);
+                double y = 14 + lane * (cardHeight + 6);
                 var actual = (beamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>())
                     .FirstOrDefault(section => section != null && station >= section.StartMm && station <= section.EndMm);
                 double sectionWidth = actual?.WidthMm > 0 ? actual.WidthMm : widthMm;
@@ -1896,21 +1877,25 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 // Dashed station leader runs from the elevation marker's x.
                 canvas.Children.Add(new Line { X1 = centerX, X2 = centerX, Y1 = 0, Y2 = y + 5,
                     Stroke = Earth, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 4, 3 } });
-                var card = new Canvas { Width = cardWidth, Height = cardHeight, Background = Ivory };
-                card.Children.Add(new Rectangle { Width = cardWidth - 2, Height = cardHeight - 2,
+                // Scale the entire original card to 50% using a Viewbox so the
+                // section drawing, labels and dimensions remain proportional.
+                var cardContent = new Canvas { Width = 136, Height = 180, Background = Ivory };
+                cardContent.Children.Add(new Rectangle { Width = 134, Height = 178,
                     RadiusX = 7, RadiusY = 7, Stroke = BorderBrush, StrokeThickness = 1,
                     Fill = Brushes.Transparent });
-                AddCanvasText(card, "MẶT CẮT " + (i + 1) + "-" + (i + 1), 10, 7, Blue, 11);
-                AddCanvasText(card, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
+                AddCanvasText(cardContent, "MẶT CẮT " + (i + 1) + "-" + (i + 1), 10, 7, Blue, 11);
+                AddCanvasText(cardContent, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
                 var sectionDiagram = new Canvas { Width = 86, Height = 110, Background = Ivory };
                 DrawQuickSection(sectionDiagram, profile, sectionWidth, sectionHeight);
                 Canvas.SetLeft(sectionDiagram, 25); Canvas.SetTop(sectionDiagram, 36);
-                card.Children.Add(sectionDiagram);
-                AddCanvasText(card, sectionWidth.ToString("0") + " × " +
+                cardContent.Children.Add(sectionDiagram);
+                AddCanvasText(cardContent, sectionWidth.ToString("0") + " × " +
                     sectionHeight.ToString("0") + " mm", 14, 153, Blue, 10);
+                var card = new Viewbox { Width = cardWidth, Height = cardHeight,
+                    Stretch = Stretch.Uniform, Child = cardContent };
                 Canvas.SetLeft(card, x); Canvas.SetTop(card, y); canvas.Children.Add(card);
             }
-            canvas.Height = Math.Max(210, 26 + occupiedUntil.Count * (cardHeight + 12));
+            canvas.Height = Math.Max(115, 14 + occupiedUntil.Count * (cardHeight + 6));
         }
 
         private static void DrawSectionGallery(Canvas canvas, IList<BarRow> rows, IList<double> stations,
