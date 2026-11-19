@@ -990,89 +990,6 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             var beamTab = new TabItem { Header = "Toàn nhịp + Mặt cắt", Content = combinedScroll };
             var previewTabs = new TabControl { Items = { beamTab }, Margin = new Thickness(4) };
-            // WPF Viewport3D displays the editable bar geometry, not a static image.
-            // The preview is a design-stage model; final Revit Shape/Hook verification
-            // remains mandatory before committing actual reinforcement elements.
-            var rebarViewport3D = new System.Windows.Controls.Viewport3D
-            {
-                ClipToBounds = true, Margin = new Thickness(8),
-                Camera = new System.Windows.Media.Media3D.PerspectiveCamera(
-                    new System.Windows.Media.Media3D.Point3D(5, -8, 5),
-                    new System.Windows.Media.Media3D.Vector3D(-5, 8, -5),
-                    new System.Windows.Media.Media3D.Vector3D(0, 0, 1), 48)
-            };
-            var preview3DHost = new Grid { Background = new SolidColorBrush(Color.FromRgb(246, 248, 250)) };
-            preview3DHost.Children.Add(rebarViewport3D);
-            // Mouse orbit, wheel zoom and middle-button pan act on the actual 3D camera.
-            Point last3DPoint = new Point();
-            bool orbiting3D = false, panning3D = false;
-            rebarViewport3D.MouseDown += (sender, args) =>
-            {
-                orbiting3D = args.ChangedButton == MouseButton.Left;
-                panning3D = args.ChangedButton == MouseButton.Middle;
-                if (!orbiting3D && !panning3D) return;
-                last3DPoint = args.GetPosition(rebarViewport3D);
-                rebarViewport3D.CaptureMouse();
-                args.Handled = true;
-            };
-            rebarViewport3D.MouseUp += (sender, args) =>
-            {
-                orbiting3D = false; panning3D = false;
-                rebarViewport3D.ReleaseMouseCapture();
-            };
-            rebarViewport3D.MouseMove += (sender, args) =>
-            {
-                if (!orbiting3D && !panning3D) return;
-                var camera = rebarViewport3D.Camera as System.Windows.Media.Media3D.PerspectiveCamera;
-                if (camera == null) return;
-                Point next = args.GetPosition(rebarViewport3D);
-                double dx = next.X - last3DPoint.X, dy = next.Y - last3DPoint.Y;
-                last3DPoint = next;
-                if (panning3D)
-                {
-                    camera.Position = new System.Windows.Media.Media3D.Point3D(
-                        camera.Position.X - dx * 0.008, camera.Position.Y,
-                        camera.Position.Z + dy * 0.008);
-                }
-                else
-                {
-                    var p = camera.Position;
-                    double distance = Math.Sqrt(p.X * p.X + p.Y * p.Y + p.Z * p.Z);
-                    double azimuth = Math.Atan2(p.Y, p.X) + dx * 0.008;
-                    double elevation = Math.Asin(p.Z / Math.Max(0.001, distance)) + dy * 0.008;
-                    elevation = Math.Max(-1.2, Math.Min(1.2, elevation));
-                    camera.Position = new System.Windows.Media.Media3D.Point3D(
-                        distance * Math.Cos(elevation) * Math.Cos(azimuth),
-                        distance * Math.Cos(elevation) * Math.Sin(azimuth),
-                        distance * Math.Sin(elevation));
-                    camera.LookDirection = new System.Windows.Media.Media3D.Vector3D(
-                        -camera.Position.X, -camera.Position.Y, -camera.Position.Z);
-                }
-            };
-            rebarViewport3D.MouseWheel += (sender, args) =>
-            {
-                var camera = rebarViewport3D.Camera as System.Windows.Media.Media3D.PerspectiveCamera;
-                if (camera == null) return;
-                double factor = args.Delta > 0 ? 0.88 : 1.12;
-                var p = camera.Position;
-                camera.Position = new System.Windows.Media.Media3D.Point3D(
-                    p.X * factor, p.Y * factor, p.Z * factor);
-                camera.LookDirection = new System.Windows.Media.Media3D.Vector3D(
-                    -camera.Position.X, -camera.Position.Y, -camera.Position.Z);
-                args.Handled = true;
-            };
-            var preview3DTab = new TabItem { Header = "Preview 3D · Hình học thanh", Content = preview3DHost };
-            previewTabs.Items.Add(preview3DTab);
-            Action render3D = () => RenderBeamGeometry3D(rebarViewport3D, rows,
-                beamLengthMm, beamWidthMm, beamHeightMm,
-                Number(coverBox.Text, defaults?.CoverMm > 0 ? defaults.CoverMm : 30),
-                activePreviewRow);
-            preview3DTab.GotFocus += (sender, args) => render3D();
-            previewTabs.SelectionChanged += (sender, args) =>
-            {
-                if (ReferenceEquals(previewTabs.SelectedItem, preview3DTab))
-                    render3D();
-            };
             var previewHeader = new DockPanel { Margin = new Thickness(8, 4, 8, 2) };
             var previewTitle = new TextBlock { Text = "SƠ ĐỒ THÉP  /  LIVE PREVIEW", FontSize = 15,
                 FontWeight = FontWeights.Bold, Foreground = Blue, VerticalAlignment = VerticalAlignment.Center };
@@ -1167,8 +1084,6 @@ namespace SDK_HD.KStruct.NativeRebar
             // Move the actual WPF controls; do not duplicate static mockup graphics.
             combinedPreview.Children.Remove(sectionHeading);
             combinedPreview.Children.Remove(sectionCanvas);
-            preview3DTab.Content = null;
-            previewTabs.Items.Remove(preview3DTab);
             var sectionPanel = new Grid { Background = Brushes.White, Margin = new Thickness(4, 4, 4, 4), ClipToBounds = true };
             sectionPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             sectionPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -1182,21 +1097,10 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             Grid.SetRow(sectionScroll, 1);
             sectionPanel.Children.Add(sectionScroll);
+            // Section gallery now occupies the entire lower preview area.
+            // The unwanted 3D viewport and its reserved column are removed.
             var lowerPreview = new Grid { Background = PaleNavy, ClipToBounds = true };
-            lowerPreview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(728, GridUnitType.Star), MinWidth = 170 });
-            lowerPreview.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(290, GridUnitType.Star), MinWidth = 160 });
-            Grid.SetColumn(sectionPanel, 0);
-            Grid.SetColumn(preview3DHost, 1);
             lowerPreview.Children.Add(sectionPanel);
-            lowerPreview.Children.Add(preview3DHost);
-            var preview3DLabel = new TextBlock
-            {
-                Text = "PREVIEW 3D  ·  Trái: xoay  |  Giữa: pan  |  Cuộn: zoom",
-                Foreground = Blue, FontSize = 11, Margin = new Thickness(10, 6, 4, 2),
-                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
-                IsHitTestVisible = false
-            };
-            preview3DHost.Children.Add(preview3DLabel);
             var main = new Grid();
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1424,7 +1328,6 @@ namespace SDK_HD.KStruct.NativeRebar
                 // Both previews are recomputed from the same edited bar geometry.
                 DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<double>,
                     beamLengthMm, beamWidthMm, beamHeightMm, defaults?.PreviewBeamSections);
-                render3D();
             };
             // Only redraw on meaningful width changes; labels and cuts share
             // the 68px beam margins and must respond to resizing together.
