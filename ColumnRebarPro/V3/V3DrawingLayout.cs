@@ -124,8 +124,45 @@ namespace ColumnRebarPro.V3
             sheet.Name=draftName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
             CreateStackSchedules(doc, sheet, ordered);
+            InspectCompleteSheetLayout(doc, sheet);
             V4SheetOwnership.Stamp(doc, sheet, works);
             result.Add(sheet.Id);return result;
+        }
+
+        // Schedules are placed after the viewports, so inspect the completed sheet
+        // as well. Keep the existing non-blocking DRAFT workflow, but do not let
+        // a schedule overlapping a viewport or the title-block reserve go unnoticed.
+        private void InspectCompleteSheetLayout(Document doc, ViewSheet sheet)
+        {
+            doc.Regenerate();
+            double pad = V3Units.Ft(20);
+            double reserve = V3Units.Ft(double.Parse(S("SheetRightMargin"),
+                System.Globalization.CultureInfo.InvariantCulture));
+            var outline = sheet.Outline;
+            var allowed = new V4SheetLayoutGuard.Rect(outline.Min.U + pad,
+                outline.Min.V + pad, outline.Max.U - pad - reserve, outline.Max.V - pad);
+            var boxes = new List<V4SheetLayoutGuard.Rect>();
+            foreach (var viewport in sheet.GetAllViewports()
+                .Select(id => doc.GetElement(id) as Viewport).Where(item => item != null))
+            {
+                var box = viewport.GetBoxOutline();
+                boxes.Add(new V4SheetLayoutGuard.Rect(box.MinimumPoint.X, box.MinimumPoint.Y,
+                    box.MaximumPoint.X, box.MaximumPoint.Y));
+            }
+            foreach (var instance in new FilteredElementCollector(doc)
+                .OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>()
+                .Where(item => item.OwnerViewId == sheet.Id && !item.IsTitleblockRevisionSchedule))
+            {
+                var box = instance.get_BoundingBox(sheet);
+                if (box == null)
+                    throw new InvalidOperationException("Không xác định được phạm vi bảng thống kê trên Sheet.");
+                boxes.Add(new V4SheetLayoutGuard.Rect(box.Min.X, box.Min.Y, box.Max.X, box.Max.Y));
+            }
+            if (V4SheetLayoutGuard.Inspect(allowed, boxes).Count == 0) return;
+            const string suffix = " - CẦN CHỈNH VIEWPORT";
+            string name = sheet.Name ?? "";
+            if (!name.EndsWith(suffix, StringComparison.Ordinal))
+                sheet.Name = SafeSheetTitle(name, 240 - suffix.Length) + suffix;
         }
 
         // Each native Rebar Schedule is filtered to exactly one KStruct column
