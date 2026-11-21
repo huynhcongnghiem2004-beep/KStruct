@@ -20,6 +20,9 @@ The beam preview also asserts three section markers per span and verifies that
 equal reinforcement quantities reuse the same `MC-*` section name.
 The sample also includes a detected `Dầm phụ giao` junction and verifies its
 marker is rendered in the elevation preview.
+The production quick editor exposes **Chọn dầm phụ giao…**; it returns the
+current options to the Revit command, performs a multi-pick with the Revit
+selection API, and reopens the editor with the selected beam IDs retained.
 GitHub Actions publishes the rendered images as **KStruct-Beam-UI**.
 
 The fixtures are not an engineering engine. They do not create or validate Revit

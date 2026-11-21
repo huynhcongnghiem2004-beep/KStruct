@@ -98,7 +98,7 @@ internal static class Render
                 var steps = Descendants<Expander>(window).Where(x => x.Header.ToString().StartsWith("1.") ||
                     x.Header.ToString().StartsWith("2.") || x.Header.ToString().StartsWith("3.") || x.Header.ToString().StartsWith("4.")).ToList();
                 Assert(steps.Count == 4, "Four configuration steps must be accessible.");
-                foreach (string label in new[] { "Hoàn tác", "Kiểm tra", "Hủy", "Tạo cốt thép" })
+                foreach (string label in new[] { "Hoàn tác", "Kiểm tra", "Hủy", "Tạo cốt thép", "Chọn dầm phụ giao…" })
                 {
                     var button = Button(window, label);
                     var bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));

@@ -108,6 +108,8 @@ internal sealed class Options
             // Creation geometry is deliberately isolated from densified UI sample
             // segments: the approved 1:6 bottom transition needs stable stations.
             [XmlIgnore] public List<BeamPreviewSection> RebarBeamSections = new List<BeamPreviewSection>();
+            [XmlIgnore] public bool PickSecondaryBeamsRequested;
+            [XmlIgnore] public List<long> SelectedSecondaryBeamIds = new List<long>();
         }
  internal static List<Tuple<double, double>> BuildSupportReinforcementRanges(IList<Tuple<double, double>> spans)
         {

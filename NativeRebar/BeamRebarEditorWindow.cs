@@ -890,10 +890,29 @@ namespace SDK_HD.KStruct.NativeRebar
             var supportInputs = new Dictionary<string, Tuple<TextBox, TextBox>>();
             var supportPanel = new StackPanel();
             var deletedRanges = new HashSet<string>(defaults?.DeletedReinforcementRanges ?? new List<string>());
+            ReinforceStraightBeamsCommand.Options quickResult = null;
             string RangeKey(BarRow row, BarGeometry bar) => row.Key + "/" +
                 (bar.StartMm / beamLengthMm).ToString("F6", System.Globalization.CultureInfo.InvariantCulture) + "/" +
                 (bar.EndMm / beamLengthMm).ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
             bool useSupportSpanPreset = false;
+            var pickSecondaryButton = Button("Chọn dầm phụ giao…", 0);
+            pickSecondaryButton.Width = double.NaN;
+            pickSecondaryButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            pickSecondaryButton.Height = 42;
+            pickSecondaryButton.Margin = new Thickness(0, 4, 0, 8);
+            pickSecondaryButton.Background = PaleNavy;
+            pickSecondaryButton.Foreground = Blue;
+            pickSecondaryButton.ToolTip = "Tạm đóng cửa sổ, pick nhiều dầm phụ giao với dầm đang chọn, rồi mở lại preview.";
+            supportPanel.Children.Add(pickSecondaryButton);
+            pickSecondaryButton.Click += (s, e) =>
+            {
+                quickResult = QuickOptions(rows, defaults, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox,
+                    endSpacingBox, middleSpacingBox, zonedRadio.IsChecked == true);
+                quickResult.DeletedReinforcementRanges = deletedRanges.ToList();
+                quickResult.PickSecondaryBeamsRequested = true;
+                quickResult.SelectedSecondaryBeamIds = defaults?.SelectedSecondaryBeamIds?.ToList() ?? new List<long>();
+                window.DialogResult = true;
+            };
             var supportSpanPresetButton = Button("Bố trí gối + nhịp · 1/4–1/5", 0);
             supportSpanPresetButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             supportSpanPresetButton.Width = double.NaN;
@@ -1528,7 +1547,6 @@ namespace SDK_HD.KStruct.NativeRebar
             window.Loaded += (s, e) => { redraw(); FitDiagram(spanSelector.SelectedIndex > 0); };
             window.SizeChanged += (s, e) => { redraw(); ApplyDiagramTransform(); };
             previewTabs.SelectionChanged += (s, e) => { if (window.IsLoaded) redraw(); };            closeButton.Click += (s, e) => window.DialogResult = false;
-            ReinforceStraightBeamsCommand.Options quickResult = null;
             var saveSelectionButton = Button("Lưu lựa chọn hiện tại", 200);
             saveSelectionButton.IsEnabled = saveCurrent != null;
             supportPanel.Children.Add(saveSelectionButton);

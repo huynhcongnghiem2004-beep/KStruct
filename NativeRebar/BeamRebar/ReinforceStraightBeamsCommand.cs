@@ -145,6 +145,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // Creation geometry is deliberately isolated from densified UI sample
             // segments: the approved 1:6 bottom transition needs stable stations.
             [XmlIgnore] public List<BeamPreviewSection> RebarBeamSections = new List<BeamPreviewSection>();
+            [XmlIgnore] public bool PickSecondaryBeamsRequested;
+            [XmlIgnore] public List<long> SelectedSecondaryBeamIds = new List<long>();
         }
 
         private sealed class Frame
@@ -445,9 +447,34 @@ namespace SDK_HD.KStruct.NativeRebar
                         BottomElevationMm = UnitUtils.ConvertFromInternalUnits(previewFrame.HeightCenter - previewFrame.HalfHeight, UnitTypeId.Millimeters),
                         Label = "Tiết diện chưa phân đoạn"
                     });
-                Options options = BeamRebarEditorWindow.ShowQuick(data.Application.MainWindowHandle, types, hookTypes,
-                    defaults, false, null, current => SaveSettings(doc, current));
-                if (options == null) return Result.Cancelled;
+                Options options;
+                while (true)
+                {
+                    options = BeamRebarEditorWindow.ShowQuick(data.Application.MainWindowHandle, types, hookTypes,
+                        defaults, false, null, current => SaveSettings(doc, current));
+                    if (options == null) return Result.Cancelled;
+                    if (!options.PickSecondaryBeamsRequested) break;
+
+                    options.PickSecondaryBeamsRequested = false;
+                    IList<Reference> pickedSecondary;
+                    try
+                    {
+                        pickedSecondary = ui.Selection.PickObjects(ObjectType.Element, new BeamFilter(),
+                            "Chọn nhiều dầm phụ giao với dầm đang chọn, rồi nhấn Finish");
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        defaults = options;
+                        continue;
+                    }
+                    var secondaryIds = pickedSecondary.Select(reference => reference.ElementId)
+                        .Where(id => id != null && !beams.Any(beam => beam.Id == id)).Distinct().ToList();
+                    options.SelectedSecondaryBeamIds = secondaryIds.Select(id => id.Value).ToList();
+                    defaults = options;
+                    Frame selectedFrame = beamRun?.Frame ?? GetFrame(beams[0], doc);
+                    options.PreviewSupports = FindBeamPreviewSupports(doc, beams[0], selectedFrame,
+                        beams.Select(beam => beam.Id).ToList(), secondaryIds);
+                }
                 options = BeamRebarShapeSelectionWindow.AutoAssign(doc, options);
                 ValidateRequiredShapes(options);
                 string settingSaveNotice = null;
@@ -493,7 +520,8 @@ namespace SDK_HD.KStruct.NativeRebar
                                     else
                                     {
                                         options.PreviewBeamLengthMm = UnitUtils.ConvertFromInternalUnits(frame.HalfLength * 2.0, UnitTypeId.Millimeters);
-                                        options.PreviewSupports = FindBeamPreviewSupports(doc, beam, frame, new[] { beam.Id });
+                                        options.PreviewSupports = FindBeamPreviewSupports(doc, beam, frame, new[] { beam.Id },
+                                            options.SelectedSecondaryBeamIds.Select(id => new ElementId(id)).ToList());
                                     }
                                     tieCount = CreateBeamRebar(doc, beam, frame, options, beamRun == null, true);
                                 }
@@ -902,10 +930,12 @@ namespace SDK_HD.KStruct.NativeRebar
             };
         }
 
-        private static List<BeamPreviewSupport> FindBeamPreviewSupports(Document doc, FamilyInstance beam, Frame frame, IList<ElementId> selectedBeamIds)
+        private static List<BeamPreviewSupport> FindBeamPreviewSupports(Document doc, FamilyInstance beam, Frame frame,
+            IList<ElementId> selectedBeamIds, IList<ElementId> explicitSecondaryBeamIds = null)
         {
             var supports = new List<BeamPreviewSupport>();
             var selected = new HashSet<ElementId>(selectedBeamIds ?? new List<ElementId>());
+            var explicitSecondary = explicitSecondaryBeamIds == null ? null : new HashSet<ElementId>(explicitSecondaryBeamIds);
             double mainMinWidth = frame.WidthCenter - frame.HalfWidth;
             double mainMaxWidth = frame.WidthCenter + frame.HalfWidth;
             double mainMinHeight = frame.HeightCenter - frame.HalfHeight;
@@ -920,6 +950,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 bool isColumn = categoryId == (long)BuiltInCategory.OST_StructuralColumns || categoryId == (long)BuiltInCategory.OST_Columns;
                 bool isBeam = categoryId == (long)BuiltInCategory.OST_StructuralFraming;
                 if (!isColumn && !isBeam) continue;
+                if (isBeam && explicitSecondary != null && !explicitSecondary.Contains(candidate.Id)) continue;
                 if (!TryProjectBounds(candidate, frame, out BeamLocalBounds bounds)) continue;
 
                 double tol = UnitUtils.ConvertToInternalUnits(30, UnitTypeId.Millimeters);
