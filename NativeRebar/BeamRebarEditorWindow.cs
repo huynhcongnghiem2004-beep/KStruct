@@ -1949,17 +1949,23 @@ namespace SDK_HD.KStruct.NativeRebar
                 AddCanvasText(canvas, "Chưa có mặt cắt khác nhau trong phạm vi dầm.", 68, 20, Blue, 12);
                 return;
             }
+            var sectionGroups = cuts.GroupBy(marker => marker.Label, StringComparer.Ordinal)
+                .Select(group => new {
+                    Marker = group.First(),
+                    Stations = group.Select(marker => marker.Station).OrderBy(value => value).ToList()
+                }).ToList();
             // Independent horizontal gallery: cards follow their section order,
             // not the X coordinates of cutting stations in the beam elevation.
             const double cardWidth = 136;
             const double cardHeight = 220;
             const double gap = 12;
             const double margin = 12;
-            double requiredWidth = 2 * margin + cuts.Count * cardWidth + Math.Max(0, cuts.Count - 1) * gap;
+            double requiredWidth = 2 * margin + sectionGroups.Count * cardWidth + Math.Max(0, sectionGroups.Count - 1) * gap;
             canvas.Width = Math.Max(canvasWidth, requiredWidth);
-            for (int i = 0; i < cuts.Count; i++)
+            for (int i = 0; i < sectionGroups.Count; i++)
             {
-                double station = cuts[i].Station;
+                var group = sectionGroups[i];
+                double station = group.Stations[0];
                 double x = margin + i * (cardWidth + gap);
                 double y = 12;
                 var actual = (beamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>())
@@ -1981,8 +1987,9 @@ namespace SDK_HD.KStruct.NativeRebar
                 cardContent.Children.Add(new Rectangle { Width = 134, Height = 218,
                     RadiusX = 7, RadiusY = 7, Stroke = BorderBrush, StrokeThickness = 1,
                     Fill = Brushes.Transparent });
-                AddCanvasText(cardContent, cuts[i].Label, 10, 7, Blue, 11);
-                AddCanvasText(cardContent, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
+                AddCanvasText(cardContent, group.Marker.Label, 10, 7, Blue, 11);
+                AddCanvasText(cardContent, "X = " + string.Join(" / ", group.Stations.Select(value => value.ToString("0"))) + " mm",
+                    10, 23, Earth, 8);
                 var sectionDiagram = new Canvas { Width = 86, Height = 110, Background = Ivory };
                 DrawQuickSection(sectionDiagram, profile, sectionWidth, sectionHeight);
                 Canvas.SetLeft(sectionDiagram, 25); Canvas.SetTop(sectionDiagram, 36);
@@ -1990,7 +1997,12 @@ namespace SDK_HD.KStruct.NativeRebar
                 AddCanvasText(cardContent, sectionWidth.ToString("0") + " × " +
                     sectionHeight.ToString("0") + " mm", 14, 153, Blue, 10);
                 int reviewTag = 1;
-                foreach (BarRow row in profile.Where(item => item.Count > 0 && item.Key != "side").Take(3))
+                var noteRows = profile.Where(item => item.Key == "tie"
+                        ? item.Type != null
+                        : item.Count > 0 && item.Key != "side")
+                    .OrderBy(item => item.Key == "top" ? 0 : item.Key.StartsWith("bottom") ? 1 : item.Key == "tie" ? 2 : 3)
+                    .Take(4);
+                foreach (BarRow row in noteRows)
                 {
                     string reviewText = row.Key == "tie"
                         ? reviewTag + ": Đai " + ShortType(row.Type)
