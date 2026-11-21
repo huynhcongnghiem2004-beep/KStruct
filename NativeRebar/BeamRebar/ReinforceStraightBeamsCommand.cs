@@ -941,7 +941,6 @@ namespace SDK_HD.KStruct.NativeRebar
             double mainMaxWidth = frame.WidthCenter + frame.HalfWidth;
             double mainMinHeight = frame.HeightCenter - frame.HalfHeight;
             double mainMaxHeight = frame.HeightCenter + frame.HalfHeight;
-            double contactTolerance = Math.Max(UnitUtils.ConvertToInternalUnits(100, UnitTypeId.Millimeters), frame.HalfWidth * 1.5);
 
             foreach (FamilyInstance candidate in new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance))
                 .WhereElementIsNotElementType().Cast<FamilyInstance>())
@@ -965,12 +964,9 @@ namespace SDK_HD.KStruct.NativeRebar
                     Line axis = curve?.Curve as Line;
                     if (axis == null) continue;
                     double parallel = Math.Abs(axis.Direction.Normalize().DotProduct(frame.Axis));
-                    if (parallel >= 0.985)
-                    {
-                        bool joinsLeft = Math.Abs(bounds.MaxAxis + frame.HalfLength) <= contactTolerance || Math.Abs(bounds.MinAxis + frame.HalfLength) <= contactTolerance;
-                        bool joinsRight = Math.Abs(bounds.MaxAxis - frame.HalfLength) <= contactTolerance || Math.Abs(bounds.MinAxis - frame.HalfLength) <= contactTolerance;
-                        if (!joinsLeft && !joinsRight) continue;
-                    }
+                    // A secondary beam is a crossing member, not a collinear
+                    // continuation of the selected beam at an end node.
+                    if (parallel >= 0.985) continue;
                 }
 
                 double startMm = UnitUtils.ConvertFromInternalUnits(Math.Max(-frame.HalfLength, bounds.MinAxis) + frame.HalfLength, UnitTypeId.Millimeters);
@@ -992,6 +988,11 @@ namespace SDK_HD.KStruct.NativeRebar
                 });
             }
 
+            var columnSupports = supports.Where(support => support.Kind == "Cột giao").ToList();
+            supports = supports.Where(support => support.Kind == "Cột giao" ||
+                !columnSupports.Any(column =>
+                    Math.Abs((column.StartMm + column.EndMm) * 0.5 - (support.StartMm + support.EndMm) * 0.5) <=
+                        Math.Max(100, Math.Max(column.WidthMm, support.WidthMm) * 0.5))).ToList();
             foreach (BeamPreviewSupport support in supports)
                 support.AxisLabel = FindNearestGridName(doc, frame, (support.StartMm + support.EndMm) * 0.5);
             return supports.OrderBy(s => s.StartMm).ToList();
