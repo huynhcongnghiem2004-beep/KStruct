@@ -96,6 +96,23 @@ jobs:
           name: KStruct-Footing-UI
           path: ui-previews/
           if-no-files-found: warn
+      - name: Exercise and render actual beam editor with sample data
+        shell: pwsh
+        run: |
+          dotnet build tests/BeamRebarUi/BeamRebarUi.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $process = Start-Process -FilePath (Join-Path $PWD 'tests/BeamRebarUi/bin/Release/net48/BeamRebarUi.exe') -ArgumentList 'beam-ui-previews' -WorkingDirectory $PWD.Path -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path beam-ui-previews/render-error.txt) { Get-Content beam-ui-previews/render-error.txt }
+            exit $process.ExitCode
+          }
+      - name: Upload beam editor previews and interaction results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KStruct-Beam-UI
+          path: beam-ui-previews/
+          if-no-files-found: warn
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4

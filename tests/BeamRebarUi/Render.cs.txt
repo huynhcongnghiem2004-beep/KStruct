@@ -1,0 +1,196 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+using SDK_HD.KStruct.NativeRebar;
+
+internal static class Render
+{
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        string output = Path.GetFullPath(args.Length > 0 ? args[0] : "beam-ui-previews");
+        Directory.CreateDirectory(output);
+        try
+        {
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            Capture(output, 1648, 928, "beam-wide", true);
+            Capture(output, 1280, 760, "beam-medium", false);
+            Capture(output, 1024, 640, "beam-compact", false);
+            Capture(output, 960, 540, "beam-half-screen", false);
+            File.WriteAllText(Path.Combine(output, "README.txt"),
+                "Actual production WPF editor compiled with sample Revit data fixtures. " +
+                "Layout, accordion, count editing, preset/delete undo, zoom preservation and basic validation tested. " +
+                "This is NOT a Revit model or engineering validation.");
+            app.Shutdown();
+            return 0;
+        }
+        catch (Exception error)
+        {
+            File.WriteAllText(Path.Combine(output, "render-error.txt"), error.ToString());
+            return 1;
+        }
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T item) yield return item;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
+    private static Button Button(Window window, string label)
+    {
+        var button = Descendants<Button>(window).FirstOrDefault(item => Equals(item.Content, label));
+        if (button == null) throw new InvalidOperationException("Missing button: " + label);
+        return button;
+    }
+    private static void Click(Button button) =>
+        button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+    private static void Assert(bool condition, string message)
+    {
+        if (!condition) throw new InvalidOperationException(message);
+    }
+    private static void Save(Window window, string path)
+    {
+        window.UpdateLayout();
+        var image = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        image.Render(window);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using (var stream = File.Create(path)) encoder.Save(stream);
+    }
+    private static void Capture(string output, int width, int height, string name, bool exercise)
+    {
+        var types = new List<RebarBarType> {
+            new RebarBarType { Id = new ElementId { Value = 8 }, Name = "Ø8", BarNominalDiameter = 8 / 304.8 },
+            new RebarBarType { Id = new ElementId { Value = 20 }, Name = "Ø20", BarNominalDiameter = 20 / 304.8 }
+        };
+        var options = new ReinforceStraightBeamsCommand.Options {
+            TopType = types[1], BottomType = types[1], TieType = types[0],
+            TopLayer2Type = types[1], BottomLayer2Type = types[1],
+            TopCount = 4, BottomCount = 4, TopLayer2Count = 2, BottomLayer2Count = 2,
+            CoverMm = 30, LongitudinalLayerSpacingMm = 30, TieSpacingMm = 150,
+            TieEndSpacingMm = 100, TieMiddleSpacingMm = 200, TieEndZoneLengthMm = 1000,
+            UseZonedTies = true, TcvnCutoffEnabled = false,
+            PreviewBeamLengthMm = 17500, PreviewBeamWidthMm = 300, PreviewBeamHeightMm = 600,
+            PreviewSupports = new List<ReinforceStraightBeamsCommand.BeamPreviewSupport> {
+                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 0, EndMm = 300, WidthMm = 300, Kind = "Cột giao", Label = "C1", AxisLabel = "A" },
+                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 5850, EndMm = 6150, WidthMm = 300, Kind = "Cột giao", Label = "C2", AxisLabel = "B" },
+                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 11350, EndMm = 11650, WidthMm = 300, Kind = "Cột giao", Label = "C3", AxisLabel = "C" },
+                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 8500, EndMm = 9000, WidthMm = 500, HeightMm = 500, Kind = "Dầm phụ giao", Label = "Dầm phụ DP-01" },
+                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 17200, EndMm = 17500, WidthMm = 300, Kind = "Cột giao", Label = "C4", AxisLabel = "D" }
+            }
+        };
+        Exception failure = null;
+        ReinforceStraightBeamsCommand.Options saved = null;
+        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => {
+            var window = Application.Current.Windows.Cast<Window>().Single();
+            try
+            {
+                window.Width = width; window.Height = height; window.UpdateLayout();
+                var steps = Descendants<Expander>(window).Where(x => x.Header.ToString().StartsWith("1.") ||
+                    x.Header.ToString().StartsWith("2.") || x.Header.ToString().StartsWith("3.") || x.Header.ToString().StartsWith("4.")).ToList();
+                Assert(steps.Count == 4, "Four configuration steps must be accessible.");
+                foreach (string label in new[] { "Hoàn tác", "Kiểm tra", "Hủy", "Tạo cốt thép" })
+                {
+                    var button = Button(window, label);
+                    var bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
+                    Assert(bounds.Right <= window.ActualWidth && bounds.Bottom <= window.ActualHeight,
+                        name + ": action clipped: " + label);
+                }
+                steps[1].IsExpanded = true; window.UpdateLayout();
+                var pickSecondary = Descendants<Button>(window).FirstOrDefault(item =>
+                    item.Content?.ToString().IndexOf("dầm phụ", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (pickSecondary == null) throw new InvalidOperationException("Missing secondary-beam pick action.");
+                Assert(pickSecondary.ActualWidth > 0 && pickSecondary.ActualHeight > 0,
+                    "Secondary-beam pick action must be available when its workflow step is open.");
+                steps[0].IsExpanded = true; window.UpdateLayout();
+                if (exercise)
+                {
+                    var count = Descendants<ComboBox>(steps[0]).First();
+                    int initial = count.SelectedIndex;
+                    count.SelectedIndex = initial + 1;
+                    Click(Button(window, "Hoàn tác"));
+                    Assert(count.SelectedIndex == initial, "Undo must restore reinforcement count.");
+                    steps[1].IsExpanded = true; window.UpdateLayout();
+                    Assert(!steps[0].IsExpanded, "Accordion must collapse previous step.");
+                    Click(Button(window, "Lưu lựa chọn hiện tại"));
+                    string before = Signature(saved);
+                    Click(Button(window, "Bố trí gối + nhịp · 1/4–1/5"));
+                    Click(Button(window, "Hoàn tác"));
+                    Click(Button(window, "Lưu lựa chọn hiện tại"));
+                    Assert(Signature(saved) == before, "Preset must undo as one complete operation.");
+                    var layer = Descendants<ComboBox>(window).Single(x => x.DisplayMemberPath == "Caption");
+                    layer.SelectedIndex = 2;
+                    Click(Button(window, "Xóa nhóm gia cường đang chọn"));
+                    Click(Button(window, "Hoàn tác"));
+                    Click(Button(window, "Lưu lựa chọn hiện tại"));
+                    Assert(Signature(saved) == before, "Delete must undo geometry and enabled state.");
+                    Click(Button(window, "+"));
+                    var beam = Descendants<Canvas>(window).Single(x => x.Height == 380);
+                    var markers = beam.Tag as IList;
+                    Assert(markers != null && markers.Count == 12,
+                        "Each of the four spans (including the detected secondary-beam junction) must expose exactly three section markers.");
+                    var markerLabels = markers.Cast<object>().Select(item =>
+                        (string)item.GetType().GetField("Label").GetValue(item)).ToList();
+                    Assert(markerLabels.Distinct().Count() == 1 && markerLabels[0] == "MC-1",
+                        "Equal reinforcement quantities must reuse the same section name.");
+                    Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Dầm phụ"),
+                        "A secondary-beam junction must be visible in the elevation preview.");
+                    Assert(!Descendants<TextBlock>(window).Any(text =>
+                        text.Text.Contains("(trên)") || text.Text.Contains("(dưới)") || text.Text.Contains("(đai)")),
+                        "Steel notes must not be shown on the full-beam elevation review.");
+                    double zoom = beam.RenderTransform.Value.M11;
+                    window.Width -= 40; window.UpdateLayout();
+                    Assert(Math.Abs(beam.RenderTransform.Value.M11 - zoom) < 0.001, "Resizing must preserve zoom.");
+                    window.Width = width; window.UpdateLayout();
+                    Click(Button(window, "Toàn dầm"));
+                    Click(Button(window, "Kiểm tra"));
+                    window.UpdateLayout();
+                    Assert(Descendants<TextBlock>(window).Any(x => x.Text.StartsWith("Dữ liệu cơ bản hợp lệ:")),
+                        "Check button must report actual basic validation.");
+                    steps[0].IsExpanded = true; window.UpdateLayout();
+                    var cover = Descendants<TextBox>(steps[0]).First();
+                    string originalCover = cover.Text;
+                    foreach (string invalid in new[] { "abc", "0", "-1", "NaN", "Infinity" })
+                    {
+                        cover.Text = invalid;
+                        Click(Button(window, "Kiểm tra")); window.UpdateLayout();
+                        Assert(Descendants<TextBlock>(window).Any(x => x.Text.StartsWith("Lớp bảo vệ:")),
+                            "Invalid cover must show a field-specific error: " + invalid);
+                        Click(Button(window, "Tạo cốt thép"));
+                        Assert(window.IsVisible, "Invalid input must not close the editor or create reinforcement.");
+                    }
+                    cover.Text = originalCover;
+                    Click(Button(window, "Kiểm tra")); window.UpdateLayout();
+                }
+                Save(window, Path.Combine(output, name + ".png"));
+                foreach (var step in steps.Take(3))
+                {
+                    step.IsExpanded = true; window.UpdateLayout();
+                    Save(window, Path.Combine(output, name + "-step" + (steps.IndexOf(step) + 1) + ".png"));
+                }
+            }
+            catch (Exception error) { failure = error; }
+            finally { window.Close(); }
+        }));
+        BeamRebarEditorWindow.ShowQuick(IntPtr.Zero, types, new List<RebarHookType>(), options,
+            false, null, value => saved = value);
+        if (failure != null) throw failure;
+    }
+    private static string Signature(ReinforceStraightBeamsCommand.Options value) =>
+        value.TopCount + "/" + value.TopLayer2Count + "/" + value.BottomLayer2Count + "/" +
+        string.Join(";", value.DetailedBars.Select(bar => bar.Key + ":" + bar.Count + ":" + bar.StartMm + ":" + bar.EndMm)) +
+        "/" + string.Join(";", value.DeletedReinforcementRanges);
+}

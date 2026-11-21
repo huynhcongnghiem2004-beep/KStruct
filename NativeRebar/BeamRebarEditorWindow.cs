@@ -36,12 +36,13 @@ namespace SDK_HD.KStruct.NativeRebar
             public int EndPointIndex = -1;
             public double LeftRatio = 0.25;
             public double RightRatio = 0.25;
+            public BarGeometry Clone() => (BarGeometry)MemberwiseClone();
         }
 
         private sealed class BarRow
         {
             public string Key;
-            public string Caption;
+            public string Caption { get; set; }
             public int Count;
             public RebarBarType Type;
             public bool Optional;
@@ -59,6 +60,63 @@ namespace SDK_HD.KStruct.NativeRebar
             public int SelectedBarIndex;
             public bool HasMultipleIntervals;
             public bool QuickTypeChanged;
+            public BarRow Clone()
+            {
+                var copy = (BarRow)MemberwiseClone();
+                copy.Bars = Bars.Select(bar => bar.Clone()).ToList();
+                return copy;
+            }
+            public void Restore(BarRow source)
+            {
+                Key = source.Key;
+                Caption = source.Caption;
+                Count = source.Count;
+                Type = source.Type;
+                Optional = source.Optional;
+                StartMm = source.StartMm;
+                EndMm = source.EndMm;
+                Position = source.Position;
+                LeftHookMm = source.LeftHookMm;
+                RightHookMm = source.RightHookMm;
+                HookDownMm = source.HookDownMm;
+                StartPointIndex = source.StartPointIndex;
+                EndPointIndex = source.EndPointIndex;
+                LeftRatio = source.LeftRatio;
+                RightRatio = source.RightRatio;
+                SelectedBarIndex = source.SelectedBarIndex;
+                HasMultipleIntervals = source.HasMultipleIntervals;
+                QuickTypeChanged = source.QuickTypeChanged;
+                Bars = source.Bars.Select(bar => bar.Clone()).ToList();
+            }
+        }
+        private sealed class SectionMarker
+        {
+            public double Station;
+            public string Label;
+        }
+
+        private sealed class QuickEditorSnapshot
+        {
+            public List<BarRow> Rows;
+            public string[] Inputs;
+            public bool Zoned;
+            public bool Preset;
+            public List<string> Deleted;
+            public string Signature;
+            public void ComputeSignature()
+            {
+                Signature = string.Join("|", Inputs) + "/" + Zoned + "/" + Preset + "/" +
+                    string.Join(",", Deleted.OrderBy(x => x)) + "/" +
+                    string.Join(";", Rows.Select(row => string.Join(",", new object[] {
+                        row.Key, row.Count, row.Type?.Id, row.StartMm, row.EndMm, row.Position,
+                        row.LeftHookMm, row.RightHookMm, row.HookDownMm, row.HasMultipleIntervals,
+                        row.QuickTypeChanged, row.StartPointIndex, row.EndPointIndex, row.LeftRatio, row.RightRatio
+                    }) + ":" + string.Join(";", row.Bars.Select(bar => string.Join(",", new object[] {
+                        bar.Type?.Id, bar.StartMm, bar.EndMm, bar.Position, bar.LeftHookMm,
+                        bar.RightHookMm, bar.HookDownMm, bar.StartHook?.Id, bar.EndHook?.Id,
+                        bar.StartPointIndex, bar.EndPointIndex, bar.LeftRatio, bar.RightRatio
+                    })))));
+            }
         }
 
         // Shared KStruct visual identity: Navy / Earth / Ivory.
@@ -78,10 +136,10 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "Thép dầm",
-                Width = 1648,
-                Height = 928,
-                MinWidth = 1200,
-                MinHeight = 720,
+                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.65),
+                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.65),
+                MinWidth = 900,
+                MinHeight = 500,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -348,8 +406,8 @@ namespace SDK_HD.KStruct.NativeRebar
                         range.Item1.EndMm = range.Item3;
                     }
                 }
-                int columns = previewSupports.Count(s => s.Kind == "Cột giao"), framing = previewSupports.Count(s => s.Kind == "Dầm giao");
-                string junctionSummary = columns + framing == 0 ? "Chưa nhận diện giao cột/dầm" : "Giao: " + columns + " cột, " + framing + " dầm";
+                int columns = previewSupports.Count(s => s.Kind == "Cột giao"), framing = previewSupports.Count(s => s.Kind == "Dầm giao" || s.Kind == "Dầm phụ giao");
+                string junctionSummary = columns + framing == 0 ? "Chưa nhận diện giao cột/dầm phụ" : "Giao: " + columns + " cột, " + framing + " dầm phụ";
                 status.Text = beamWidthMm.ToString("0") + "×" + beamHeightMm.ToString("0") + " mm   ·   L=" + beamLengthMm.ToString("0") + " mm   ·   " + junctionSummary;
                 }
                 catch (Exception previewError)
@@ -663,8 +721,10 @@ namespace SDK_HD.KStruct.NativeRebar
             List<BarRow> rows = BuildRows(types, defaults);
             var window = new Window
             {
-                Title = titleOverride ?? "KStruct | THÉP DẦM PRO V3 | Properties + Live Preview",
-                Width = 1648, Height = 928, MinWidth = 1200, MinHeight = 720,
+                Title = titleOverride ?? "KStruct | Tạo thép dầm",
+                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.65),
+                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.65),
+                MinWidth = 900, MinHeight = 500,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -690,7 +750,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 if (spanNodes[i + 1] - spanNodes[i] > 150)
                     previewSpans.Add(Tuple.Create(spanNodes[i], spanNodes[i + 1]));
 
-            var sectionCanvas = new Canvas { MinHeight = 240, Background = Brushes.White };
+            var sectionCanvas = new Canvas { MinHeight = 200, Background = Brushes.White };
             var beamCanvas = new Canvas { MinHeight = 360, Background = Brushes.White, ClipToBounds = true };
             var uniformCanvas = new Canvas { Height = 58, Background = Brushes.White };
             var zonedCanvas = new Canvas { Height = 58, Background = Brushes.White };
@@ -705,17 +765,21 @@ namespace SDK_HD.KStruct.NativeRebar
             var zonedRadio = new RadioButton { Content = "Chia vùng", GroupName = "QuickTieMode", IsChecked = defaults == null || defaults.UseZonedTies, VerticalAlignment = VerticalAlignment.Center };
             var tieRow = rows.First(r => r.Key == "tie");
             var tieCombo = MakeTypeCombo(types, tieRow);
-            var title = new TextBlock { Text = "KSTRUCT   /   THÉP DẦM PRO V3", FontSize = 17, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            var title = new TextBlock { Text = "KSTRUCT   |   Tạo thép dầm", FontSize = 17, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            int secondaryBeamCount = previewSupports.Count(s => s.Kind == "Dầm giao" || s.Kind == "Dầm phụ giao");
             var subtitle = new TextBlock
             {
                 Text = "Dầm · " + previewSpans.Count + " nhịp · " + beamWidthMm.ToString("0") + " × " +
-                    beamHeightMm.ToString("0") + " mm · L = " + beamLengthMm.ToString("0") + " mm · Chọn thanh trên sơ đồ để sửa trực tiếp",
+                    beamHeightMm.ToString("0") + " mm · L = " + beamLengthMm.ToString("0") + " mm · " +
+                    (secondaryBeamCount > 0 ? "Dầm phụ giao: " + secondaryBeamCount : "Không có dầm phụ giao") +
+                    " · Chọn thanh trên sơ đồ để sửa trực tiếp",
                 Foreground = new SolidColorBrush(Color.FromRgb(236, 215, 196)), Margin = new Thickness(0, 3, 0, 0),
                 ToolTip = defaults?.PreviewSectionDescription
             };
 
             Action redraw = null;
             // Keep detailed section descriptions in the tooltip, not in the title bar.
+            bool groupingHistory = false;
             Action refreshLayerChoices = () => { };
             BarRow activePreviewRow = rows.First(r => r.Key == "top");
             bool syncingBarEditor = false;
@@ -802,15 +866,8 @@ namespace SDK_HD.KStruct.NativeRebar
                 Margin = new Thickness(8, 0, 6, 0),
                 ToolTip = "Khóa di chuyển hai đầu thanh; vẫn cho phép chọn thanh để xem thuộc tính."
             };
-            var barCardGrid = new Grid();
-            barCardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            barCardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
-            barCardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(78) });
-            barCardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
-            barCardGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            AddQuickCell(barCardGrid, new TextBlock { Text = "Lớp thép", FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 8) }, 0, 0, 1, 2);
-            AddQuickCell(barCardGrid, new TextBlock { Text = "Số thanh", Foreground = new SolidColorBrush(Color.FromRgb(72, 108, 169)), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 5) }, 0, 2);
-            AddQuickCell(barCardGrid, new TextBlock { Text = "Đường kính", Foreground = new SolidColorBrush(Color.FromRgb(72, 108, 169)), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 5) }, 0, 3);
+            var mainBarPanel = new StackPanel();
+            var additionalBarPanel = new StackPanel();
             // Keep the first screen focused on the four reinforcement groups shown in
             // the new beam layout. Second layers remain editable in the detailed editor.
             var quickRows = new[] { "top", "bottom", "top1", "bottom1" }.Select(k => rows.First(r => r.Key == k)).ToList();
@@ -833,10 +890,29 @@ namespace SDK_HD.KStruct.NativeRebar
             var supportInputs = new Dictionary<string, Tuple<TextBox, TextBox>>();
             var supportPanel = new StackPanel();
             var deletedRanges = new HashSet<string>(defaults?.DeletedReinforcementRanges ?? new List<string>());
+            ReinforceStraightBeamsCommand.Options quickResult = null;
             string RangeKey(BarRow row, BarGeometry bar) => row.Key + "/" +
                 (bar.StartMm / beamLengthMm).ToString("F6", System.Globalization.CultureInfo.InvariantCulture) + "/" +
                 (bar.EndMm / beamLengthMm).ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
             bool useSupportSpanPreset = false;
+            var pickSecondaryButton = Button("Chọn dầm phụ giao…", 0);
+            pickSecondaryButton.Width = double.NaN;
+            pickSecondaryButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            pickSecondaryButton.Height = 42;
+            pickSecondaryButton.Margin = new Thickness(0, 4, 0, 8);
+            pickSecondaryButton.Background = PaleNavy;
+            pickSecondaryButton.Foreground = Blue;
+            pickSecondaryButton.ToolTip = "Tạm đóng cửa sổ, pick nhiều dầm phụ giao với dầm đang chọn, rồi mở lại preview.";
+            supportPanel.Children.Add(pickSecondaryButton);
+            pickSecondaryButton.Click += (s, e) =>
+            {
+                quickResult = QuickOptions(rows, defaults, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox,
+                    endSpacingBox, middleSpacingBox, zonedRadio.IsChecked == true);
+                quickResult.DeletedReinforcementRanges = deletedRanges.ToList();
+                quickResult.PickSecondaryBeamsRequested = true;
+                quickResult.SelectedSecondaryBeamIds = defaults?.SelectedSecondaryBeamIds?.ToList() ?? new List<long>();
+                window.DialogResult = true;
+            };
             var supportSpanPresetButton = Button("Bố trí gối + nhịp · 1/4–1/5", 0);
             supportSpanPresetButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             supportSpanPresetButton.Width = double.NaN;
@@ -853,16 +929,21 @@ namespace SDK_HD.KStruct.NativeRebar
             supportPanel.Children.Add(thirdQuarterPresetButton);
             for (int i = 0; i < quickRows.Count; i++)
             {
-                BarRow row = quickRows[i]; int gridRow = i + 1;
-                barCardGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
-                AddQuickCell(barCardGrid, new TextBlock { Text = row.Caption, FontSize = 11, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(3, 0, 0, 0) }, gridRow, 0);
+                BarRow row = quickRows[i];
                 var toggle = new CheckBox { IsChecked = !row.Optional || row.Count > 0, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, IsEnabled = row.Optional };
                 rowToggles[row.Key] = toggle;
                 var count = CountCombo(Math.Max(1, row.Count)); count.Width = 62; count.HorizontalAlignment = HorizontalAlignment.Center;
                 quickCountCombos[row.Key] = count;
                 var type = MakeTypeCombo(types, row); type.Width = 140; type.HorizontalAlignment = HorizontalAlignment.Center;
                 quickTypeCombos[row.Key] = type;
-                AddQuickCell(barCardGrid, toggle, gridRow, 1); AddQuickCell(barCardGrid, count, gridRow, 2); AddQuickCell(barCardGrid, type, gridRow, 3);
+                var rowHeader = new DockPanel { Margin = new Thickness(4, 6, 4, 6) };
+                DockPanel.SetDock(toggle, Dock.Right); rowHeader.Children.Add(toggle);
+                rowHeader.Children.Add(new TextBlock { Text = row.Caption, Foreground = Blue,
+                    FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+                var rowPanel = new StackPanel { Children = {
+                    rowHeader, CompactFormRows(new object[] { "Số thanh", count, "Đường kính", type })
+                }};
+                (row.Optional ? additionalBarPanel : mainBarPanel).Children.Add(Card(rowPanel, new Thickness(6)));
                 count.IsEnabled = toggle.IsChecked == true;
                 count.SelectionChanged += (s, e) =>
                 {
@@ -884,20 +965,14 @@ namespace SDK_HD.KStruct.NativeRebar
                     if (activePreviewRow == row) syncSelectedBarEditor();
                     redraw?.Invoke();
                 };
-                toggle.Checked += (s, e) => { count.IsEnabled = true; if (row.Count <= 0) row.Count = CountValue(count); refreshLayerChoices(); redraw?.Invoke(); };
-                toggle.Unchecked += (s, e) => { count.IsEnabled = false; row.Count = 0; refreshLayerChoices(); redraw?.Invoke(); };
+                toggle.Checked += (s, e) => { if (syncingQuickControls) return; count.IsEnabled = true; if (row.Count <= 0) row.Count = CountValue(count); refreshLayerChoices(); redraw?.Invoke(); };
+                toggle.Unchecked += (s, e) => { if (syncingQuickControls) return; count.IsEnabled = false; row.Count = 0; refreshLayerChoices(); redraw?.Invoke(); };
             }
-            var barCard = Card(new StackPanel
-            {
-                Children =
-                {
-                    new TextBlock { Text = "Thép chủ & thép tăng cường", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) },
-                    barCardGrid,
-                    supportPanel,
-                    new TextBlock { Text = "Tăng cường gối tự có ở hai đầu dầm và các gối giữa. Thép tăng cường được chia theo từng nhịp.", TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(94, 112, 140)), Margin = new Thickness(2, 4, 2, 0) },
-                    new TextBlock { Text = "Chọn thanh trên sơ đồ để sửa đường kính, số lượng, phạm vi và chiều dài móc trực tiếp.", Foreground = new SolidColorBrush(Color.FromRgb(94, 112, 140)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 4, 2, 0) }
-                }
-            }, new Thickness(12));
+            additionalBarPanel.Children.Add(supportPanel);
+            additionalBarPanel.Children.Add(new TextBlock {
+                Text = "Bố trí gối và nhịp theo mẫu, sau đó chọn từng nhóm trên sơ đồ để chỉnh.",
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(8)
+            });
 
             var tieGrid = new Grid();
             tieGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -919,9 +994,10 @@ namespace SDK_HD.KStruct.NativeRebar
             endSpacingBox.Width = middleSpacingBox.Width = zoneLengthBox.Width = 78;
             var zoneFields = new Grid { Margin = new Thickness(4, 5, 0, 0) };
             for (int i = 0; i < 3; i++) zoneFields.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var endSpacingPanel = new StackPanel { Children = { new TextBlock { Text = "Bước đầu (mm)" }, endSpacingBox } };
-            var middleSpacingPanel = new StackPanel { Children = { new TextBlock { Text = "Bước giữa (mm)" }, middleSpacingBox } };
-            var zoneLengthPanel = new StackPanel { Children = { new TextBlock { Text = "Vùng đầu (mm)" }, zoneLengthBox } };
+            var endSpacingPanel = new StackPanel { Children = { new TextBlock { Text = "Bước đầu\n(mm)", TextWrapping = TextWrapping.Wrap }, endSpacingBox } };
+            var middleSpacingPanel = new StackPanel { Children = { new TextBlock { Text = "Bước giữa\n(mm)", TextWrapping = TextWrapping.Wrap }, middleSpacingBox } };
+            var zoneLengthPanel = new StackPanel { Children = { new TextBlock { Text = "Vùng đầu\n(mm)", TextWrapping = TextWrapping.Wrap }, zoneLengthBox } };
+            endSpacingBox.Width = middleSpacingBox.Width = zoneLengthBox.Width = double.NaN;
             Grid.SetColumn(endSpacingPanel, 0); zoneFields.Children.Add(endSpacingPanel);
             Grid.SetColumn(middleSpacingPanel, 1); zoneFields.Children.Add(middleSpacingPanel);
             Grid.SetColumn(zoneLengthPanel, 2); zoneFields.Children.Add(zoneLengthPanel);
@@ -934,42 +1010,67 @@ namespace SDK_HD.KStruct.NativeRebar
             AddQuickCell(tieGrid, uniformFields, 3, 0, 1, 2);
             var tieCard = Card(new StackPanel
             {
-                Children = { new TextBlock { Text = "Thép đai", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) }, tieGrid }
+                Children = {
+                    new TextBlock { Text = "Thép đai", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) },
+                    new TextBlock { Text = "Giao dầm phụ: dầm chính dùng vùng b + 2h; dầm phụ dùng đoạn h/3. Bước theo vùng đầu đai, số lượng cần kiểm tra theo phản lực thiết kế.",
+                        TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(2, 0, 2, 8) },
+                    tieGrid
+                }
             }, new Thickness(12));
             var commonCard = Card(new StackPanel
             {
                 Children =
                 {
                     new TextBlock { Text = "Thông số chung", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) },
-                    FormRows(new object[] { "Lớp bảo vệ (mm)", coverBox, "Khoảng cách giữa lớp thép (mm)", layerGapBox })
+                    CompactFormRows(new object[] { "Bảo vệ (mm)", coverBox, "Giữa lớp (mm)", layerGapBox })
                 }
             }, new Thickness(12));
-            var leftColumn = new StackPanel { Children = { barCard, tieCard, commonCard } };
+            Expander Step(string caption, UIElement content, bool expanded = false) => new Expander {
+                Header = caption, Content = content, IsExpanded = expanded, Foreground = Blue,
+                Background = Ivory, Margin = new Thickness(4), Padding = new Thickness(4),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
+            };
+            mainBarPanel.Children.Add(commonCard);
+            var mainStep = Step("1. Thép chủ", mainBarPanel, true);
+            var additionalStep = Step("2. Thép tăng cường", additionalBarPanel);
+            var tiesStep = Step("3. Thép đai", tieCard);
+            var validationText = new TextBlock { Text = "Chưa kiểm tra dữ liệu nhập.",
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(8), Foreground = Blue };
+            var validationStep = Step("4. Kiểm tra", validationText);
+            var steps = new[] { mainStep, additionalStep, tiesStep, validationStep };
+            foreach (var step in steps)
+                step.Expanded += (sender, args) => {
+                    if (!ReferenceEquals(args.OriginalSource, step)) return;
+                    foreach (var other in steps) if (other != step) other.IsExpanded = false;
+                };
+            var leftColumn = new StackPanel { Children = {
+                new TextBlock { Text = "CẤU HÌNH CỐT THÉP", Foreground = Blue,
+                    FontWeight = FontWeights.Bold, Margin = new Thickness(12) },
+                mainStep, additionalStep, tiesStep, validationStep
+            }};
             var leftScroll = new ScrollViewer { Content = leftColumn, Background = Page,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
 
-            var selectedDiagramHint = new Button { Content = "Chọn thanh trên sơ đồ để sửa", Height = 34, Margin = new Thickness(5), IsHitTestVisible = false,
-                Background = new SolidColorBrush(Color.FromRgb(235, 242, 255)), Foreground = Blue, BorderBrush = new SolidColorBrush(Color.FromRgb(203, 219, 255)), FontWeight = FontWeights.SemiBold };
+            var selectedDiagramHint = new TextBlock { Text = "Chọn thanh trên sơ đồ để sửa",
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(5), Foreground = Blue };
             var selectedBarInfoCard = Card(new StackPanel
             {
                 Children =
                 {
                     selectedBarTitle,
-                    QuickSelectedBarGrid(new object[]
+                    CompactFormRows(new object[]
                     {
                         "Đường kính", selectedTypeCombo,
                         "Số thanh", selectedCountCombo,
                         "Điểm bắt đầu (mm)", selectedStartBox,
                         "Điểm kết thúc (mm)", selectedEndBox,
                         selectedHookDownLabel, selectedHookDownBox,
-                        "", new StackPanel { Orientation = Orientation.Horizontal, Children = {
-                            inlineDeleteAdditionalButton, selectedDiagramHint } }
+                        "", new StackPanel { Children = { inlineDeleteAdditionalButton, selectedDiagramHint } }
                     })
                 }
             }, new Thickness(8));
-            // Combined elevation + aligned section gallery. One common horizontal
-            // coordinate system ensures section 1-1, 2-2 ... sit below their stations.
+            // Keep the elevation responsive; only the section gallery scrolls horizontally.
             beamCanvas.Height = 380;
             var combinedPreview = new StackPanel { Background = Brushes.White };
             combinedPreview.Children.Add(beamCanvas);
@@ -981,24 +1082,27 @@ namespace SDK_HD.KStruct.NativeRebar
                     Foreground = Blue, FontWeight = FontWeights.Bold, FontSize = 13 }
             };
             combinedPreview.Children.Add(sectionHeading);
-            combinedPreview.Children.Add(sectionCanvas);
+            var sectionScroll = new ScrollViewer { Content = sectionCanvas,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            combinedPreview.Children.Add(sectionScroll);
             var combinedScroll = new ScrollViewer
             {
                 Content = combinedPreview, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
             var beamTab = new TabItem { Header = "Toàn nhịp + Mặt cắt", Content = combinedScroll };
             var previewTabs = new TabControl { Items = { beamTab }, Margin = new Thickness(4) };
-            var previewHeader = new DockPanel { Margin = new Thickness(8, 4, 8, 2) };
-            var previewTitle = new TextBlock { Text = "SƠ ĐỒ THÉP  /  LIVE PREVIEW", FontSize = 15,
-                FontWeight = FontWeights.Bold, Foreground = Blue, VerticalAlignment = VerticalAlignment.Center };
-            DockPanel.SetDock(previewTitle, Dock.Left); previewHeader.Children.Add(previewTitle);
-            var spanTools = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            spanTools.Children.Add(new TextBlock { Text = "Phạm vi xem", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) });
-            spanTools.Children.Add(spanSelector); spanTools.Children.Add(barLayerSelector);
-            spanTools.Children.Add(fitAllButton); spanTools.Children.Add(zoomOutButton); spanTools.Children.Add(zoomInButton); spanTools.Children.Add(fitSpanButton);
-            spanTools.Children.Add(lockDiagramEdit);
-            DockPanel.SetDock(spanTools, Dock.Right); previewHeader.Children.Add(spanTools);
+            var spanTools = new WrapPanel { Margin = new Thickness(4) };
+            spanTools.Children.Add(fitAllButton); spanTools.Children.Add(spanSelector);
+            spanTools.Children.Add(zoomOutButton); spanTools.Children.Add(zoomInButton);
+            spanTools.Children.Add(fitSpanButton); spanTools.Children.Add(lockDiagramEdit);
+            var layerTools = new DockPanel { Margin = new Thickness(8, 0, 8, 4) };
+            layerTools.Children.Add(new TextBlock { Text = "Nhóm thép", Foreground = Blue,
+                VerticalAlignment = VerticalAlignment.Center });
+            barLayerSelector.Width = double.NaN; barLayerSelector.MinWidth = 120;
+            layerTools.Children.Add(barLayerSelector);
+            var previewHeader = new StackPanel { Children = { spanTools, layerTools } };
             var previewGrid = new Grid { Background = PaleNavy, ClipToBounds = true };
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -1010,7 +1114,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 0, 0, 12) });
             inspectorHeader.Children.Add(new TextBlock
             {
-                Text = "PROPERTIES  /  THANH ĐANG CHỌN",
+                Text = "THANH ĐANG CHỌN",
                 FontSize = 15, FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush(Color.FromRgb(23, 48, 71))
             });
@@ -1021,87 +1125,34 @@ namespace SDK_HD.KStruct.NativeRebar
                 Foreground = Brushes.SlateGray,
                 Margin = new Thickness(0, 5, 0, 0)
             });
-            // This is an informative checklist, never a fabricated pass result.
-            // Shape/Hook compatibility and runtime host validations run in the command
-            // after this editor; the overview must not display premature green ticks.
-            var verificationCard = Card(new StackPanel
-            {
-                Children =
-                {
-                    new TextBlock { Text = "KIỂM TRA TRƯỚC KHI TẠO",
-                        Foreground = Blue, FontWeight = FontWeights.Bold, FontSize = 13,
-                        Margin = new Thickness(2, 0, 2, 8) },
-                    new TextBlock { Text = "Solid và cover: kiểm tra khi tạo thép.",
-                        Foreground = Blue, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 5, 2, 5) },
-                    new TextBlock { Text = "Shape / Hook: xác nhận ở bước chọn hình thép.",
-                        Foreground = Blue, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 5, 2, 5) },
-                    new TextBlock { Text = "Neo và khoảng hở: kiểm tra theo từng dầm.",
-                        Foreground = Blue, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 5, 2, 5) },
-                    new Border { Background = PaleNavy, CornerRadius = new CornerRadius(6),
-                        Padding = new Thickness(8), Margin = new Thickness(0, 8, 0, 0),
-                        Child = new TextBlock
-                        {
-                            Text = "Chưa có kết quả nghiệm thu. Không tạo thép nếu kiểm tra hình học thất bại.",
-                            TextWrapping = TextWrapping.Wrap, Foreground = Blue
-                        }
-                    }
-                }
-            }, new Thickness(12));
-            // Separate Properties and Validation into two independently scrollable Grid rows.
-            // The 344:352 proportions follow the approved WPF mockup without clipping
-            // controls on smaller windows or at 125% / 150% display scaling.
-            var inspectorContent = new StackPanel { Children = { inspectorHeader, selectedBarInfoCard } };
-            var inspectorScroll = new ScrollViewer
-            {
-                Content = inspectorContent,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Margin = new Thickness(5, 0, 9, 3)
+            var verificationSummary = new TextBlock {
+                Text = "Chưa kiểm tra dữ liệu nhập.", TextWrapping = TextWrapping.Wrap,
+                Foreground = Blue, Margin = new Thickness(6)
             };
-            var verificationScroll = new ScrollViewer
-            {
-                Content = verificationCard,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Margin = new Thickness(5, 6, 9, 3)
+            var verificationDetails = new StackPanel { Children = {
+                verificationSummary,
+                new TextBlock { Text = "Shape, Hook và hình học Revit sẽ được xác nhận khi tạo. Kiểm tra dữ liệu nhập không thay thế kiểm tra thiết kế.",
+                    TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(6) }
+            }};
+            var verificationCard = Step("Kiểm tra nhanh", verificationDetails);
+            var inspectorContent = new StackPanel { Children = {
+                inspectorHeader, selectedBarInfoCard, verificationCard
+            }};
+            var inspectorScroll = new ScrollViewer {
+                Content = inspectorContent, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new Thickness(4)
             };
-            var inspectorGrid = new Grid();
-            inspectorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 120 });
-            inspectorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 120 });
-            Grid.SetRow(inspectorScroll, 0);
-            Grid.SetRow(verificationScroll, 1);
-            inspectorGrid.Children.Add(inspectorScroll);
-            inspectorGrid.Children.Add(verificationScroll);
-            var inspectorBorder = new Border
-            {
-                Background = Ivory,
-                BorderBrush = Earth, BorderThickness = new Thickness(2, 0, 0, 0),
-                Child = inspectorGrid
-            };
-            // Keep sections directly under the full-span diagram in the same
-            // ScrollViewer and coordinate system. No separate section panel.
             var main = new Grid();
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 260 });
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(366), MinWidth = 320 });
-            main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(352, GridUnitType.Star), MinHeight = 180 });
-            main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(344, GridUnitType.Star), MinHeight = 180 });
-            Grid.SetColumn(leftScroll, 0); Grid.SetRowSpan(leftScroll, 2); main.Children.Add(leftScroll);
-            Grid.SetColumn(previewGrid, 1); Grid.SetRow(previewGrid, 0);
-            Grid.SetRowSpan(previewGrid, 2); main.Children.Add(previewGrid);
-            // Properties and Validation are separate panels, not two scroll regions
-            // inside one shared right-hand card.
-            inspectorBorder.Child = null;
-            inspectorGrid.Children.Remove(inspectorScroll);
-            inspectorGrid.Children.Remove(verificationScroll);
-            Grid.SetColumn(inspectorScroll, 2); Grid.SetRow(inspectorScroll, 0);
-            Grid.SetColumn(verificationScroll, 2); Grid.SetRow(verificationScroll, 1);
-            main.Children.Add(inspectorScroll);
-            main.Children.Add(verificationScroll);
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(280), MinWidth = 260 });
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 380 });
+            main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300), MinWidth = 280 });
+            Grid.SetColumn(leftScroll, 0); main.Children.Add(leftScroll);
+            Grid.SetColumn(previewGrid, 1); main.Children.Add(previewGrid);
+            Grid.SetColumn(inspectorScroll, 2); main.Children.Add(inspectorScroll);
 
             var footer = new DockPanel { Margin = new Thickness(0),
                 Background = PaleNavy, LastChildFill = false };
-            var footerStatus = new TextBlock { Text = "Chọn nhịp để phóng to · kéo tay nắm ở đầu thanh để chỉnh chiều dài neo.", Foreground = new SolidColorBrush(Color.FromRgb(72, 96, 134)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+            var footerStatus = new TextBlock { Text = "Chọn nhóm thép hoặc kéo đầu thanh để chỉnh.", TextTrimming = TextTrimming.CharacterEllipsis, Foreground = new SolidColorBrush(Color.FromRgb(72, 96, 134)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
             DockPanel.SetDock(footerStatus, Dock.Left); footer.Children.Add(footerStatus);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             var closeButton = Button("Hủy", 82);
@@ -1110,61 +1161,17 @@ namespace SDK_HD.KStruct.NativeRebar
             createButton.Background = Earth; createButton.Foreground = Brushes.White;
             createButton.BorderBrush = Earth; createButton.FontWeight = FontWeights.Bold;
             createButton.Height = 38;
-            actions.Children.Add(detailsButton); actions.Children.Add(closeButton); actions.Children.Add(createButton);
+            var undoButton = Button("Hoàn tác", 90);
+            undoButton.IsEnabled = false;
+            undoButton.ToolTip = "Hoàn tác thay đổi gần nhất trong cửa sổ cấu hình.";
+            var checkButton = Button("Kiểm tra", 90);
+            detailsButton.Content = "Nâng cao…"; detailsButton.Width = 100;
+            actions.Children.Add(undoButton); actions.Children.Add(detailsButton);
+            actions.Children.Add(checkButton); actions.Children.Add(closeButton); actions.Children.Add(createButton);
             DockPanel.SetDock(actions, Dock.Right); footer.Children.Add(actions);
-            // Left action rail mirrors the approved mockup without replacing existing controls.
-            // Each navigation button targets the actual WPF view or action.
-            Button RailButton(string caption, string hint)
-            {
-                var button = Button(caption, 96);
-                button.Height = 48; button.Margin = new Thickness(8, 5, 8, 5);
-                button.FontSize = 10;
-                button.Content = new TextBlock
-                {
-                    Text = caption, TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                button.Background = new SolidColorBrush(Color.FromRgb(32, 66, 89));
-                button.Foreground = Brushes.White;
-                button.BorderBrush = new SolidColorBrush(Color.FromRgb(75, 98, 108));
-                button.ToolTip = hint;
-                button.FontWeight = FontWeights.SemiBold;
-                return button;
-            }
-            var configNav = RailButton("Cấu hình thép", "Đến các thông số thép");
-            var sectionNav = RailButton("Mặt cắt & Shape", "Xem mặt cắt thép");
-            var checkNav = RailButton("Kiểm tra", "Xem checklist trước khi tạo");
-            var createNav = RailButton("Tạo cốt thép", "Sử dụng cùng nút tạo thép hiện tại");
-            var navRail = new StackPanel { Background = Blue, Margin = new Thickness(0) };
-            navRail.Children.Add(new TextBlock
-            {
-                Text = "KSTRUCT", Foreground = Brushes.White, FontSize = 13,
-                FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center,
-                Margin = new Thickness(3, 15, 3, 18)
-            });
-            navRail.Children.Add(configNav);
-            navRail.Children.Add(sectionNav);
-            navRail.Children.Add(checkNav);
-            navRail.Children.Add(createNav);
-            configNav.Click += (sender, args) =>
-            {
-                leftScroll.ScrollToTop();
-                previewTabs.SelectedItem = beamTab;
-            };
-            sectionNav.Click += (sender, args) =>
-            {
-                previewTabs.SelectedItem = beamTab;
-                combinedScroll.ScrollToEnd();
-            };
-            checkNav.Click += (sender, args) => verificationScroll.ScrollToTop();
-            createNav.Click += (sender, args) =>
-                createButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-            var contentColumns = new Grid();
-            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
-            contentColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            Grid.SetColumn(navRail, 0); contentColumns.Children.Add(navRail);
-            Grid.SetColumn(main, 1); contentColumns.Children.Add(main);
+            // Reserve action space first; status yields on narrow windows.
+            footer.Children.Remove(footerStatus);
+            footer.LastChildFill = true; footer.Children.Add(footerStatus);
             var root = new DockPanel { Background = Page };
             // Keep the header compact: the beam section description can be very long.
             subtitle.FontSize = 10;
@@ -1174,9 +1181,14 @@ namespace SDK_HD.KStruct.NativeRebar
             var titleBand = new Border { Background = Blue, BorderBrush = Earth,
                 BorderThickness = new Thickness(0, 0, 0, 2), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
-            root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(contentColumns);
-            // Match the approved 1648 × 928 DIP mockup; retain scrollable editing panels.
-            window.Width = 1648; window.Height = 928; window.MinWidth = 1200; window.MinHeight = 720;
+            root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(main);
+            // Open at 1.3× the previous half-screen size, so a 1920 × 1080 monitor
+            // starts near 1248 × 676 (taskbar/work-area dependent);
+            // the user can still enlarge it with the resize grip when more preview space is needed.
+            window.Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.65);
+            window.Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.65);
+            window.MinWidth = Math.Min(900, SystemParameters.WorkArea.Width);
+            window.MinHeight = Math.Min(500, SystemParameters.WorkArea.Height);
             window.Content = root; new WindowInteropHelper(window).Owner = owner;
             bool refreshingLayerChoices = false;
             refreshLayerChoices = () =>
@@ -1230,7 +1242,7 @@ namespace SDK_HD.KStruct.NativeRebar
             void ActiveBarHandles(out double startX, out double endX, out double y, out BarGeometry bar)
             {
                 bar = CurrentGeometry(activePreviewRow);
-                double width = Math.Max(500, beamCanvas.ActualWidth), height = Math.Max(360, beamCanvas.ActualHeight);
+                double width = Math.Max(300, beamCanvas.ActualWidth), height = Math.Max(360, beamCanvas.ActualHeight);
                 double left = 68, right = width - 68, top = Math.Max(100, height * 0.30);
                 double bodyHeight = Math.Max(64, Math.Min(104, height * 0.23));
                 double bottom = top + bodyHeight;
@@ -1247,7 +1259,7 @@ namespace SDK_HD.KStruct.NativeRebar
             }
             bool TrySelectBarAt(Point point)
             {
-                double width = Math.Max(500, beamCanvas.ActualWidth), height = Math.Max(360, beamCanvas.ActualHeight);
+                double width = Math.Max(300, beamCanvas.ActualWidth), height = Math.Max(360, beamCanvas.ActualHeight);
                 double left = 68, right = width - 68, top = Math.Max(100, height * 0.30);
                 double bodyHeight = Math.Max(64, Math.Min(104, height * 0.23)), bottom = top + bodyHeight;
                 double scale = (right - left) / Math.Max(1, beamLengthMm);
@@ -1294,8 +1306,11 @@ namespace SDK_HD.KStruct.NativeRebar
                 footerStatus.Text = activePreviewRow.Caption + " · thanh " + (bestIndex + 1) + " đang chọn.";
                 return true;
             }
+            Action recordHistory = () => { };
+            bool restoringHistory = false;
             redraw = () =>
             {
+                if (restoringHistory) return;
                 bool zoned = zonedRadio.IsChecked == true;
                 DrawQuickTies(uniformCanvas, zonedCanvas, zoned, Number(endSpacingBox.Text, 100), Number(middleSpacingBox.Text, 200), Number(zoneLengthBox.Text, 1000), Number(tieSpacingBox.Text, 150));
                 zoneFields.IsEnabled = zoned; uniformFields.IsEnabled = !zoned;
@@ -1306,8 +1321,9 @@ namespace SDK_HD.KStruct.NativeRebar
                     Number(coverBox.Text, defaults?.CoverMm > 0 ? defaults.CoverMm : 30),
                     defaults?.PreviewBeamSections);
                 // Both previews are recomputed from the same edited bar geometry.
-                DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<double>,
+                DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<SectionMarker>,
                     beamLengthMm, beamWidthMm, beamHeightMm, defaults?.PreviewBeamSections);
+                recordHistory();
             };
             // Only redraw on meaningful width changes; labels and cuts share
             // the 68px beam margins and must respond to resizing together.
@@ -1326,6 +1342,7 @@ namespace SDK_HD.KStruct.NativeRebar
             Action deleteSelectedAdditional = () =>
             {
                 if (!activePreviewRow.Optional || activePreviewRow.Key == "tie" || activePreviewRow.Key == "side") return;
+                groupingHistory = true;
                 deletedRanges.Add(RangeKey(activePreviewRow, CurrentGeometry(activePreviewRow)));
                 if (activePreviewRow.HasMultipleIntervals && activePreviewRow.Bars.Count > 1)
                 {
@@ -1342,6 +1359,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 }
                 refreshLayerChoices();
                 syncSelectedBarEditor();
+                groupingHistory = false;
                 redraw();
             };
             deleteAdditionalButton.Click += (s, e) => deleteSelectedAdditional();
@@ -1459,6 +1477,23 @@ namespace SDK_HD.KStruct.NativeRebar
             beamCanvas.MouseLeftButtonDown += (s, e) =>
             {
                 Point point = e.GetPosition(beamCanvas);
+                Point badgePoint = point;
+                if (beamCanvas.RenderTransform is MatrixTransform matrixTransform &&
+                    Math.Abs(matrixTransform.Matrix.M11) > 1e-6 && Math.Abs(matrixTransform.Matrix.M11 - 1) > 1e-6)
+                    badgePoint = matrixTransform.Inverse.Transform(point);
+                if (badgePoint.Y >= 2 && badgePoint.Y <= 32)
+                {
+                    double width = Math.Max(300, beamCanvas.ActualWidth);
+                    double mm = Math.Max(0, Math.Min(beamLengthMm,
+                        (badgePoint.X - 68) / Math.Max(1, width - 136) * beamLengthMm));
+                    int clickedSpan = previewSpans.FindIndex(span => mm >= span.Item1 && mm <= span.Item2);
+                    if (clickedSpan >= 0)
+                    {
+                        spanSelector.SelectedIndex = clickedSpan + 1;
+                        e.Handled = true;
+                        return;
+                    }
+                }
                 if (lockDiagramEdit.IsChecked == true)
                 {
                     // A locked diagram is read-only but remains selectable and pannable.
@@ -1493,7 +1528,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 if (draggingStart || draggingEnd)
                 {
                     ActiveBarHandles(out double oldStartX, out double oldEndX, out double handleY, out BarGeometry selectedBar);
-                    double width = Math.Max(500, beamCanvas.ActualWidth), left = 68, right = width - 68;
+                    double width = Math.Max(300, beamCanvas.ActualWidth), left = 68, right = width - 68;
                     double mm = Math.Max(0, Math.Min(beamLengthMm, (point.X - left) / Math.Max(1, right - left) * beamLengthMm));
                     if (draggingStart) selectedBar.StartMm = Math.Min(mm, selectedBar.EndMm - 25);
                     else selectedBar.EndMm = Math.Max(mm, selectedBar.StartMm + 25);
@@ -1532,15 +1567,15 @@ namespace SDK_HD.KStruct.NativeRebar
             };
             foreach (TextBox field in new[] { tieSpacingBox, zoneLengthBox, endSpacingBox, middleSpacingBox, coverBox, layerGapBox })
             { field.TextChanged += (s, e) => redraw(); }
-window.Loaded += (s, e) => { redraw(); FitDiagram(spanSelector.SelectedIndex > 0); };
-            window.SizeChanged += (s, e) => { redraw(); FitDiagram(spanSelector.SelectedIndex > 0); };
+            window.Loaded += (s, e) => { redraw(); FitDiagram(spanSelector.SelectedIndex > 0); };
+            window.SizeChanged += (s, e) => { redraw(); ApplyDiagramTransform(); };
             previewTabs.SelectionChanged += (s, e) => { if (window.IsLoaded) redraw(); };            closeButton.Click += (s, e) => window.DialogResult = false;
-            ReinforceStraightBeamsCommand.Options quickResult = null;
             var saveSelectionButton = Button("Lưu lựa chọn hiện tại", 200);
             saveSelectionButton.IsEnabled = saveCurrent != null;
             supportPanel.Children.Add(saveSelectionButton);
             saveSelectionButton.Click += (s, e) =>
             {
+                if (!CheckInputs()) return;
                 var current = QuickOptions(rows, defaults, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox,
                     endSpacingBox, middleSpacingBox, zonedRadio.IsChecked == true);
                 current.DeletedReinforcementRanges = deletedRanges.ToList();
@@ -1549,7 +1584,7 @@ window.Loaded += (s, e) => { redraw(); FitDiagram(spanSelector.SelectedIndex > 0
             };
             createButton.Click += (s, e) =>
             {
-if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, endSpacingBox, middleSpacingBox, zonedRadio.IsChecked == true, window)) return;
+                if (!CheckInputs()) return;
                 quickResult = QuickOptions(rows, defaults, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, endSpacingBox, middleSpacingBox, zonedRadio.IsChecked == true);
                 quickResult.DeletedReinforcementRanges = deletedRanges.ToList();
                 foreach (var entry in supportInputs)
@@ -1589,7 +1624,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 if (hasReinforcement && quickResult.TcvnCutoffEnabled &&
                     (quickResult.TcvnConcreteRbtMpa <= 0 || quickResult.TcvnSteelRsMpa <= 0 || quickResult.TcvnBondEta1 <= 0 || quickResult.TcvnAreaRatio <= 0 || quickResult.TcvnAlpha <= 0))
                 {
-                    MessageBox.Show(window, "Thép gia cường sẽ được chia tại ranh giới nhịp. Để kéo dài neo TCVN, hãy vào Chỉnh chi tiết > TCVN và nhập đủ thông số; hoặc tắt chế độ kéo dài neo TCVN.", "KStruct - Chia thép gia cường", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(window, "Thép gia cường sẽ được chia tại ranh giới nhịp. Để kéo dài neo TCVN, hãy vào Nâng cao > TCVN và nhập đủ thông số; hoặc tắt chế độ kéo dài neo TCVN.", "KStruct - Chia thép gia cường", MessageBoxButton.OK, MessageBoxImage.Warning);
                     quickResult = null;
                     return;
                 }
@@ -1597,6 +1632,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             };
             Action<int, int> applySupportPreset = (supportDivisor, spanDivisor) =>
             {
+                groupingHistory = true;
                 foreach (string key in new[] { "top1", "bottom1" })
                 {
                     BarRow row = rows.First(r => r.Key == key);
@@ -1615,6 +1651,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 }
                 refreshLayerChoices();
                 syncSelectedBarEditor();
+                groupingHistory = false;
                 redraw?.Invoke();
                 footerStatus.Text = "Đã bố trí gối 1/" + supportDivisor + " và nhịp 1/" + spanDivisor + ", giữ số thanh và đường kính đã chọn.";
             };
@@ -1629,23 +1666,107 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 var detailed = Show(owner, types, hookTypes, current, settingsOnly, titleOverride);
                 if (detailed != null) { quickResult = detailed; window.DialogResult = true; }
             };
+            var historyInputs = new[] { coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, endSpacingBox, middleSpacingBox };
+            QuickEditorSnapshot Snapshot()
+            {
+                var snapshot = new QuickEditorSnapshot {
+                    Rows = rows.Select(row => row.Clone()).ToList(),
+                    Inputs = historyInputs.Select(field => field.Text).ToArray(),
+                    Zoned = zonedRadio.IsChecked == true, Preset = useSupportSpanPreset,
+                    Deleted = deletedRanges.ToList()
+                };
+                snapshot.ComputeSignature();
+                return snapshot;
+            }
+            var history = new List<QuickEditorSnapshot> { Snapshot() };
+            recordHistory = () => {
+                if (restoringHistory || groupingHistory || draggingStart || draggingEnd) return;
+                var snapshot = Snapshot();
+                if (snapshot.Signature == history[history.Count - 1].Signature) return;
+                history.Add(snapshot);
+                if (history.Count > 100) history.RemoveAt(0);
+                undoButton.IsEnabled = history.Count > 1;
+                verificationSummary.Text = validationText.Text = "Dữ liệu đã thay đổi — bấm Kiểm tra.";
+            };
+            beamCanvas.MouseLeftButtonUp += (sender, args) => recordHistory();
+            beamCanvas.LostMouseCapture += (sender, args) => recordHistory();
+            undoButton.Click += (sender, args) => {
+                if (history.Count < 2) return;
+                history.RemoveAt(history.Count - 1);
+                var snapshot = history[history.Count - 1];
+                restoringHistory = syncingQuickControls = syncingBarEditor = true;
+                try
+                {
+                    foreach (var row in rows) row.Restore(snapshot.Rows.First(saved => saved.Key == row.Key));
+                    for (int index = 0; index < historyInputs.Length; index++)
+                        historyInputs[index].Text = snapshot.Inputs[index];
+                    zonedRadio.IsChecked = snapshot.Zoned; uniformRadio.IsChecked = !snapshot.Zoned;
+                    useSupportSpanPreset = snapshot.Preset;
+                    deletedRanges.Clear(); foreach (var key in snapshot.Deleted) deletedRanges.Add(key);
+                    foreach (var entry in rowToggles) {
+                        bool enabled = rows.First(row => row.Key == entry.Key).Count > 0;
+                        entry.Value.IsChecked = enabled;
+                        quickCountCombos[entry.Key].IsEnabled = enabled;
+                    }
+                    tieCombo.SelectedIndex = types.ToList().FindIndex(type => type.Id == tieRow.Type?.Id);
+                    SyncQuickControls(); refreshLayerChoices(); syncSelectedBarEditor();
+                }
+                finally { restoringHistory = syncingQuickControls = syncingBarEditor = false; }
+                redraw();
+                undoButton.IsEnabled = history.Count > 1;
+                verificationSummary.Text = validationText.Text = "Dữ liệu đã thay đổi — bấm Kiểm tra.";
+                footerStatus.Text = "Đã hoàn tác thay đổi cấu hình.";
+            };
+            bool CheckInputs()
+            {
+                var errors = new List<string>();
+                void Field(TextBox field, string name, double minimum, double maximum, bool inclusiveMinimum)
+                {
+                    bool good = TryNumber(field.Text, out double value) && !double.IsNaN(value) && !double.IsInfinity(value) &&
+                        (inclusiveMinimum ? value >= minimum : value > minimum) && value <= maximum;
+                    field.BorderBrush = good ? BorderBrush : Brushes.Firebrick;
+                    if (!good) errors.Add(name + ": nhập số " + (inclusiveMinimum ? "≥ " : "> ") + minimum.ToString("0.##") +
+                        (maximum < double.MaxValue ? " và ≤ " + maximum.ToString("0.##") : "") + " mm.");
+                }
+                Field(coverBox, "Lớp bảo vệ", 0, double.MaxValue, false);
+                Field(layerGapBox, "Khoảng cách giữa lớp", 0, double.MaxValue, false);
+                if (zonedRadio.IsChecked == true)
+                {
+                    Field(zoneLengthBox, "Chiều dài vùng đầu", 0, double.MaxValue, false);
+                    Field(endSpacingBox, "Bước đai đầu", 0, double.MaxValue, false);
+                    Field(middleSpacingBox, "Bước đai giữa", 0, double.MaxValue, false);
+                }
+                else Field(tieSpacingBox, "Bước đai", 0, double.MaxValue, false);
+                Field(selectedStartBox, "Điểm bắt đầu", 0, beamLengthMm, true);
+                Field(selectedEndBox, "Điểm kết thúc", 0, beamLengthMm, false);
+                Field(selectedHookDownBox, "Móc xuống", 0, double.MaxValue, true);
+                if (TryNumber(selectedStartBox.Text, out double start) && TryNumber(selectedEndBox.Text, out double end) && end <= start)
+                    errors.Add("Điểm kết thúc phải lớn hơn điểm bắt đầu.");
+                if (rows.Any(row => (row.Count > 0 || row.Key == "tie") && row.Type == null))
+                    errors.Add("Chọn loại thép cho các nhóm đang bật và thép đai.");
+                if (rows.First(row => row.Key == "top").Count < 1 || rows.First(row => row.Key == "bottom").Count < 1)
+                    errors.Add("Thép chủ trên và dưới phải có ít nhất một thanh.");
+                bool valid = errors.Count == 0;
+                verificationSummary.Text = validationText.Text = valid
+                    ? "Dữ liệu cơ bản hợp lệ: số thanh, loại thép, bảo vệ và bước đai. Chưa kiểm tra hình học Revit."
+                    : string.Join("\n", errors);
+                verificationSummary.Foreground = validationText.Foreground = valid ? Blue : Brushes.Firebrick;
+                verificationCard.IsExpanded = true;
+                footerStatus.Text = valid ? "Dữ liệu cơ bản hợp lệ · chưa kiểm tra trong Revit." : "Cần sửa dữ liệu trước khi tạo.";
+                return valid;
+            }
+            checkButton.Click += (sender, args) => CheckInputs();
+            foreach (var field in new[] { selectedStartBox, selectedEndBox, selectedHookDownBox })
+                field.TextChanged += (sender, args) => {
+                    if (syncingBarEditor || restoringHistory) return;
+                    verificationSummary.Text = validationText.Text = "Dữ liệu đã thay đổi — bấm Kiểm tra.";
+                    verificationSummary.Foreground = validationText.Foreground = Blue;
+                };
+            validationStep.Expanded += (sender, args) => {
+                if (ReferenceEquals(args.OriginalSource, validationStep)) CheckInputs();
+            };
             window.ShowDialog();
             return quickResult;
-        }
-
-        private static bool ValidateQuick(List<BarRow> rows, TextBox cover, TextBox gap, TextBox tieSpacing,
-            TextBox zoneLength, TextBox endSpacing, TextBox middleSpacing, bool zoned, Window owner)
-        {
-            double value;
-            if (rows.Any(r => r.Type == null) || rows.First(r => r.Key == "top").Count < 1 || rows.First(r => r.Key == "bottom").Count < 1 ||
-                !TryNumber(cover.Text, out value) || value <= 0 || !TryNumber(gap.Text, out value) || value <= 0 ||
-                (!zoned && (!TryNumber(tieSpacing.Text, out value) || value <= 0)) ||
-                (zoned && (!TryNumber(zoneLength.Text, out value) || value <= 0 || !TryNumber(endSpacing.Text, out value) || value <= 0 || !TryNumber(middleSpacing.Text, out value) || value <= 0)))
-            {
-                MessageBox.Show(owner, "Kiểm tra số thanh, đường kính, lớp bảo vệ và bước đai trước khi tiếp tục.", "KStruct - Thép dầm", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
-            }
-            return true;
         }
 
         private static ReinforceStraightBeamsCommand.Options QuickOptions(List<BarRow> rows,
@@ -1831,30 +1952,37 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
         }
 
         private static void DrawAlignedSectionGallery(Canvas canvas, IList<BarRow> rows,
-            IList<double> stations, double beamLengthMm, double widthMm, double heightMm,
+            IList<SectionMarker> stations, double beamLengthMm, double widthMm, double heightMm,
             IList<ReinforceStraightBeamsCommand.BeamPreviewSection> beamSections = null)
         {
             canvas.Children.Clear();
-            var cuts = (stations ?? new List<double>()).Where(x =>
-                !double.IsNaN(x) && !double.IsInfinity(x) && x >= 0 && x <= beamLengthMm).ToList();
-            double canvasWidth = Math.Max(500, canvas.ActualWidth);
+            var cuts = (stations ?? new List<SectionMarker>()).Where(x =>
+                x != null && !double.IsNaN(x.Station) && !double.IsInfinity(x.Station) &&
+                x.Station >= 0 && x.Station <= beamLengthMm).ToList();
+            double canvasWidth = Math.Max(300, (canvas.Parent as ScrollViewer)?.ViewportWidth ?? canvas.ActualWidth);
             if (cuts.Count == 0)
             {
                 canvas.Height = 66;
                 AddCanvasText(canvas, "Chưa có mặt cắt khác nhau trong phạm vi dầm.", 68, 20, Blue, 12);
                 return;
             }
+            var sectionGroups = cuts.GroupBy(marker => marker.Label, StringComparer.Ordinal)
+                .Select(group => new {
+                    Marker = group.First(),
+                    Stations = group.Select(marker => marker.Station).OrderBy(value => value).ToList()
+                }).ToList();
             // Independent horizontal gallery: cards follow their section order,
             // not the X coordinates of cutting stations in the beam elevation.
-            const double cardWidth = 68;
-            const double cardHeight = 90;
+            const double cardWidth = 136;
+            const double cardHeight = 220;
             const double gap = 12;
             const double margin = 12;
-            double requiredWidth = 2 * margin + cuts.Count * cardWidth + Math.Max(0, cuts.Count - 1) * gap;
+            double requiredWidth = 2 * margin + sectionGroups.Count * cardWidth + Math.Max(0, sectionGroups.Count - 1) * gap;
             canvas.Width = Math.Max(canvasWidth, requiredWidth);
-            for (int i = 0; i < cuts.Count; i++)
+            for (int i = 0; i < sectionGroups.Count; i++)
             {
-                double station = cuts[i];
+                var group = sectionGroups[i];
+                double station = group.Stations[0];
                 double x = margin + i * (cardWidth + gap);
                 double y = 12;
                 var actual = (beamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>())
@@ -1871,25 +1999,40 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                         Type = crossing.FirstOrDefault()?.Type ?? row.Type });
                 }
                 // No dashed station leader: sections form one continuous row.
-                // Scale the entire original card to 50% using a Viewbox so the
-                // section drawing, labels and dimensions remain proportional.
-                var cardContent = new Canvas { Width = 136, Height = 180, Background = Ivory };
-                cardContent.Children.Add(new Rectangle { Width = 134, Height = 178,
+                // Keep labels at their native readable size; overflow scrolls in the gallery.
+                var cardContent = new Canvas { Width = 136, Height = 220, Background = Ivory };
+                cardContent.Children.Add(new Rectangle { Width = 134, Height = 218,
                     RadiusX = 7, RadiusY = 7, Stroke = BorderBrush, StrokeThickness = 1,
                     Fill = Brushes.Transparent });
-                AddCanvasText(cardContent, "MẶT CẮT " + (i + 1) + "-" + (i + 1), 10, 7, Blue, 11);
-                AddCanvasText(cardContent, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
+                AddCanvasText(cardContent, group.Marker.Label, 10, 7, Blue, 11);
+                AddCanvasText(cardContent, "X = " + string.Join(" / ", group.Stations.Select(value => value.ToString("0"))) + " mm",
+                    10, 23, Earth, 8);
                 var sectionDiagram = new Canvas { Width = 86, Height = 110, Background = Ivory };
                 DrawQuickSection(sectionDiagram, profile, sectionWidth, sectionHeight);
                 Canvas.SetLeft(sectionDiagram, 25); Canvas.SetTop(sectionDiagram, 36);
                 cardContent.Children.Add(sectionDiagram);
                 AddCanvasText(cardContent, sectionWidth.ToString("0") + " × " +
                     sectionHeight.ToString("0") + " mm", 14, 153, Blue, 10);
+                int reviewTag = 1;
+                var noteRows = profile.Where(item => item.Key == "tie"
+                        ? item.Type != null
+                        : item.Count > 0 && item.Key != "side")
+                    .OrderBy(item => item.Key == "top" ? 0 : item.Key.StartsWith("bottom") ? 1 : item.Key == "tie" ? 2 : 3)
+                    .Take(4);
+                foreach (BarRow row in noteRows)
+                {
+                    string reviewText = row.Key == "tie"
+                        ? reviewTag + ": Đai " + ShortType(row.Type)
+                        : reviewTag + ": " + row.Count + ShortType(row.Type);
+                    AddCanvasText(cardContent, reviewText, 8, 164 + (reviewTag - 1) * 14,
+                        row.Key.StartsWith("bottom") ? Teal : Blue, 8);
+                    reviewTag++;
+                }
                 var card = new Viewbox { Width = cardWidth, Height = cardHeight,
                     Stretch = Stretch.Uniform, Child = cardContent };
                 Canvas.SetLeft(card, x); Canvas.SetTop(card, y); canvas.Children.Add(card);
             }
-            canvas.Height = 114;
+            canvas.Height = cardHeight + 24;
         }
 
         private static void DrawSectionGallery(Canvas canvas, IList<BarRow> rows, IList<double> stations,
@@ -2579,6 +2722,23 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             return stations.OrderBy(value=>value).ToList();
         }
 
+        private static string SectionQuantityKey(IList<BarRow> rows, double station)
+        {
+            return string.Join("|", rows.Where(row => row.Count > 0 && row.Key != "tie")
+                .Select(row =>
+                {
+                    int count;
+                    if (row.Key == "side") count = row.Count;
+                    else
+                    {
+                        var crossing = row.Bars.Where(bar => bar.StartMm <= station && bar.EndMm >= station).ToList();
+                        count = row.HasMultipleIntervals ? (crossing.Count > 0 ? row.Count : 0) : crossing.Count;
+                    }
+                    return row.Key + "=" + count;
+                })
+                .OrderBy(value => value, StringComparer.Ordinal));
+        }
+
         private static UIElement SteelInfoGrid(object[] items)
         {
             var grid = new Grid { Margin = new Thickness(0, 0, 0, 2) };
@@ -2603,13 +2763,11 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             return grid;
         }
 
-        private static UIElement QuickSelectedBarGrid(object[] items)
+        private static UIElement CompactFormRows(object[] items)
         {
-            // Right-side inspector: stacked label/value rows remain readable at 345px.
-            // The previous horizontal fieldCount-column layout compressed every
-            // property into a single line, and was unusable in a dedicated panel.
+            // Shared stacked label/value form for the compact configuration and inspector.
             var grid = new Grid { Margin = new Thickness(0, 0, 0, 2) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(135) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(108) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             int fieldCount = (items.Length + 1) / 2;
             for (int i = 0; i < fieldCount; i++)
@@ -2842,7 +3000,9 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
         }
         private static string ShortType(RebarBarType type) => type == null ? "Ø?" : "Ø" + UnitUtils.ConvertFromInternalUnits(type.BarNominalDiameter, UnitTypeId.Millimeters).ToString("0");
         private static double Number(string text, double fallback) => TryNumber(text, out double value) ? value : fallback;
-        private static bool TryNumber(string text, out double value) => double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value) || double.TryParse(text, out value);
+        private static bool TryNumber(string text, out double value) =>
+            (double.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value) ||
+                double.TryParse(text, out value)) && !double.IsNaN(value) && !double.IsInfinity(value);
 
         private static void DrawSection(Canvas canvas, IList<BarRow> rows, IList<RebarBarType> types, BarRow activeRow, int sectionIndex,
             double beamLengthMm, double beamWidthMm, double beamHeightMm, double coverMm, double layerGapMm)
@@ -2922,7 +3082,7 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             canvas.Children.Clear();
             if (!visible) return;
 
-            double w = Math.Max(500, canvas.ActualWidth);
+            double w = Math.Max(300, canvas.ActualWidth);
             double h = Math.Max(360, canvas.ActualHeight);
             beamLengthMm = Math.Max(1, beamLengthMm);
             uniformSpacing = Math.Max(25, Math.Min(1000, uniformSpacing));
@@ -3018,6 +3178,8 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                     BorderBrush = selected ? Blue : thin,
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(3),
+                    Cursor = Cursors.Hand,
+                    ToolTip = "Nhấn để zoom vào Nhịp " + (index + 1),
                     Child = new TextBlock
                     {
                         Text = "Nhịp " + (index + 1),
@@ -3031,23 +3193,24 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 };
                 Canvas.SetLeft(badge, center - 36); Canvas.SetTop(badge, 4); canvas.Children.Add(badge);
             }
-            void AddLeader(string label, double anchorX, double anchorY, double labelX, double labelY, Brush color)
-            {
-                var leader = new Polyline
-                {
-                    Stroke = color, StrokeThickness = 1,
-                    Points = new PointCollection { new Point(anchorX, anchorY), new Point(anchorX + 12, labelY + 10), new Point(labelX, labelY + 10) }
-                };
-                canvas.Children.Add(leader);
-                AddCanvasText(canvas, label, labelX + 3, labelY, color, 10);
-            }
-
             double supportBottom = Math.Min(axisY - 28, bottom + 76);
             for (int i = 0; i < cleanNodes.Count; i++)
             {
                 double x = X(cleanNodes[i]);
                 var support = SupportAt(cleanNodes[i]);
-                if (support == null || support.Kind != "Cột giao") continue;
+                if (support == null) continue;
+                if (support.Kind == "Dầm phụ giao" || support.Kind == "Dầm giao")
+                {
+                    double secondaryWidthMm = support.WidthMm > 0 ? support.WidthMm : 300;
+                    double secondaryWidth = Math.Max(30, Math.Min(80, secondaryWidthMm * scale));
+                    var secondary = new Rectangle { Width = secondaryWidth, Height = 10,
+                        Fill = Earth, Stroke = Earth, StrokeThickness = 1 };
+                    Canvas.SetLeft(secondary, x - secondaryWidth / 2); Canvas.SetTop(secondary, top - 9);
+                    canvas.Children.Add(secondary);
+                    AddCanvasText(canvas, "Dầm phụ", x - 24, top - 25, Earth, 9);
+                    continue;
+                }
+                if (support.Kind != "Cột giao") continue;
                 double widthMm = support?.WidthMm > 0 ? support.WidthMm : 300;
                 double supportWidth = Math.Max(22, Math.Min(46, widthMm * scale));
                 var column = new Rectangle
@@ -3164,6 +3327,22 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                     double x = X(mm);
                     canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = SectionTop(mm) + 8, Y2 = SectionBottom(mm) - 8, Stroke = stirrup, StrokeThickness = 0.85 });
                 }
+                foreach (var secondary in visibleSupports.Where(s => s.Kind == "Dầm phụ giao" || s.Kind == "Dầm giao"))
+                {
+                    double center = (secondary.StartMm + secondary.EndMm) * 0.5;
+                    double width = secondary.WidthMm > 0 ? secondary.WidthMm : 300;
+                    double height = secondary.HeightMm > 0 ? secondary.HeightMm : beamHeightMm;
+                    double zone = Math.Min(beamLengthMm, width + 2 * height);
+                    var supplementary = new List<double>();
+                    AddRepresentativeStations(supplementary, Math.Max(0, center - zone / 2),
+                        Math.Min(beamLengthMm, center + zone / 2), 5);
+                    foreach (double mm in supplementary)
+                    {
+                        double x = X(mm);
+                        canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = SectionTop(mm) + 8,
+                            Y2 = SectionBottom(mm) - 8, Stroke = Earth, StrokeThickness = 1.4 });
+                    }
+                }
             }
 
             void DrawLayer(string key, double y, Brush color, bool topLayer)
@@ -3265,20 +3444,6 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             if (rows.First(r => r.Key == "side").Count > 0)
                 canvas.Children.Add(new Line { X1 = left + 8, X2 = right - 8, Y1 = (top + bottom) / 2, Y2 = (top + bottom) / 2, Stroke = Teal, StrokeThickness = 1.2 });
 
-            if (tiesVisible)
-            {
-                BarRow tieRow = rows.First(r => r.Key == "tie");
-                string spacing = zonedTies
-                    ? "a" + endSpacing.ToString("0") + " / a" + middleSpacing.ToString("0") + " (gối / giữa)"
-                    : "a" + uniformSpacing.ToString("0");
-                AddLeader(ShortType(tieRow.Type) + " " + spacing + " (đai)", X(beamLengthMm * 0.52), top + 5, X(beamLengthMm * 0.52) + 34, top - 1, stirrup);
-            }
-            BarRow topRow = rows.First(r => r.Key == "top");
-            BarRow bottomRow = rows.First(r => r.Key == "bottom");
-            string topLabel = topRow.Count + ShortType(topRow.Type) + " (trên)";
-            string bottomLabel = bottomRow.Count + ShortType(bottomRow.Type) + " (dưới)";
-            AddLeader(topLabel, X(beamLengthMm * 0.47), topMainY, X(beamLengthMm * 0.47) + 42, top + 1, Blue);
-            AddLeader(bottomLabel, X(beamLengthMm * 0.42), bottomMainY, X(beamLengthMm * 0.42) + 42, bottom - 2, Teal);
 
             for (int i = 0; i < cleanNodes.Count - 1; i++)
             {
@@ -3308,84 +3473,44 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
             }
             DrawVerticalDimension(canvas, left - 25, top, bottom, beamHeightMm.ToString("0") + " mm");
 
-            var sectionBoundaries = new SortedSet<double> { 0, beamLengthMm };
-            foreach (var profile in actualSections)
+            // Put three cuts in every span: near the left support, at midspan and
+            // near the right support. Equal reinforcement quantities share a name.
+            var sectionMarkers = new List<SectionMarker>();
+            var labelsByQuantity = new Dictionary<string, string>();
+            foreach (var span in cleanNodes.Zip(cleanNodes.Skip(1), (start, end) => Tuple.Create(start, end)))
             {
-                sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, profile.StartMm)));
-                sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, profile.EndMm)));
+                foreach (double fraction in new[] { 0.12, 0.50, 0.88 })
+                {
+                    double station = span.Item1 + (span.Item2 - span.Item1) * fraction;
+                    string quantityKey = SectionQuantityKey(rows, station);
+                    if (!labelsByQuantity.TryGetValue(quantityKey, out string label))
+                    {
+                        label = "MC-" + (labelsByQuantity.Count + 1);
+                        labelsByQuantity[quantityKey] = label;
+                    }
+                    sectionMarkers.Add(new SectionMarker { Station = station, Label = label });
+                    double sectionX = X(station);
+                    canvas.Children.Add(new Line { X1 = sectionX, X2 = sectionX, Y1 = top - 12, Y2 = bottom + 12,
+                        Stroke = Blue, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 3 } });
+                    AddCanvasText(canvas, label, sectionX - 14, top - 27, Blue, 10);
+                    AddCanvasText(canvas, label, sectionX - 14, bottom + 12, Blue, 10);
+                }
             }
-            foreach (BarRow row in rows.Where(row => row.Count > 0 && row.Key != "tie" && row.Key != "side"))
-                foreach (BarGeometry bar in row.Bars)
-                {
-                    sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, bar.StartMm)));
-                    sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, bar.EndMm)));
-                }
-            foreach (double node in cleanNodes) sectionBoundaries.Add(node);
-            if (zonedTies)
-                for (int spanIndex = 0; spanIndex + 1 < cleanNodes.Count; spanIndex++)
-                {
-                    double spanStart = cleanNodes[spanIndex], spanEnd = cleanNodes[spanIndex + 1];
-                    double zone = Math.Min(zoneLength, (spanEnd - spanStart) / 2);
-                    sectionBoundaries.Add(spanStart + zone);
-                    sectionBoundaries.Add(spanEnd - zone);
-                }
-            var sectionKeys = new HashSet<string>();
-            var boundaries = sectionBoundaries.ToList();
-            int sectionCount = 0;
-            var sectionStations = new List<double>();
-            for (int interval = 0; interval + 1 < boundaries.Count; interval++)
-            {
-                if (boundaries[interval + 1] - boundaries[interval] < 1) continue;
-                double station = (boundaries[interval] + boundaries[interval + 1]) / 2;
-                var steelKeys = new List<string>();
-                foreach (BarRow row in rows.Where(row => row.Count > 0 && row.Key != "tie"))
-                {
-                    var crossing = row.Bars.Where(bar => bar.StartMm <= station && bar.EndMm >= station).ToList();
-                    if (row.Key == "side")
-                        steelKeys.Add("side/" + row.Count + "/" + row.Type?.Id);
-                    else if (row.HasMultipleIntervals && crossing.Count > 0)
-                        steelKeys.Add(row.Key + "/" + row.Count + "/" + crossing[0].Type?.Id + "/" +
-                            crossing[0].Position.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-                    else
-                        foreach (var group in crossing.GroupBy(bar => new { TypeId = bar.Type?.Id, bar.Position }))
-                            steelKeys.Add(row.Key + "/" + group.Count() + "/" + group.Key.TypeId + "/" +
-                                group.Key.Position.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-                }
-                int containingSpan = Math.Max(0, cleanNodes.FindLastIndex(node => node <= station));
-                containingSpan = Math.Min(containingSpan, cleanNodes.Count - 2);
-                var actualProfile = actualSections.FirstOrDefault(profile => station >= profile.StartMm && station <= profile.EndMm)
-                    ?? actualSections.OrderBy(profile => Math.Abs((profile.StartMm + profile.EndMm) / 2 - station)).First();
-                steelKeys.Add("section/" + actualProfile.WidthMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "/" +
-                    actualProfile.HeightMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
-                double currentZone = Math.Min(zoneLength, (cleanNodes[containingSpan + 1] - cleanNodes[containingSpan]) / 2);
-                bool inEndZone = station < cleanNodes[containingSpan] + currentZone ||
-                    station > cleanNodes[containingSpan + 1] - currentZone;
-                double sectionSpacing = zonedTies ? (inEndZone ? endSpacing : middleSpacing) : uniformSpacing;
-                steelKeys.Add("tie/" + rows.First(row => row.Key == "tie").Type?.Id + "/" +
-                    sectionSpacing.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-                string sectionKey = string.Join("|", steelKeys.OrderBy(key => key, StringComparer.Ordinal));
-                if (!sectionKeys.Add(sectionKey)) continue;
-                sectionCount++;
-                sectionStations.Add(station);
-                double sectionX = X(station);
-                canvas.Children.Add(new Line { X1 = sectionX, X2 = sectionX, Y1 = top - 12, Y2 = bottom + 12,
-                    Stroke = Blue, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 3 } });
-                AddCanvasText(canvas, sectionCount + "-" + sectionCount, sectionX - 10, top - 27, Blue, 10);
-                AddCanvasText(canvas, sectionCount + "-" + sectionCount, sectionX - 10, bottom + 12, Blue, 10);
-            }
-            AddCanvasText(canvas, "Mặt cắt khác nhau: " + sectionCount, left, Math.Max(4, top - 55), Blue, 11);
-            canvas.Tag = sectionStations;
+            AddCanvasText(canvas, "Mặt cắt: " + sectionMarkers.Count + " vị trí · " + labelsByQuantity.Count + " kiểu", left, Math.Max(4, top - 55), Blue, 11);
+            canvas.Tag = sectionMarkers;
 
             for (int i = 0; i < cleanNodes.Count; i++)
             {
                 var axisSupport = SupportAt(cleanNodes[i]);
-                if (axisSupport == null || axisSupport.Kind != "Cột giao" || string.IsNullOrWhiteSpace(axisSupport.AxisLabel)) continue;
+                if (axisSupport == null || axisSupport.Kind != "Cột giao") continue;
                 double x = X(cleanNodes[i]);
                 var leader = new Line { X1 = x, X2 = x, Y1 = supportBottom, Y2 = axisY - 10, Stroke = thin, StrokeThickness = 0.8 };
                 canvas.Children.Add(leader);
                 var bubble = new Ellipse { Width = 22, Height = 22, Fill = Brushes.White, Stroke = neutral, StrokeThickness = 1 };
                 Canvas.SetLeft(bubble, x - 11); Canvas.SetTop(bubble, axisY - 11); canvas.Children.Add(bubble);
                 string axisName = SupportAt(cleanNodes[i])?.AxisLabel;
+                if (string.IsNullOrWhiteSpace(axisName))
+                    axisName = SupportAt(cleanNodes[i])?.Label ?? "?";
                 double bubbleWidth = axisName.Length > 2 ? 42 : 28;
                 bubble.Width = bubbleWidth; Canvas.SetLeft(bubble, x - bubbleWidth / 2);
                 var axisText = new TextBlock { Text = axisName, Width = bubbleWidth, Height = 22, FontSize = 10, Foreground = Brushes.Black, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center, ToolTip = SupportAt(cleanNodes[i])?.Label };
@@ -3412,6 +3537,21 @@ if (!ValidateQuick(rows, coverBox, layerGapBox, tieSpacingBox, zoneLengthBox, en
                 canvas.Children.Add(tick);
             }
             AddCanvasText(canvas, label, (x1 + x2) / 2 - 20, y - 12, new SolidColorBrush(Color.FromRgb(72,96,134)), 8);
+        }
+
+        private static void AddReviewTag(Canvas canvas, string number, string text,
+            double anchorX, double anchorY, double tagX, double tagY, Brush color)
+        {
+            canvas.Children.Add(new Line { X1 = anchorX, Y1 = anchorY, X2 = tagX + 9, Y2 = tagY + 9,
+                Stroke = color, StrokeThickness = 0.8 });
+            var circle = new Ellipse { Width = 18, Height = 18, Fill = Brushes.White,
+                Stroke = color, StrokeThickness = 1 };
+            Canvas.SetLeft(circle, tagX); Canvas.SetTop(circle, tagY); canvas.Children.Add(circle);
+            var tag = new TextBlock { Text = number, Width = 18, Height = 18, Foreground = color,
+                FontSize = 9, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Background = Brushes.Transparent };
+            Canvas.SetLeft(tag, tagX); Canvas.SetTop(tag, tagY + 1); canvas.Children.Add(tag);
+            AddCanvasText(canvas, text, tagX + 22, tagY + 2, color, 8);
         }
 
         private static void AddCanvasText(Canvas canvas, string text, double left, double top, Brush foreground, double size)

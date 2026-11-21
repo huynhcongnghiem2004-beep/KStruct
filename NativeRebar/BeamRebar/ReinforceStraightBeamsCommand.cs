@@ -25,6 +25,7 @@ namespace SDK_HD.KStruct.NativeRebar
             public double StartMm;
             public double EndMm;
             public double WidthMm;
+            public double HeightMm;
             public string Kind;
             public string Label;
             public string AxisLabel;
@@ -145,6 +146,8 @@ namespace SDK_HD.KStruct.NativeRebar
             // Creation geometry is deliberately isolated from densified UI sample
             // segments: the approved 1:6 bottom transition needs stable stations.
             [XmlIgnore] public List<BeamPreviewSection> RebarBeamSections = new List<BeamPreviewSection>();
+            [XmlIgnore] public bool PickSecondaryBeamsRequested;
+            [XmlIgnore] public List<long> SelectedSecondaryBeamIds = new List<long>();
         }
 
         private sealed class Frame
@@ -298,7 +301,7 @@ namespace SDK_HD.KStruct.NativeRebar
                         ElementId = support.ElementId, Kind = support.Kind, Label = support.Label, AxisLabel = support.AxisLabel,
                         StartMm = segment.Forward ? a - segment.StartMm : segment.EndMm - b,
                         EndMm = segment.Forward ? b - segment.StartMm : segment.EndMm - a,
-                        WidthMm = support.WidthMm
+                        WidthMm = support.WidthMm, HeightMm = support.HeightMm
                     };
                 }).Where(support => support != null).OrderBy(support => support.StartMm).ToList();
             void DisableAbsentLayer(string key, bool hasSavedDetails, Action<int> setCount, int count)
@@ -445,9 +448,34 @@ namespace SDK_HD.KStruct.NativeRebar
                         BottomElevationMm = UnitUtils.ConvertFromInternalUnits(previewFrame.HeightCenter - previewFrame.HalfHeight, UnitTypeId.Millimeters),
                         Label = "Tiết diện chưa phân đoạn"
                     });
-                Options options = BeamRebarEditorWindow.ShowQuick(data.Application.MainWindowHandle, types, hookTypes,
-                    defaults, false, null, current => SaveSettings(doc, current));
-                if (options == null) return Result.Cancelled;
+                Options options;
+                while (true)
+                {
+                    options = BeamRebarEditorWindow.ShowQuick(data.Application.MainWindowHandle, types, hookTypes,
+                        defaults, false, null, current => SaveSettings(doc, current));
+                    if (options == null) return Result.Cancelled;
+                    if (!options.PickSecondaryBeamsRequested) break;
+
+                    options.PickSecondaryBeamsRequested = false;
+                    IList<Reference> pickedSecondary;
+                    try
+                    {
+                        pickedSecondary = ui.Selection.PickObjects(ObjectType.Element, new BeamFilter(),
+                            "Chọn nhiều dầm phụ giao với dầm đang chọn, rồi nhấn Finish");
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        defaults = options;
+                        continue;
+                    }
+                    var secondaryIds = pickedSecondary.Select(reference => reference.ElementId)
+                        .Where(id => id != null && !beams.Any(beam => beam.Id == id)).Distinct().ToList();
+                    options.SelectedSecondaryBeamIds = secondaryIds.Select(id => id.Value).ToList();
+                    defaults = options;
+                    Frame selectedFrame = beamRun?.Frame ?? GetFrame(beams[0], doc);
+                    options.PreviewSupports = FindBeamPreviewSupports(doc, beams[0], selectedFrame,
+                        beams.Select(beam => beam.Id).ToList(), secondaryIds);
+                }
                 options = BeamRebarShapeSelectionWindow.AutoAssign(doc, options);
                 ValidateRequiredShapes(options);
                 string settingSaveNotice = null;
@@ -493,7 +521,8 @@ namespace SDK_HD.KStruct.NativeRebar
                                     else
                                     {
                                         options.PreviewBeamLengthMm = UnitUtils.ConvertFromInternalUnits(frame.HalfLength * 2.0, UnitTypeId.Millimeters);
-                                        options.PreviewSupports = FindBeamPreviewSupports(doc, beam, frame, new[] { beam.Id });
+                                        options.PreviewSupports = FindBeamPreviewSupports(doc, beam, frame, new[] { beam.Id },
+                                            options.SelectedSecondaryBeamIds.Select(id => new ElementId(id)).ToList());
                                     }
                                     tieCount = CreateBeamRebar(doc, beam, frame, options, beamRun == null, true);
                                 }
@@ -902,15 +931,16 @@ namespace SDK_HD.KStruct.NativeRebar
             };
         }
 
-        private static List<BeamPreviewSupport> FindBeamPreviewSupports(Document doc, FamilyInstance beam, Frame frame, IList<ElementId> selectedBeamIds)
+        private static List<BeamPreviewSupport> FindBeamPreviewSupports(Document doc, FamilyInstance beam, Frame frame,
+            IList<ElementId> selectedBeamIds, IList<ElementId> explicitSecondaryBeamIds = null)
         {
             var supports = new List<BeamPreviewSupport>();
             var selected = new HashSet<ElementId>(selectedBeamIds ?? new List<ElementId>());
+            var explicitSecondary = explicitSecondaryBeamIds == null ? null : new HashSet<ElementId>(explicitSecondaryBeamIds);
             double mainMinWidth = frame.WidthCenter - frame.HalfWidth;
             double mainMaxWidth = frame.WidthCenter + frame.HalfWidth;
             double mainMinHeight = frame.HeightCenter - frame.HalfHeight;
             double mainMaxHeight = frame.HeightCenter + frame.HalfHeight;
-            double contactTolerance = Math.Max(UnitUtils.ConvertToInternalUnits(100, UnitTypeId.Millimeters), frame.HalfWidth * 1.5);
 
             foreach (FamilyInstance candidate in new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance))
                 .WhereElementIsNotElementType().Cast<FamilyInstance>())
@@ -920,6 +950,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 bool isColumn = categoryId == (long)BuiltInCategory.OST_StructuralColumns || categoryId == (long)BuiltInCategory.OST_Columns;
                 bool isBeam = categoryId == (long)BuiltInCategory.OST_StructuralFraming;
                 if (!isColumn && !isBeam) continue;
+                if (isBeam && explicitSecondary != null && !explicitSecondary.Contains(candidate.Id)) continue;
                 if (!TryProjectBounds(candidate, frame, out BeamLocalBounds bounds)) continue;
 
                 double tol = UnitUtils.ConvertToInternalUnits(30, UnitTypeId.Millimeters);
@@ -933,12 +964,9 @@ namespace SDK_HD.KStruct.NativeRebar
                     Line axis = curve?.Curve as Line;
                     if (axis == null) continue;
                     double parallel = Math.Abs(axis.Direction.Normalize().DotProduct(frame.Axis));
-                    if (parallel >= 0.985)
-                    {
-                        bool joinsLeft = Math.Abs(bounds.MaxAxis + frame.HalfLength) <= contactTolerance || Math.Abs(bounds.MinAxis + frame.HalfLength) <= contactTolerance;
-                        bool joinsRight = Math.Abs(bounds.MaxAxis - frame.HalfLength) <= contactTolerance || Math.Abs(bounds.MinAxis - frame.HalfLength) <= contactTolerance;
-                        if (!joinsLeft && !joinsRight) continue;
-                    }
+                    // A secondary beam is a crossing member, not a collinear
+                    // continuation of the selected beam at an end node.
+                    if (parallel >= 0.985) continue;
                 }
 
                 double startMm = UnitUtils.ConvertFromInternalUnits(Math.Max(-frame.HalfLength, bounds.MinAxis) + frame.HalfLength, UnitTypeId.Millimeters);
@@ -948,16 +976,23 @@ namespace SDK_HD.KStruct.NativeRebar
                     double center = (startMm + endMm) * 0.5;
                     startMm = Math.Max(0, center - 50); endMm = Math.Min(defaultsLengthMm(frame), center + 50);
                 }
-                string kind = isColumn ? "Cột giao" : "Dầm giao";
-                string label = candidate.Name + " · " + candidate.Id.Value;
+                string kind = isColumn ? "Cột giao" : "Dầm phụ giao";
+                string label = isColumn ? candidate.Name + " · " + candidate.Id.Value
+                    : "Dầm phụ · " + candidate.Name + " · " + candidate.Id.Value;
                 supports.Add(new BeamPreviewSupport
                 {
                     ElementId = candidate.Id.Value, StartMm = startMm, EndMm = endMm,
                     WidthMm = UnitUtils.ConvertFromInternalUnits(Math.Max(0, bounds.MaxAxis - bounds.MinAxis), UnitTypeId.Millimeters),
+                    HeightMm = UnitUtils.ConvertFromInternalUnits(Math.Max(0, bounds.MaxHeight - bounds.MinHeight), UnitTypeId.Millimeters),
                     Kind = kind, Label = label
                 });
             }
 
+            var columnSupports = supports.Where(support => support.Kind == "Cột giao").ToList();
+            supports = supports.Where(support => support.Kind == "Cột giao" ||
+                !columnSupports.Any(column =>
+                    Math.Abs((column.StartMm + column.EndMm) * 0.5 - (support.StartMm + support.EndMm) * 0.5) <=
+                        Math.Max(100, Math.Max(column.WidthMm, support.WidthMm) * 0.5))).ToList();
             foreach (BeamPreviewSupport support in supports)
                 support.AxisLabel = FindNearestGridName(doc, frame, (support.StartMm + support.EndMm) * 0.5);
             return supports.OrderBy(s => s.StartMm).ToList();
@@ -968,7 +1003,9 @@ namespace SDK_HD.KStruct.NativeRebar
             double halfLengthMm = UnitUtils.ConvertFromInternalUnits(frame.HalfLength, UnitTypeId.Millimeters);
             double axisOffset = UnitUtils.ConvertToInternalUnits(axisMm - halfLengthMm, UnitTypeId.Millimeters);
             XYZ target = frame.Origin + frame.Axis * axisOffset;
-            double maxDistance = UnitUtils.ConvertToInternalUnits(5, UnitTypeId.Millimeters);
+            // Grid labels can be offset from the column centerline by the
+            // column half-width or by modelling tolerance.
+            double maxDistance = UnitUtils.ConvertToInternalUnits(500, UnitTypeId.Millimeters);
             Autodesk.Revit.DB.Grid nearest = null;
             double nearestDistance = double.PositiveInfinity;
             foreach (Autodesk.Revit.DB.Grid grid in new FilteredElementCollector(doc).OfClass(typeof(Autodesk.Revit.DB.Grid)).WhereElementIsNotElementType().Cast<Autodesk.Revit.DB.Grid>())
@@ -1271,6 +1308,8 @@ namespace SDK_HD.KStruct.NativeRebar
             var stations = new List<double>();
             foreach (Tuple<double, double> span in supportSpans)
                 stations.AddRange(BuildTieStations(doc, options, span.Item1, span.Item2, requestedSpacing));
+            stations.AddRange(BuildSecondaryBeamSupplementaryStations(doc, options, tieStart, tieEnd));
+            stations = stations.Distinct().OrderBy(station => station).ToList();
             if (stations.Count > 1000) throw new InvalidOperationException("Bước đai tạo ra hơn 1000 đai cho một dầm.");
             int tieIndex = 0;
             for (int stationIndex = 0; stationIndex < stations.Count;)
@@ -1302,7 +1341,7 @@ namespace SDK_HD.KStruct.NativeRebar
                     try
                     {
                         using (RebarShapeDrivenAccessor accessor = tie.GetShapeDrivenAccessor())
-                            accessor.SetLayoutAsFixedNumber(positions, stations[runEnd] - station, true, true, true);
+                            accessor.SetLayoutAsMaximumSpacing(spacing, stations[runEnd] - station, true, true, true);
                     }
                     catch (Exception ex)
                     {
@@ -1315,7 +1354,7 @@ namespace SDK_HD.KStruct.NativeRebar
                     layoutMatches = Math.Abs(accessor.ArrayLength - expectedArrayLength) <=
                         Math.Max(doc.Application.ShortCurveTolerance * 4, expectedArrayLength * 1e-6);
                 if (!tie.IsRebarShapeDriven() || tie.NumberOfBarPositions != positions ||
-                    (positions > 1 && tie.LayoutRule != RebarLayoutRule.FixedNumber) ||
+                    (positions > 1 && tie.LayoutRule != RebarLayoutRule.MaximumSpacing) ||
                     (positions == 1 && tie.LayoutRule != RebarLayoutRule.Single) || !layoutMatches)
                     throw new InvalidOperationException("Shape đai " + options.TieShape.Name + " không tạo được layout có " + positions + " vị trí đúng yêu cầu.");
                 SetPartition(tie, beam.Id);
@@ -1454,6 +1493,32 @@ namespace SDK_HD.KStruct.NativeRebar
             if (rightStart - leftEnd > doc.Application.ShortCurveTolerance)
                 AddStations(stations, leftEnd, rightStart, middleSpacing, doc.Application.ShortCurveTolerance);
             AddStations(stations, rightStart, end, endSpacing, doc.Application.ShortCurveTolerance);
+            return stations;
+        }
+
+        private static List<double> BuildSecondaryBeamSupplementaryStations(Document doc, Options options,
+            double start, double end)
+        {
+            var stations = new List<double>();
+            foreach (BeamPreviewSupport support in (options.PreviewSupports ?? new List<BeamPreviewSupport>())
+                .Where(item => item != null && (item.Kind == "Dầm phụ giao" || item.Kind == "Dầm giao")))
+            {
+                double centerMm = (support.StartMm + support.EndMm) * 0.5;
+                double widthMm = support.WidthMm > 0 ? support.WidthMm : 300;
+                double heightMm = support.HeightMm > 0 ? support.HeightMm : 400;
+                double zoneMm = widthMm + 2 * heightMm;
+                double zoneStart = Math.Max(UnitUtils.ConvertFromInternalUnits(start, UnitTypeId.Millimeters), centerMm - zoneMm / 2);
+                double zoneEnd = Math.Min(UnitUtils.ConvertFromInternalUnits(end, UnitTypeId.Millimeters), centerMm + zoneMm / 2);
+                if (zoneEnd <= zoneStart) continue;
+                double spacingMm = options.UseZonedTies && options.TieEndSpacingMm > 0
+                    ? options.TieEndSpacingMm : options.TieSpacingMm;
+                var local = new List<double>();
+                AddStations(local, UnitUtils.ConvertToInternalUnits(zoneStart, UnitTypeId.Millimeters),
+                    UnitUtils.ConvertToInternalUnits(zoneEnd, UnitTypeId.Millimeters),
+                    UnitUtils.ConvertToInternalUnits(Math.Max(25, spacingMm), UnitTypeId.Millimeters),
+                    doc.Application.ShortCurveTolerance);
+                stations.AddRange(local);
+            }
             return stations;
         }
 
