@@ -1003,7 +1003,9 @@ namespace SDK_HD.KStruct.NativeRebar
             double halfLengthMm = UnitUtils.ConvertFromInternalUnits(frame.HalfLength, UnitTypeId.Millimeters);
             double axisOffset = UnitUtils.ConvertToInternalUnits(axisMm - halfLengthMm, UnitTypeId.Millimeters);
             XYZ target = frame.Origin + frame.Axis * axisOffset;
-            double maxDistance = UnitUtils.ConvertToInternalUnits(5, UnitTypeId.Millimeters);
+            // Grid labels can be offset from the column centerline by the
+            // column half-width or by modelling tolerance.
+            double maxDistance = UnitUtils.ConvertToInternalUnits(500, UnitTypeId.Millimeters);
             Autodesk.Revit.DB.Grid nearest = null;
             double nearestDistance = double.PositiveInfinity;
             foreach (Autodesk.Revit.DB.Grid grid in new FilteredElementCollector(doc).OfClass(typeof(Autodesk.Revit.DB.Grid)).WhereElementIsNotElementType().Cast<Autodesk.Revit.DB.Grid>())

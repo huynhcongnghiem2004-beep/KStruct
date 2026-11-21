@@ -3162,17 +3162,6 @@ namespace SDK_HD.KStruct.NativeRebar
                 };
                 Canvas.SetLeft(badge, center - 36); Canvas.SetTop(badge, 4); canvas.Children.Add(badge);
             }
-            void AddLeader(string label, double anchorX, double anchorY, double labelX, double labelY, Brush color)
-            {
-                var leader = new Polyline
-                {
-                    Stroke = color, StrokeThickness = 1,
-                    Points = new PointCollection { new Point(anchorX, anchorY), new Point(anchorX + 12, labelY + 10), new Point(labelX, labelY + 10) }
-                };
-                canvas.Children.Add(leader);
-                AddCanvasText(canvas, label, labelX + 3, labelY, color, 10);
-            }
-
             double supportBottom = Math.Min(axisY - 28, bottom + 76);
             for (int i = 0; i < cleanNodes.Count; i++)
             {
@@ -3322,8 +3311,6 @@ namespace SDK_HD.KStruct.NativeRebar
                         canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = SectionTop(mm) + 8,
                             Y2 = SectionBottom(mm) - 8, Stroke = Earth, StrokeThickness = 1.4 });
                     }
-                    AddCanvasText(canvas, "Đai chính b+2h", X(center) - 42, SectionTop(center) + 18, Earth, 8);
-                    AddCanvasText(canvas, "Đai phụ h/3 · review", X(center) - 42, SectionBottom(center) - 18, Earth, 8);
                 }
             }
 
@@ -3426,30 +3413,6 @@ namespace SDK_HD.KStruct.NativeRebar
             if (rows.First(r => r.Key == "side").Count > 0)
                 canvas.Children.Add(new Line { X1 = left + 8, X2 = right - 8, Y1 = (top + bottom) / 2, Y2 = (top + bottom) / 2, Stroke = Teal, StrokeThickness = 1.2 });
 
-            if (tiesVisible)
-            {
-                BarRow tieRow = rows.First(r => r.Key == "tie");
-                string spacing = zonedTies
-                    ? "a" + endSpacing.ToString("0") + " / a" + middleSpacing.ToString("0") + " (gối / giữa)"
-                    : "a" + uniformSpacing.ToString("0");
-                AddLeader(ShortType(tieRow.Type) + " " + spacing + " (đai)", X(beamLengthMm * 0.52), top + 5, X(beamLengthMm * 0.52) + 34, top - 1, stirrup);
-                AddReviewTag(canvas, "3", ShortType(tieRow.Type) + " " + spacing,
-                    X(beamLengthMm * 0.52), top + 5, X(beamLengthMm * 0.52) + 18, top + 28, stirrup);
-            }
-            BarRow topRow = rows.First(r => r.Key == "top");
-            BarRow bottomRow = rows.First(r => r.Key == "bottom");
-            string topLabel = topRow.Count + ShortType(topRow.Type) + " (trên)";
-            string bottomLabel = bottomRow.Count + ShortType(bottomRow.Type) + " (dưới)";
-            AddLeader(topLabel, X(beamLengthMm * 0.47), topMainY, X(beamLengthMm * 0.47) + 42, top + 1, Blue);
-            AddLeader(bottomLabel, X(beamLengthMm * 0.42), bottomMainY, X(beamLengthMm * 0.42) + 42, bottom - 2, Teal);
-            AddReviewTag(canvas, "1", topLabel, X(beamLengthMm * 0.47), topMainY,
-                X(beamLengthMm * 0.47) + 18, top - 30, Blue);
-            AddReviewTag(canvas, "2", bottomLabel, X(beamLengthMm * 0.42), bottomMainY,
-                X(beamLengthMm * 0.42) + 18, bottom + 30, Teal);
-            DrawBarDimension(canvas, X(topRow.StartMm), X(topRow.EndMm), top - 48,
-                "L=" + Math.Max(0, topRow.EndMm - topRow.StartMm).ToString("0") + " mm");
-            DrawBarDimension(canvas, X(bottomRow.StartMm), X(bottomRow.EndMm), bottom + 48,
-                "L=" + Math.Max(0, bottomRow.EndMm - bottomRow.StartMm).ToString("0") + " mm");
 
             for (int i = 0; i < cleanNodes.Count - 1; i++)
             {
@@ -3508,13 +3471,15 @@ namespace SDK_HD.KStruct.NativeRebar
             for (int i = 0; i < cleanNodes.Count; i++)
             {
                 var axisSupport = SupportAt(cleanNodes[i]);
-                if (axisSupport == null || axisSupport.Kind != "Cột giao" || string.IsNullOrWhiteSpace(axisSupport.AxisLabel)) continue;
+                if (axisSupport == null || axisSupport.Kind != "Cột giao") continue;
                 double x = X(cleanNodes[i]);
                 var leader = new Line { X1 = x, X2 = x, Y1 = supportBottom, Y2 = axisY - 10, Stroke = thin, StrokeThickness = 0.8 };
                 canvas.Children.Add(leader);
                 var bubble = new Ellipse { Width = 22, Height = 22, Fill = Brushes.White, Stroke = neutral, StrokeThickness = 1 };
                 Canvas.SetLeft(bubble, x - 11); Canvas.SetTop(bubble, axisY - 11); canvas.Children.Add(bubble);
                 string axisName = SupportAt(cleanNodes[i])?.AxisLabel;
+                if (string.IsNullOrWhiteSpace(axisName))
+                    axisName = SupportAt(cleanNodes[i])?.Label ?? "?";
                 double bubbleWidth = axisName.Length > 2 ? 42 : 28;
                 bubble.Width = bubbleWidth; Canvas.SetLeft(bubble, x - bubbleWidth / 2);
                 var axisText = new TextBlock { Text = axisName, Width = bubbleWidth, Height = 22, FontSize = 10, Foreground = Brushes.Black, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center, ToolTip = SupportAt(cleanNodes[i])?.Label };
