@@ -406,8 +406,8 @@ namespace SDK_HD.KStruct.NativeRebar
                         range.Item1.EndMm = range.Item3;
                     }
                 }
-                int columns = previewSupports.Count(s => s.Kind == "Cột giao"), framing = previewSupports.Count(s => s.Kind == "Dầm giao");
-                string junctionSummary = columns + framing == 0 ? "Chưa nhận diện giao cột/dầm" : "Giao: " + columns + " cột, " + framing + " dầm";
+                int columns = previewSupports.Count(s => s.Kind == "Cột giao"), framing = previewSupports.Count(s => s.Kind == "Dầm giao" || s.Kind == "Dầm phụ giao");
+                string junctionSummary = columns + framing == 0 ? "Chưa nhận diện giao cột/dầm phụ" : "Giao: " + columns + " cột, " + framing + " dầm phụ";
                 status.Text = beamWidthMm.ToString("0") + "×" + beamHeightMm.ToString("0") + " mm   ·   L=" + beamLengthMm.ToString("0") + " mm   ·   " + junctionSummary;
                 }
                 catch (Exception previewError)
@@ -766,10 +766,13 @@ namespace SDK_HD.KStruct.NativeRebar
             var tieRow = rows.First(r => r.Key == "tie");
             var tieCombo = MakeTypeCombo(types, tieRow);
             var title = new TextBlock { Text = "KSTRUCT   |   Tạo thép dầm", FontSize = 17, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            int secondaryBeamCount = previewSupports.Count(s => s.Kind == "Dầm giao" || s.Kind == "Dầm phụ giao");
             var subtitle = new TextBlock
             {
                 Text = "Dầm · " + previewSpans.Count + " nhịp · " + beamWidthMm.ToString("0") + " × " +
-                    beamHeightMm.ToString("0") + " mm · L = " + beamLengthMm.ToString("0") + " mm · Chọn thanh trên sơ đồ để sửa trực tiếp",
+                    beamHeightMm.ToString("0") + " mm · L = " + beamLengthMm.ToString("0") + " mm · " +
+                    (secondaryBeamCount > 0 ? "Dầm phụ giao: " + secondaryBeamCount : "Không có dầm phụ giao") +
+                    " · Chọn thanh trên sơ đồ để sửa trực tiếp",
                 Foreground = new SolidColorBrush(Color.FromRgb(236, 215, 196)), Margin = new Thickness(0, 3, 0, 0),
                 ToolTip = defaults?.PreviewSectionDescription
             };
@@ -3141,7 +3144,19 @@ namespace SDK_HD.KStruct.NativeRebar
             {
                 double x = X(cleanNodes[i]);
                 var support = SupportAt(cleanNodes[i]);
-                if (support == null || support.Kind != "Cột giao") continue;
+                if (support == null) continue;
+                if (support.Kind == "Dầm phụ giao" || support.Kind == "Dầm giao")
+                {
+                    double secondaryWidthMm = support.WidthMm > 0 ? support.WidthMm : 300;
+                    double secondaryWidth = Math.Max(30, Math.Min(80, secondaryWidthMm * scale));
+                    var secondary = new Rectangle { Width = secondaryWidth, Height = 10,
+                        Fill = Earth, Stroke = Earth, StrokeThickness = 1 };
+                    Canvas.SetLeft(secondary, x - secondaryWidth / 2); Canvas.SetTop(secondary, top - 9);
+                    canvas.Children.Add(secondary);
+                    AddCanvasText(canvas, "Dầm phụ", x - 24, top - 25, Earth, 9);
+                    continue;
+                }
+                if (support.Kind != "Cột giao") continue;
                 double widthMm = support?.WidthMm > 0 ? support.WidthMm : 300;
                 double supportWidth = Math.Max(22, Math.Min(46, widthMm * scale));
                 var column = new Rectangle

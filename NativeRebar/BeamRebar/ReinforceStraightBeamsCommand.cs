@@ -948,8 +948,9 @@ namespace SDK_HD.KStruct.NativeRebar
                     double center = (startMm + endMm) * 0.5;
                     startMm = Math.Max(0, center - 50); endMm = Math.Min(defaultsLengthMm(frame), center + 50);
                 }
-                string kind = isColumn ? "Cột giao" : "Dầm giao";
-                string label = candidate.Name + " · " + candidate.Id.Value;
+                string kind = isColumn ? "Cột giao" : "Dầm phụ giao";
+                string label = isColumn ? candidate.Name + " · " + candidate.Id.Value
+                    : "Dầm phụ · " + candidate.Name + " · " + candidate.Id.Value;
                 supports.Add(new BeamPreviewSupport
                 {
                     ElementId = candidate.Id.Value, StartMm = startMm, EndMm = endMm,

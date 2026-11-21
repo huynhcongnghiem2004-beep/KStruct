@@ -18,6 +18,8 @@ Checks cover action visibility, accordion navigation, editing and undoing counts
 undoing presets and group deletion, zoom preservation during resize, and basic input validation.
 The beam preview also asserts three section markers per span and verifies that
 equal reinforcement quantities reuse the same `MC-*` section name.
+The sample also includes a detected `Dầm phụ giao` junction and verifies its
+marker is rendered in the elevation preview.
 GitHub Actions publishes the rendered images as **KStruct-Beam-UI**.
 
 The fixtures are not an engineering engine. They do not create or validate Revit
