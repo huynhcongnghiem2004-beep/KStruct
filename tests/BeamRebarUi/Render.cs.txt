@@ -140,12 +140,12 @@ internal static class Render
                     Click(Button(window, "+"));
                     var beam = Descendants<Canvas>(window).Single(x => x.Height == 380);
                     var markers = beam.Tag as IList;
-                    Assert(markers != null && markers.Count == 12,
-                        "Each of the four spans (including the detected secondary-beam junction) must expose exactly three section markers.");
+                    Assert(markers != null && markers.Count == 4,
+                        "The full-beam overview must expose one representative section marker per span.");
                     var markerLabels = markers.Cast<object>().Select(item =>
                         (string)item.GetType().GetField("Label").GetValue(item)).ToList();
-                    Assert(markerLabels.Distinct().Count() == 1 && markerLabels[0] == "MC-1",
-                        "Equal reinforcement quantities must reuse the same section name.");
+                    Assert(markerLabels.Distinct().Count() == 4 && markerLabels.All(label => label.StartsWith("N")),
+                        "Full-beam overview markers must identify spans without repeating detailed section labels.");
                     Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Dầm phụ"),
                         "A secondary-beam junction must be visible in the elevation preview.");
                     Assert(!Descendants<TextBlock>(window).Any(text =>
