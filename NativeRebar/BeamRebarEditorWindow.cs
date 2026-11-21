@@ -1477,6 +1477,23 @@ namespace SDK_HD.KStruct.NativeRebar
             beamCanvas.MouseLeftButtonDown += (s, e) =>
             {
                 Point point = e.GetPosition(beamCanvas);
+                Point badgePoint = point;
+                if (beamCanvas.RenderTransform is MatrixTransform matrixTransform &&
+                    Math.Abs(matrixTransform.Matrix.M11) > 1e-6 && Math.Abs(matrixTransform.Matrix.M11 - 1) > 1e-6)
+                    badgePoint = matrixTransform.Inverse.Transform(point);
+                if (badgePoint.Y >= 2 && badgePoint.Y <= 32)
+                {
+                    double width = Math.Max(300, beamCanvas.ActualWidth);
+                    double mm = Math.Max(0, Math.Min(beamLengthMm,
+                        (badgePoint.X - 68) / Math.Max(1, width - 136) * beamLengthMm));
+                    int clickedSpan = previewSpans.FindIndex(span => mm >= span.Item1 && mm <= span.Item2);
+                    if (clickedSpan >= 0)
+                    {
+                        spanSelector.SelectedIndex = clickedSpan + 1;
+                        e.Handled = true;
+                        return;
+                    }
+                }
                 if (lockDiagramEdit.IsChecked == true)
                 {
                     // A locked diagram is read-only but remains selectable and pannable.
@@ -3161,6 +3178,8 @@ namespace SDK_HD.KStruct.NativeRebar
                     BorderBrush = selected ? Blue : thin,
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(3),
+                    Cursor = Cursors.Hand,
+                    ToolTip = "Nhấn để zoom vào Nhịp " + (index + 1),
                     Child = new TextBlock
                     {
                         Text = "Nhịp " + (index + 1),
