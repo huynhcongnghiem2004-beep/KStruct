@@ -24,6 +24,7 @@ internal static class Render
             Capture(output, 1648, 928, "beam-wide", true);
             Capture(output, 1280, 760, "beam-medium", false);
             Capture(output, 1024, 640, "beam-compact", false);
+            Capture(output, 960, 540, "beam-half-screen", false);
             File.WriteAllText(Path.Combine(output, "README.txt"),
                 "Actual production WPF editor compiled with sample Revit data fixtures. " +
                 "Layout, accordion, count editing, preset/delete undo, zoom preservation and basic validation tested. " +

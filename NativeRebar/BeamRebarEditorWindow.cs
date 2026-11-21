@@ -130,10 +130,10 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "Thép dầm",
-                Width = 1648,
-                Height = 928,
-                MinWidth = 1200,
-                MinHeight = 720,
+                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.5),
+                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.5),
+                MinWidth = 900,
+                MinHeight = 500,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -716,7 +716,9 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "KStruct | Tạo thép dầm",
-                Width = 1648, Height = 928, MinWidth = 1200, MinHeight = 720,
+                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.5),
+                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.5),
+                MinWidth = 900, MinHeight = 500,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 WindowStyle = WindowStyle.SingleBorderWindow,
@@ -1147,11 +1149,12 @@ namespace SDK_HD.KStruct.NativeRebar
                 BorderThickness = new Thickness(0, 0, 0, 2), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
             root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(main);
-            // Match the approved 1648 × 928 DIP mockup; retain scrollable editing panels.
-            window.Width = Math.Min(1648, SystemParameters.WorkArea.Width);
-            window.Height = Math.Min(928, SystemParameters.WorkArea.Height);
-            window.MinWidth = Math.Min(1024, SystemParameters.WorkArea.Width);
-            window.MinHeight = Math.Min(640, SystemParameters.WorkArea.Height);
+            // Open at half the work area so a 1920 × 1080 monitor starts near 960 × 520;
+            // the user can still enlarge it with the resize grip when more preview space is needed.
+            window.Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.5);
+            window.Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.5);
+            window.MinWidth = Math.Min(900, SystemParameters.WorkArea.Width);
+            window.MinHeight = Math.Min(500, SystemParameters.WorkArea.Height);
             window.Content = root; new WindowInteropHelper(window).Owner = owner;
             bool refreshingLayerChoices = false;
             refreshLayerChoices = () =>
