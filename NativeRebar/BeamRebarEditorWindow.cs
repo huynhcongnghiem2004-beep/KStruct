@@ -1952,7 +1952,7 @@ namespace SDK_HD.KStruct.NativeRebar
             // Independent horizontal gallery: cards follow their section order,
             // not the X coordinates of cutting stations in the beam elevation.
             const double cardWidth = 136;
-            const double cardHeight = 180;
+            const double cardHeight = 220;
             const double gap = 12;
             const double margin = 12;
             double requiredWidth = 2 * margin + cuts.Count * cardWidth + Math.Max(0, cuts.Count - 1) * gap;
@@ -1977,8 +1977,8 @@ namespace SDK_HD.KStruct.NativeRebar
                 }
                 // No dashed station leader: sections form one continuous row.
                 // Keep labels at their native readable size; overflow scrolls in the gallery.
-                var cardContent = new Canvas { Width = 136, Height = 180, Background = Ivory };
-                cardContent.Children.Add(new Rectangle { Width = 134, Height = 178,
+                var cardContent = new Canvas { Width = 136, Height = 220, Background = Ivory };
+                cardContent.Children.Add(new Rectangle { Width = 134, Height = 218,
                     RadiusX = 7, RadiusY = 7, Stroke = BorderBrush, StrokeThickness = 1,
                     Fill = Brushes.Transparent });
                 AddCanvasText(cardContent, cuts[i].Label, 10, 7, Blue, 11);
@@ -1989,6 +1989,16 @@ namespace SDK_HD.KStruct.NativeRebar
                 cardContent.Children.Add(sectionDiagram);
                 AddCanvasText(cardContent, sectionWidth.ToString("0") + " × " +
                     sectionHeight.ToString("0") + " mm", 14, 153, Blue, 10);
+                int reviewTag = 1;
+                foreach (BarRow row in profile.Where(item => item.Count > 0 && item.Key != "side").Take(3))
+                {
+                    string reviewText = row.Key == "tie"
+                        ? reviewTag + ": Đai " + ShortType(row.Type)
+                        : reviewTag + ": " + row.Count + ShortType(row.Type);
+                    AddCanvasText(cardContent, reviewText, 8, 164 + (reviewTag - 1) * 14,
+                        row.Key.StartsWith("bottom") ? Teal : Blue, 8);
+                    reviewTag++;
+                }
                 var card = new Viewbox { Width = cardWidth, Height = cardHeight,
                     Stretch = Stretch.Uniform, Child = cardContent };
                 Canvas.SetLeft(card, x); Canvas.SetTop(card, y); canvas.Children.Add(card);
@@ -3422,6 +3432,8 @@ namespace SDK_HD.KStruct.NativeRebar
                     ? "a" + endSpacing.ToString("0") + " / a" + middleSpacing.ToString("0") + " (gối / giữa)"
                     : "a" + uniformSpacing.ToString("0");
                 AddLeader(ShortType(tieRow.Type) + " " + spacing + " (đai)", X(beamLengthMm * 0.52), top + 5, X(beamLengthMm * 0.52) + 34, top - 1, stirrup);
+                AddReviewTag(canvas, "3", ShortType(tieRow.Type) + " " + spacing,
+                    X(beamLengthMm * 0.52), top + 5, X(beamLengthMm * 0.52) + 18, top + 28, stirrup);
             }
             BarRow topRow = rows.First(r => r.Key == "top");
             BarRow bottomRow = rows.First(r => r.Key == "bottom");
@@ -3429,6 +3441,14 @@ namespace SDK_HD.KStruct.NativeRebar
             string bottomLabel = bottomRow.Count + ShortType(bottomRow.Type) + " (dưới)";
             AddLeader(topLabel, X(beamLengthMm * 0.47), topMainY, X(beamLengthMm * 0.47) + 42, top + 1, Blue);
             AddLeader(bottomLabel, X(beamLengthMm * 0.42), bottomMainY, X(beamLengthMm * 0.42) + 42, bottom - 2, Teal);
+            AddReviewTag(canvas, "1", topLabel, X(beamLengthMm * 0.47), topMainY,
+                X(beamLengthMm * 0.47) + 18, top - 30, Blue);
+            AddReviewTag(canvas, "2", bottomLabel, X(beamLengthMm * 0.42), bottomMainY,
+                X(beamLengthMm * 0.42) + 18, bottom + 30, Teal);
+            DrawBarDimension(canvas, X(topRow.StartMm), X(topRow.EndMm), top - 48,
+                "L=" + Math.Max(0, topRow.EndMm - topRow.StartMm).ToString("0") + " mm");
+            DrawBarDimension(canvas, X(bottomRow.StartMm), X(bottomRow.EndMm), bottom + 48,
+                "L=" + Math.Max(0, bottomRow.EndMm - bottomRow.StartMm).ToString("0") + " mm");
 
             for (int i = 0; i < cleanNodes.Count - 1; i++)
             {
@@ -3520,6 +3540,21 @@ namespace SDK_HD.KStruct.NativeRebar
                 canvas.Children.Add(tick);
             }
             AddCanvasText(canvas, label, (x1 + x2) / 2 - 20, y - 12, new SolidColorBrush(Color.FromRgb(72,96,134)), 8);
+        }
+
+        private static void AddReviewTag(Canvas canvas, string number, string text,
+            double anchorX, double anchorY, double tagX, double tagY, Brush color)
+        {
+            canvas.Children.Add(new Line { X1 = anchorX, Y1 = anchorY, X2 = tagX + 9, Y2 = tagY + 9,
+                Stroke = color, StrokeThickness = 0.8 });
+            var circle = new Ellipse { Width = 18, Height = 18, Fill = Brushes.White,
+                Stroke = color, StrokeThickness = 1 };
+            Canvas.SetLeft(circle, tagX); Canvas.SetTop(circle, tagY); canvas.Children.Add(circle);
+            var tag = new TextBlock { Text = number, Width = 18, Height = 18, Foreground = color,
+                FontSize = 9, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Background = Brushes.Transparent };
+            Canvas.SetLeft(tag, tagX); Canvas.SetTop(tag, tagY + 1); canvas.Children.Add(tag);
+            AddCanvasText(canvas, text, tagX + 22, tagY + 2, color, 8);
         }
 
         private static void AddCanvasText(Canvas canvas, string text, double left, double top, Brush foreground, double size)
