@@ -136,8 +136,8 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "Thép dầm",
-                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.5),
-                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.5),
+                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.65),
+                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.65),
                 MinWidth = 900,
                 MinHeight = 500,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
@@ -722,8 +722,8 @@ namespace SDK_HD.KStruct.NativeRebar
             var window = new Window
             {
                 Title = titleOverride ?? "KStruct | Tạo thép dầm",
-                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.5),
-                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.5),
+                Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.65),
+                Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.65),
                 MinWidth = 900, MinHeight = 500,
                 ResizeMode = ResizeMode.CanResizeWithGrip,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -1182,10 +1182,11 @@ namespace SDK_HD.KStruct.NativeRebar
                 BorderThickness = new Thickness(0, 0, 0, 2), Child = heading };
             DockPanel.SetDock(titleBand, Dock.Top); DockPanel.SetDock(footer, Dock.Bottom);
             root.Children.Add(titleBand); root.Children.Add(footer); root.Children.Add(main);
-            // Open at half the work area so a 1920 × 1080 monitor starts near 960 × 520;
+            // Open at 1.3× the previous half-screen size, so a 1920 × 1080 monitor
+            // starts near 1248 × 676 (taskbar/work-area dependent);
             // the user can still enlarge it with the resize grip when more preview space is needed.
-            window.Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.5);
-            window.Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.5);
+            window.Width = Math.Max(900, SystemParameters.WorkArea.Width * 0.65);
+            window.Height = Math.Max(500, SystemParameters.WorkArea.Height * 0.65);
             window.MinWidth = Math.Min(900, SystemParameters.WorkArea.Width);
             window.MinHeight = Math.Min(500, SystemParameters.WorkArea.Height);
             window.Content = root; new WindowInteropHelper(window).Owner = owner;

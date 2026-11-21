@@ -4,8 +4,9 @@ This harness compiles the **actual** [beam editor](../../NativeRebar/BeamRebarEd
 with minimal Revit data fixtures, opens its modal WPF window, exercises controls,
 and renders PNGs at 1648×928, 1280×760, 1024×640 and 960×540 logical pixels.
 
-The production dialogs open at 50% of the Windows work area. On a 1920×1080
-display this is approximately 960×520 (the taskbar reduces the usable height);
+The production dialogs open at 65% of the Windows work area (1.3× the previous
+half-screen default). On a 1920×1080 display this is approximately 1248×676
+(the taskbar reduces the usable height);
 the resize grip remains available for a larger preview.
 
 ```powershell
