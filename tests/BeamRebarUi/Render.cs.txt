@@ -148,8 +148,10 @@ internal static class Render
                         "Equal reinforcement quantities must reuse the same section name.");
                     Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Dầm phụ"),
                         "A secondary-beam junction must be visible in the elevation preview.");
-                    Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Đai bổ sung b+2h"),
+                    Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Đai chính b+2h"),
                         "A supplementary b+2h stirrup zone must be visible for the secondary-beam junction.");
+                    Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Đai phụ h/3 · review"),
+                        "The secondary-beam h/3 review requirement must be visible.");
                     double zoom = beam.RenderTransform.Value.M11;
                     window.Width -= 40; window.UpdateLayout();
                     Assert(Math.Abs(beam.RenderTransform.Value.M11 - zoom) < 0.001, "Resizing must preserve zoom.");

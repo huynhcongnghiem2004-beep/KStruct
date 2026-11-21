@@ -1012,7 +1012,7 @@ namespace SDK_HD.KStruct.NativeRebar
             {
                 Children = {
                     new TextBlock { Text = "Thép đai", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) },
-                    new TextBlock { Text = "Giao dầm phụ: đai bổ sung trong vùng b + 2h; bước dùng theo vùng đầu đai. Số lượng cần kiểm tra theo phản lực thiết kế.",
+                    new TextBlock { Text = "Giao dầm phụ: dầm chính dùng vùng b + 2h; dầm phụ dùng đoạn h/3. Bước theo vùng đầu đai, số lượng cần kiểm tra theo phản lực thiết kế.",
                         TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(2, 0, 2, 8) },
                     tieGrid
                 }
@@ -3322,7 +3322,8 @@ namespace SDK_HD.KStruct.NativeRebar
                         canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = SectionTop(mm) + 8,
                             Y2 = SectionBottom(mm) - 8, Stroke = Earth, StrokeThickness = 1.4 });
                     }
-                    AddCanvasText(canvas, "Đai bổ sung b+2h", X(center) - 42, SectionTop(center) + 18, Earth, 8);
+                    AddCanvasText(canvas, "Đai chính b+2h", X(center) - 42, SectionTop(center) + 18, Earth, 8);
+                    AddCanvasText(canvas, "Đai phụ h/3 · review", X(center) - 42, SectionBottom(center) - 18, Earth, 8);
                 }
             }
 
