@@ -23,6 +23,10 @@ marker is rendered in the elevation preview.
 The production quick editor exposes **Chọn dầm phụ giao…**; it returns the
 current options to the Revit command, performs a multi-pick with the Revit
 selection API, and reopens the editor with the selected beam IDs retained.
+The generated main-beam tie stations include an automatic supplementary zone
+of `b + 2h` around each selected secondary-beam junction, using the configured
+end-zone spacing. The reaction-based required quantity remains an engineering
+input/check and is not guessed by the UI.
 GitHub Actions publishes the rendered images as **KStruct-Beam-UI**.
 
 The fixtures are not an engineering engine. They do not create or validate Revit

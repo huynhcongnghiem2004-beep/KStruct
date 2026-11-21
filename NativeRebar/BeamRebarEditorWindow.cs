@@ -1010,7 +1010,12 @@ namespace SDK_HD.KStruct.NativeRebar
             AddQuickCell(tieGrid, uniformFields, 3, 0, 1, 2);
             var tieCard = Card(new StackPanel
             {
-                Children = { new TextBlock { Text = "Thép đai", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) }, tieGrid }
+                Children = {
+                    new TextBlock { Text = "Thép đai", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 2, 8) },
+                    new TextBlock { Text = "Giao dầm phụ: đai bổ sung trong vùng b + 2h; bước dùng theo vùng đầu đai. Số lượng cần kiểm tra theo phản lực thiết kế.",
+                        TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(2, 0, 2, 8) },
+                    tieGrid
+                }
             }, new Thickness(12));
             var commonCard = Card(new StackPanel
             {
@@ -3290,6 +3295,23 @@ namespace SDK_HD.KStruct.NativeRebar
                 {
                     double x = X(mm);
                     canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = SectionTop(mm) + 8, Y2 = SectionBottom(mm) - 8, Stroke = stirrup, StrokeThickness = 0.85 });
+                }
+                foreach (var secondary in visibleSupports.Where(s => s.Kind == "Dầm phụ giao" || s.Kind == "Dầm giao"))
+                {
+                    double center = (secondary.StartMm + secondary.EndMm) * 0.5;
+                    double width = secondary.WidthMm > 0 ? secondary.WidthMm : 300;
+                    double height = secondary.HeightMm > 0 ? secondary.HeightMm : beamHeightMm;
+                    double zone = Math.Min(beamLengthMm, width + 2 * height);
+                    var supplementary = new List<double>();
+                    AddRepresentativeStations(supplementary, Math.Max(0, center - zone / 2),
+                        Math.Min(beamLengthMm, center + zone / 2), 5);
+                    foreach (double mm in supplementary)
+                    {
+                        double x = X(mm);
+                        canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = SectionTop(mm) + 8,
+                            Y2 = SectionBottom(mm) - 8, Stroke = Earth, StrokeThickness = 1.4 });
+                    }
+                    AddCanvasText(canvas, "Đai bổ sung b+2h", X(center) - 42, SectionTop(center) + 18, Earth, 8);
                 }
             }
 

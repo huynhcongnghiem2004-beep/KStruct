@@ -22,6 +22,7 @@ namespace SDK_HD.KStruct.NativeRebar {
             public double StartMm;
             public double EndMm;
             public double WidthMm;
+            public double HeightMm;
             public string Kind;
             public string Label;
             public string AxisLabel;

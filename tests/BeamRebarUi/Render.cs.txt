@@ -88,7 +88,7 @@ internal static class Render
                 new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 0, EndMm = 300, WidthMm = 300, Kind = "Cột giao", Label = "C1", AxisLabel = "A" },
                 new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 5850, EndMm = 6150, WidthMm = 300, Kind = "Cột giao", Label = "C2", AxisLabel = "B" },
                 new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 11350, EndMm = 11650, WidthMm = 300, Kind = "Cột giao", Label = "C3", AxisLabel = "C" },
-                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 8500, EndMm = 9000, WidthMm = 500, Kind = "Dầm phụ giao", Label = "Dầm phụ DP-01" },
+                new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 8500, EndMm = 9000, WidthMm = 500, HeightMm = 500, Kind = "Dầm phụ giao", Label = "Dầm phụ DP-01" },
                 new ReinforceStraightBeamsCommand.BeamPreviewSupport { StartMm = 17200, EndMm = 17500, WidthMm = 300, Kind = "Cột giao", Label = "C4", AxisLabel = "D" }
             }
         };
@@ -148,6 +148,8 @@ internal static class Render
                         "Equal reinforcement quantities must reuse the same section name.");
                     Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Dầm phụ"),
                         "A secondary-beam junction must be visible in the elevation preview.");
+                    Assert(Descendants<TextBlock>(window).Any(text => text.Text == "Đai bổ sung b+2h"),
+                        "A supplementary b+2h stirrup zone must be visible for the secondary-beam junction.");
                     double zoom = beam.RenderTransform.Value.M11;
                     window.Width -= 40; window.UpdateLayout();
                     Assert(Math.Abs(beam.RenderTransform.Value.M11 - zoom) < 0.001, "Resizing must preserve zoom.");

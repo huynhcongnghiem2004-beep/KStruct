@@ -25,6 +25,7 @@ namespace SDK_HD.KStruct.NativeRebar
             public double StartMm;
             public double EndMm;
             public double WidthMm;
+            public double HeightMm;
             public string Kind;
             public string Label;
             public string AxisLabel;
@@ -300,7 +301,7 @@ namespace SDK_HD.KStruct.NativeRebar
                         ElementId = support.ElementId, Kind = support.Kind, Label = support.Label, AxisLabel = support.AxisLabel,
                         StartMm = segment.Forward ? a - segment.StartMm : segment.EndMm - b,
                         EndMm = segment.Forward ? b - segment.StartMm : segment.EndMm - a,
-                        WidthMm = support.WidthMm
+                        WidthMm = support.WidthMm, HeightMm = support.HeightMm
                     };
                 }).Where(support => support != null).OrderBy(support => support.StartMm).ToList();
             void DisableAbsentLayer(string key, bool hasSavedDetails, Action<int> setCount, int count)
@@ -986,6 +987,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 {
                     ElementId = candidate.Id.Value, StartMm = startMm, EndMm = endMm,
                     WidthMm = UnitUtils.ConvertFromInternalUnits(Math.Max(0, bounds.MaxAxis - bounds.MinAxis), UnitTypeId.Millimeters),
+                    HeightMm = UnitUtils.ConvertFromInternalUnits(Math.Max(0, bounds.MaxHeight - bounds.MinHeight), UnitTypeId.Millimeters),
                     Kind = kind, Label = label
                 });
             }
@@ -1303,6 +1305,8 @@ namespace SDK_HD.KStruct.NativeRebar
             var stations = new List<double>();
             foreach (Tuple<double, double> span in supportSpans)
                 stations.AddRange(BuildTieStations(doc, options, span.Item1, span.Item2, requestedSpacing));
+            stations.AddRange(BuildSecondaryBeamSupplementaryStations(doc, options, tieStart, tieEnd));
+            stations = stations.Distinct().OrderBy(station => station).ToList();
             if (stations.Count > 1000) throw new InvalidOperationException("Bước đai tạo ra hơn 1000 đai cho một dầm.");
             int tieIndex = 0;
             for (int stationIndex = 0; stationIndex < stations.Count;)
@@ -1486,6 +1490,32 @@ namespace SDK_HD.KStruct.NativeRebar
             if (rightStart - leftEnd > doc.Application.ShortCurveTolerance)
                 AddStations(stations, leftEnd, rightStart, middleSpacing, doc.Application.ShortCurveTolerance);
             AddStations(stations, rightStart, end, endSpacing, doc.Application.ShortCurveTolerance);
+            return stations;
+        }
+
+        private static List<double> BuildSecondaryBeamSupplementaryStations(Document doc, Options options,
+            double start, double end)
+        {
+            var stations = new List<double>();
+            foreach (BeamPreviewSupport support in (options.PreviewSupports ?? new List<BeamPreviewSupport>())
+                .Where(item => item != null && (item.Kind == "Dầm phụ giao" || item.Kind == "Dầm giao")))
+            {
+                double centerMm = (support.StartMm + support.EndMm) * 0.5;
+                double widthMm = support.WidthMm > 0 ? support.WidthMm : 300;
+                double heightMm = support.HeightMm > 0 ? support.HeightMm : 400;
+                double zoneMm = widthMm + 2 * heightMm;
+                double zoneStart = Math.Max(UnitUtils.ConvertFromInternalUnits(start, UnitTypeId.Millimeters), centerMm - zoneMm / 2);
+                double zoneEnd = Math.Min(UnitUtils.ConvertFromInternalUnits(end, UnitTypeId.Millimeters), centerMm + zoneMm / 2);
+                if (zoneEnd <= zoneStart) continue;
+                double spacingMm = options.UseZonedTies && options.TieEndSpacingMm > 0
+                    ? options.TieEndSpacingMm : options.TieSpacingMm;
+                var local = new List<double>();
+                AddStations(local, UnitUtils.ConvertToInternalUnits(zoneStart, UnitTypeId.Millimeters),
+                    UnitUtils.ConvertToInternalUnits(zoneEnd, UnitTypeId.Millimeters),
+                    UnitUtils.ConvertToInternalUnits(Math.Max(25, spacingMm), UnitTypeId.Millimeters),
+                    doc.Application.ShortCurveTolerance);
+                stations.AddRange(local);
+            }
             return stations;
         }
 
