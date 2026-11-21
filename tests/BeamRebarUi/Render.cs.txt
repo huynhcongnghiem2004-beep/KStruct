@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -126,6 +127,13 @@ internal static class Render
                     Assert(Signature(saved) == before, "Delete must undo geometry and enabled state.");
                     Click(Button(window, "+"));
                     var beam = Descendants<Canvas>(window).Single(x => x.Height == 380);
+                    var markers = beam.Tag as IList;
+                    Assert(markers != null && markers.Count == 9,
+                        "Each of the three spans must expose exactly three section markers.");
+                    var markerLabels = markers.Cast<object>().Select(item =>
+                        (string)item.GetType().GetField("Label").GetValue(item)).ToList();
+                    Assert(markerLabels.Distinct().Count() == 1 && markerLabels[0] == "MC-1",
+                        "Equal reinforcement quantities must reuse the same section name.");
                     double zoom = beam.RenderTransform.Value.M11;
                     window.Width -= 40; window.UpdateLayout();
                     Assert(Math.Abs(beam.RenderTransform.Value.M11 - zoom) < 0.001, "Resizing must preserve zoom.");

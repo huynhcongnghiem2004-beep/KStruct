@@ -16,6 +16,8 @@ if ($process.ExitCode -ne 0) { Get-Content beam-ui-previews/render-error.txt; ex
 
 Checks cover action visibility, accordion navigation, editing and undoing counts,
 undoing presets and group deletion, zoom preservation during resize, and basic input validation.
+The beam preview also asserts three section markers per span and verifies that
+equal reinforcement quantities reuse the same `MC-*` section name.
 GitHub Actions publishes the rendered images as **KStruct-Beam-UI**.
 
 The fixtures are not an engineering engine. They do not create or validate Revit

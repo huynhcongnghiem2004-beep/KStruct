@@ -89,6 +89,12 @@ namespace SDK_HD.KStruct.NativeRebar
                 Bars = source.Bars.Select(bar => bar.Clone()).ToList();
             }
         }
+        private sealed class SectionMarker
+        {
+            public double Station;
+            public string Label;
+        }
+
         private sealed class QuickEditorSnapshot
         {
             public List<BarRow> Rows;
@@ -1287,7 +1293,7 @@ namespace SDK_HD.KStruct.NativeRebar
                     Number(coverBox.Text, defaults?.CoverMm > 0 ? defaults.CoverMm : 30),
                     defaults?.PreviewBeamSections);
                 // Both previews are recomputed from the same edited bar geometry.
-                DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<double>,
+                DrawAlignedSectionGallery(sectionCanvas, rows, beamCanvas.Tag as List<SectionMarker>,
                     beamLengthMm, beamWidthMm, beamHeightMm, defaults?.PreviewBeamSections);
                 recordHistory();
             };
@@ -1902,12 +1908,13 @@ namespace SDK_HD.KStruct.NativeRebar
         }
 
         private static void DrawAlignedSectionGallery(Canvas canvas, IList<BarRow> rows,
-            IList<double> stations, double beamLengthMm, double widthMm, double heightMm,
+            IList<SectionMarker> stations, double beamLengthMm, double widthMm, double heightMm,
             IList<ReinforceStraightBeamsCommand.BeamPreviewSection> beamSections = null)
         {
             canvas.Children.Clear();
-            var cuts = (stations ?? new List<double>()).Where(x =>
-                !double.IsNaN(x) && !double.IsInfinity(x) && x >= 0 && x <= beamLengthMm).ToList();
+            var cuts = (stations ?? new List<SectionMarker>()).Where(x =>
+                x != null && !double.IsNaN(x.Station) && !double.IsInfinity(x.Station) &&
+                x.Station >= 0 && x.Station <= beamLengthMm).ToList();
             double canvasWidth = Math.Max(300, (canvas.Parent as ScrollViewer)?.ViewportWidth ?? canvas.ActualWidth);
             if (cuts.Count == 0)
             {
@@ -1925,7 +1932,7 @@ namespace SDK_HD.KStruct.NativeRebar
             canvas.Width = Math.Max(canvasWidth, requiredWidth);
             for (int i = 0; i < cuts.Count; i++)
             {
-                double station = cuts[i];
+                double station = cuts[i].Station;
                 double x = margin + i * (cardWidth + gap);
                 double y = 12;
                 var actual = (beamSections ?? new List<ReinforceStraightBeamsCommand.BeamPreviewSection>())
@@ -1947,7 +1954,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 cardContent.Children.Add(new Rectangle { Width = 134, Height = 178,
                     RadiusX = 7, RadiusY = 7, Stroke = BorderBrush, StrokeThickness = 1,
                     Fill = Brushes.Transparent });
-                AddCanvasText(cardContent, "MẶT CẮT " + (i + 1) + "-" + (i + 1), 10, 7, Blue, 11);
+                AddCanvasText(cardContent, cuts[i].Label, 10, 7, Blue, 11);
                 AddCanvasText(cardContent, "X = " + station.ToString("0") + " mm", 10, 23, Earth, 9);
                 var sectionDiagram = new Canvas { Width = 86, Height = 110, Background = Ivory };
                 DrawQuickSection(sectionDiagram, profile, sectionWidth, sectionHeight);
@@ -2647,6 +2654,23 @@ namespace SDK_HD.KStruct.NativeRebar
                 stations.Add(center);
             }
             return stations.OrderBy(value=>value).ToList();
+        }
+
+        private static string SectionQuantityKey(IList<BarRow> rows, double station)
+        {
+            return string.Join("|", rows.Where(row => row.Count > 0 && row.Key != "tie")
+                .Select(row =>
+                {
+                    int count;
+                    if (row.Key == "side") count = row.Count;
+                    else
+                    {
+                        var crossing = row.Bars.Where(bar => bar.StartMm <= station && bar.EndMm >= station).ToList();
+                        count = row.HasMultipleIntervals ? (crossing.Count > 0 ? row.Count : 0) : crossing.Count;
+                    }
+                    return row.Key + "=" + count;
+                })
+                .OrderBy(value => value, StringComparer.Ordinal));
         }
 
         private static UIElement SteelInfoGrid(object[] items)
@@ -3378,73 +3402,31 @@ namespace SDK_HD.KStruct.NativeRebar
             }
             DrawVerticalDimension(canvas, left - 25, top, bottom, beamHeightMm.ToString("0") + " mm");
 
-            var sectionBoundaries = new SortedSet<double> { 0, beamLengthMm };
-            foreach (var profile in actualSections)
+            // Put three cuts in every span: near the left support, at midspan and
+            // near the right support. Equal reinforcement quantities share a name.
+            var sectionMarkers = new List<SectionMarker>();
+            var labelsByQuantity = new Dictionary<string, string>();
+            foreach (var span in cleanNodes.Zip(cleanNodes.Skip(1), (start, end) => Tuple.Create(start, end)))
             {
-                sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, profile.StartMm)));
-                sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, profile.EndMm)));
+                foreach (double fraction in new[] { 0.12, 0.50, 0.88 })
+                {
+                    double station = span.Item1 + (span.Item2 - span.Item1) * fraction;
+                    string quantityKey = SectionQuantityKey(rows, station);
+                    if (!labelsByQuantity.TryGetValue(quantityKey, out string label))
+                    {
+                        label = "MC-" + (labelsByQuantity.Count + 1);
+                        labelsByQuantity[quantityKey] = label;
+                    }
+                    sectionMarkers.Add(new SectionMarker { Station = station, Label = label });
+                    double sectionX = X(station);
+                    canvas.Children.Add(new Line { X1 = sectionX, X2 = sectionX, Y1 = top - 12, Y2 = bottom + 12,
+                        Stroke = Blue, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 3 } });
+                    AddCanvasText(canvas, label, sectionX - 14, top - 27, Blue, 10);
+                    AddCanvasText(canvas, label, sectionX - 14, bottom + 12, Blue, 10);
+                }
             }
-            foreach (BarRow row in rows.Where(row => row.Count > 0 && row.Key != "tie" && row.Key != "side"))
-                foreach (BarGeometry bar in row.Bars)
-                {
-                    sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, bar.StartMm)));
-                    sectionBoundaries.Add(Math.Max(0, Math.Min(beamLengthMm, bar.EndMm)));
-                }
-            foreach (double node in cleanNodes) sectionBoundaries.Add(node);
-            if (zonedTies)
-                for (int spanIndex = 0; spanIndex + 1 < cleanNodes.Count; spanIndex++)
-                {
-                    double spanStart = cleanNodes[spanIndex], spanEnd = cleanNodes[spanIndex + 1];
-                    double zone = Math.Min(zoneLength, (spanEnd - spanStart) / 2);
-                    sectionBoundaries.Add(spanStart + zone);
-                    sectionBoundaries.Add(spanEnd - zone);
-                }
-            var sectionKeys = new HashSet<string>();
-            var boundaries = sectionBoundaries.ToList();
-            int sectionCount = 0;
-            var sectionStations = new List<double>();
-            for (int interval = 0; interval + 1 < boundaries.Count; interval++)
-            {
-                if (boundaries[interval + 1] - boundaries[interval] < 1) continue;
-                double station = (boundaries[interval] + boundaries[interval + 1]) / 2;
-                var steelKeys = new List<string>();
-                foreach (BarRow row in rows.Where(row => row.Count > 0 && row.Key != "tie"))
-                {
-                    var crossing = row.Bars.Where(bar => bar.StartMm <= station && bar.EndMm >= station).ToList();
-                    if (row.Key == "side")
-                        steelKeys.Add("side/" + row.Count + "/" + row.Type?.Id);
-                    else if (row.HasMultipleIntervals && crossing.Count > 0)
-                        steelKeys.Add(row.Key + "/" + row.Count + "/" + crossing[0].Type?.Id + "/" +
-                            crossing[0].Position.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-                    else
-                        foreach (var group in crossing.GroupBy(bar => new { TypeId = bar.Type?.Id, bar.Position }))
-                            steelKeys.Add(row.Key + "/" + group.Count() + "/" + group.Key.TypeId + "/" +
-                                group.Key.Position.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-                }
-                int containingSpan = Math.Max(0, cleanNodes.FindLastIndex(node => node <= station));
-                containingSpan = Math.Min(containingSpan, cleanNodes.Count - 2);
-                var actualProfile = actualSections.FirstOrDefault(profile => station >= profile.StartMm && station <= profile.EndMm)
-                    ?? actualSections.OrderBy(profile => Math.Abs((profile.StartMm + profile.EndMm) / 2 - station)).First();
-                steelKeys.Add("section/" + actualProfile.WidthMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "/" +
-                    actualProfile.HeightMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
-                double currentZone = Math.Min(zoneLength, (cleanNodes[containingSpan + 1] - cleanNodes[containingSpan]) / 2);
-                bool inEndZone = station < cleanNodes[containingSpan] + currentZone ||
-                    station > cleanNodes[containingSpan + 1] - currentZone;
-                double sectionSpacing = zonedTies ? (inEndZone ? endSpacing : middleSpacing) : uniformSpacing;
-                steelKeys.Add("tie/" + rows.First(row => row.Key == "tie").Type?.Id + "/" +
-                    sectionSpacing.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-                string sectionKey = string.Join("|", steelKeys.OrderBy(key => key, StringComparer.Ordinal));
-                if (!sectionKeys.Add(sectionKey)) continue;
-                sectionCount++;
-                sectionStations.Add(station);
-                double sectionX = X(station);
-                canvas.Children.Add(new Line { X1 = sectionX, X2 = sectionX, Y1 = top - 12, Y2 = bottom + 12,
-                    Stroke = Blue, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 3 } });
-                AddCanvasText(canvas, sectionCount + "-" + sectionCount, sectionX - 10, top - 27, Blue, 10);
-                AddCanvasText(canvas, sectionCount + "-" + sectionCount, sectionX - 10, bottom + 12, Blue, 10);
-            }
-            AddCanvasText(canvas, "Mặt cắt khác nhau: " + sectionCount, left, Math.Max(4, top - 55), Blue, 11);
-            canvas.Tag = sectionStations;
+            AddCanvasText(canvas, "Mặt cắt: " + sectionMarkers.Count + " vị trí · " + labelsByQuantity.Count + " kiểu", left, Math.Max(4, top - 55), Blue, 11);
+            canvas.Tag = sectionMarkers;
 
             for (int i = 0; i < cleanNodes.Count; i++)
             {
