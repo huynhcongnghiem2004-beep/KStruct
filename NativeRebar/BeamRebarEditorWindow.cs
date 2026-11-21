@@ -3234,17 +3234,20 @@ namespace SDK_HD.KStruct.NativeRebar
                 {
                     Points = new PointCollection
                     {
-                        new Point(x1, SectionTop((profile.StartMm + profile.EndMm) * 0.5)),
-                        new Point(x2, SectionTop((profile.StartMm + profile.EndMm) * 0.5)),
-                        new Point(x2, SectionBottom((profile.StartMm + profile.EndMm) * 0.5)),
-                        new Point(x1, SectionBottom((profile.StartMm + profile.EndMm) * 0.5))
+                        new Point(x1, SectionTop(profile.StartMm)),
+                        new Point(x2, SectionTop(profile.EndMm)),
+                        new Point(x2, SectionBottom(profile.EndMm)),
+                        new Point(x1, SectionBottom(profile.StartMm))
                     },
                     Fill = concrete, Stroke = concreteEdge, StrokeThickness = 1.2
                 };
                 canvas.Children.Add(body);
-                double labelY = SectionTop((profile.StartMm + profile.EndMm) * 0.5) - 15;
-                AddCanvasText(canvas, profile.WidthMm.ToString("0") + "×" + profile.HeightMm.ToString("0"),
-                    (x1 + x2) * 0.5 - 24, labelY, neutral, 8);
+                if (fullBeamOverview && x2 - x1 >= 82)
+                {
+                    double labelY = Math.Min(SectionTop(profile.StartMm), SectionTop(profile.EndMm)) - 15;
+                    AddCanvasText(canvas, profile.WidthMm.ToString("0") + "×" + profile.HeightMm.ToString("0"),
+                        (x1 + x2) * 0.5 - 24, labelY, neutral, 8);
+                }
             }
 
             if (highlightEndMm > highlightStartMm && highlightStartMm >= 0)
@@ -3517,6 +3520,11 @@ namespace SDK_HD.KStruct.NativeRebar
             AddCanvasText(canvas, "Mặt cắt: " + sectionMarkers.Count + " vị trí · " + labelsByQuantity.Count + " kiểu", left, Math.Max(4, top - 55), Blue, 11);
             canvas.Tag = sectionMarkers;
 
+            canvas.Children.Add(new Line
+            {
+                X1 = left, X2 = right, Y1 = axisY, Y2 = axisY,
+                Stroke = thin, StrokeThickness = 0.8
+            });
             for (int i = 0; i < cleanNodes.Count; i++)
             {
                 var axisSupport = SupportAt(cleanNodes[i]);
