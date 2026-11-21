@@ -49,8 +49,12 @@ internal static class Render
             foreach (var nested in Descendants<T>(child)) yield return nested;
         }
     }
-    private static Button Button(Window window, string label) =>
-        Descendants<Button>(window).Single(button => Equals(button.Content, label));
+    private static Button Button(Window window, string label)
+    {
+        var button = Descendants<Button>(window).FirstOrDefault(item => Equals(item.Content, label));
+        if (button == null) throw new InvalidOperationException("Missing button: " + label);
+        return button;
+    }
     private static void Click(Button button) =>
         button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
     private static void Assert(bool condition, string message)
@@ -98,13 +102,20 @@ internal static class Render
                 var steps = Descendants<Expander>(window).Where(x => x.Header.ToString().StartsWith("1.") ||
                     x.Header.ToString().StartsWith("2.") || x.Header.ToString().StartsWith("3.") || x.Header.ToString().StartsWith("4.")).ToList();
                 Assert(steps.Count == 4, "Four configuration steps must be accessible.");
-                foreach (string label in new[] { "Hoàn tác", "Kiểm tra", "Hủy", "Tạo cốt thép", "Chọn dầm phụ giao…" })
+                foreach (string label in new[] { "Hoàn tác", "Kiểm tra", "Hủy", "Tạo cốt thép" })
                 {
                     var button = Button(window, label);
                     var bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
                     Assert(bounds.Right <= window.ActualWidth && bounds.Bottom <= window.ActualHeight,
                         name + ": action clipped: " + label);
                 }
+                steps[1].IsExpanded = true; window.UpdateLayout();
+                var pickSecondary = Descendants<Button>(window).FirstOrDefault(item =>
+                    item.Content?.ToString().IndexOf("dầm phụ", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (pickSecondary == null) throw new InvalidOperationException("Missing secondary-beam pick action.");
+                Assert(pickSecondary.ActualWidth > 0 && pickSecondary.ActualHeight > 0,
+                    "Secondary-beam pick action must be available when its workflow step is open.");
+                steps[0].IsExpanded = true; window.UpdateLayout();
                 if (exercise)
                 {
                     var count = Descendants<ComboBox>(steps[0]).First();
