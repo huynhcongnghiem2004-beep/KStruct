@@ -368,8 +368,9 @@ namespace ColumnRebarPro.V3
                     outward = new XYZ(outward.DotProduct(right), outward.DotProduct(up), 0);
                     outward = outward.GetLength() < 1e-6 ? XYZ.BasisX : outward.Normalize();
                     XYZ direction = right * outward.X + up * outward.Y;
-                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s)))
-                        throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name);
+                    string tagError;
+                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s), out tagError))
+                        throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name + ": " + tagError);
                 }
             }
 
@@ -385,8 +386,9 @@ namespace ColumnRebarPro.V3
                 }
                 if (chosen == null) chosen = stirrups.OrderBy(b => b.Id.Value).First();
                 XYZ head = center + right * (g.Width / 2 + V3Units.Ft(12 * s)) + up * (g.Depth / 2);
-                if (!TryTag(doc, view, stirrupTag, chosen, head))
-                    throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name);
+                string tagError;
+                if (!TryTag(doc, view, stirrupTag, chosen, head, out tagError))
+                    throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name + ": " + tagError);
             }
         }
 
@@ -442,15 +444,22 @@ namespace ColumnRebarPro.V3
             catch (Autodesk.Revit.Exceptions.ApplicationException) { return false; }
         }
 
-        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ head)
+        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ head, out string error)
         {
+            error = null;
             try
             {
                 IndependentTag.Create(doc, symbol.Id, view.Id, new Reference(bar), true, TagOrientation.Horizontal, head);
                 return true;
             }
-            catch (Autodesk.Revit.Exceptions.ArgumentException) { return false; }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException) { return false; }
+            catch (Autodesk.Revit.Exceptions.ArgumentException ex) { error = TagFailure(symbol, bar, ex); return false; }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException ex) { error = TagFailure(symbol, bar, ex); return false; }
+        }
+
+        private static string TagFailure(FamilySymbol symbol, Rebar bar, Exception error)
+        {
+            return "Tag '" + symbol.FamilyName + " : " + symbol.Name + "', Rebar " +
+                bar.Id.Value + ". Revit: " + error.Message;
         }
 
         // Hai kích thước bao tiết diện cột: chiều rộng (phía trên) và chiều sâu (phía trái).
