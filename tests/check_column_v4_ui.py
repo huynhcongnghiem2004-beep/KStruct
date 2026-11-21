@@ -23,7 +23,7 @@ def main():
     main = next(t for t in root.iter(f"{{{ns['w']}}}TabControl") if t.get(xns) == "MainTabs")
     tabs = [t.attrib.get("Header", "") for t in main.findall("w:TabItem", ns)]
     expected = [
-        "▥  1. TẠO THÉP CỘT",
+        "▥  BỐ TRÍ THÉP",
         "▤  2. THÉP ĐAI",
         "⌁  3. NEO & NỐI TẦNG",
         "▧  4. TRIỂN KHAI BẢN VẼ",
