@@ -1338,7 +1338,7 @@ namespace SDK_HD.KStruct.NativeRebar
                     try
                     {
                         using (RebarShapeDrivenAccessor accessor = tie.GetShapeDrivenAccessor())
-                            accessor.SetLayoutAsFixedNumber(positions, stations[runEnd] - station, true, true, true);
+                            accessor.SetLayoutAsMaximumSpacing(spacing, stations[runEnd] - station, true, true, true);
                     }
                     catch (Exception ex)
                     {
@@ -1351,7 +1351,7 @@ namespace SDK_HD.KStruct.NativeRebar
                     layoutMatches = Math.Abs(accessor.ArrayLength - expectedArrayLength) <=
                         Math.Max(doc.Application.ShortCurveTolerance * 4, expectedArrayLength * 1e-6);
                 if (!tie.IsRebarShapeDriven() || tie.NumberOfBarPositions != positions ||
-                    (positions > 1 && tie.LayoutRule != RebarLayoutRule.FixedNumber) ||
+                    (positions > 1 && tie.LayoutRule != RebarLayoutRule.MaximumSpacing) ||
                     (positions == 1 && tie.LayoutRule != RebarLayoutRule.Single) || !layoutMatches)
                     throw new InvalidOperationException("Shape đai " + options.TieShape.Name + " không tạo được layout có " + positions + " vị trí đúng yêu cầu.");
                 SetPartition(tie, beam.Id);
