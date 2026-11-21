@@ -1,0 +1,136 @@
+// Rendering fixtures only: no Revit model operations are simulated.
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Xml.Serialization;
+using Autodesk.Revit.DB.Structure;
+namespace Autodesk.Revit.DB {
+ public sealed class ElementId { public long Value; public override string ToString() => Value.ToString(); }
+ public static class UnitTypeId { public static readonly object Millimeters = new object(); }
+ public static class UnitUtils { public static double ConvertFromInternalUnits(double value, object unit) => value * 304.8; }
+}
+namespace Autodesk.Revit.DB.Structure {
+ public class RebarBarType { public Autodesk.Revit.DB.ElementId Id; public string Name; public double BarNominalDiameter; }
+ public class RebarHookType { public Autodesk.Revit.DB.ElementId Id; public string Name; }
+ public class RebarShape {}
+}
+namespace SDK_HD.KStruct.NativeRebar {
+ internal static class ReinforceStraightBeamsCommand {
+ internal sealed class BeamPreviewSupport
+        {
+            public long ElementId;
+            public double StartMm;
+            public double EndMm;
+            public double WidthMm;
+            public string Kind;
+            public string Label;
+            public string AxisLabel;
+        }
+internal sealed class BeamPreviewSection
+        {
+            public double StartMm, EndMm, WidthMm, HeightMm, TopElevationMm, BottomElevationMm;
+            public string Label;
+        }
+internal sealed class DetailedBarSpec
+        {
+            public string Key;
+            public int Count;
+            // Index and total count identify this bar's lane within its layer.
+            // Older settings omit these fields and keep the original distributed-row behavior.
+            public int BarIndex = -1;
+            public int BarGroupCount;
+            public RebarBarType Type;
+            public bool IsTop;
+            public double StartMm;
+            public double EndMm;
+            public double SectionPosition;
+            public double LeftHookMm;
+            public double RightHookMm;
+            public double HookDownMm;
+            public RebarHookType StartHook;
+            public RebarHookType EndHook;
+            public int StartPointIndex;
+            public int EndPointIndex = -1;
+            public double LeftRatio = 0.25;
+            public double RightRatio = 0.25;
+        }
+internal sealed class Options
+        {
+            public List<string> DeletedReinforcementRanges = new List<string>();
+            public RebarBarType MainType;
+            public RebarBarType TopType;
+            public RebarBarType BottomType;
+            public RebarBarType TieType;
+            public int TopCount;
+            public int BottomCount;
+            public int TopLayer2Count;
+            public int BottomLayer2Count;
+            public int TopLayer3Count;
+            public int BottomLayer3Count;
+            public int SideBarCount;
+            public RebarBarType TopLayer2Type;
+            public RebarBarType BottomLayer2Type;
+            public RebarBarType TopLayer3Type;
+            public RebarBarType BottomLayer3Type;
+            public RebarBarType SideBarType;
+            public RebarHookType TopStartHook, TopEndHook, BottomStartHook, BottomEndHook;
+            public RebarShape TieShape;
+            public RebarHookType TieStartHook, TieEndHook;
+            public RebarShape TopBarShape, BottomBarShape;
+            public RebarShape TopLayer2Shape, TopLayer3Shape, BottomLayer2Shape, BottomLayer3Shape;
+            public RebarShape SideBarShape;
+            public double LongitudinalLayerSpacingMm;
+            public double CoverMm;
+            public double TieSpacingMm;
+            public bool UseZonedTies;
+            public bool TcvnCutoffEnabled = true;
+            public double TcvnConcreteRbtMpa;
+            public double TcvnSteelRsMpa;
+            public double TcvnBondEta1 = 2.5;
+            public double TcvnAreaRatio = 1.0;
+            public double TcvnAlpha = 1.0;
+            public double TieEndZoneLengthMm;
+            public double TieEndSpacingMm;
+            public double TieMiddleSpacingMm;
+            public double StirrupSupportOffsetMm = 50;
+            public double SideBarMinimumHeightMm;
+            public double SideBarSpacingMm;
+            public double SideBarAnchorageMm;
+            [XmlIgnore] public List<DetailedBarSpec> DetailedBars = new List<DetailedBarSpec>();
+            // Preview-only geometry. The editor reads these from the selected beam;
+            // they are intentionally not written to the settings file.
+            [XmlIgnore] public double PreviewBeamLengthMm;
+            [XmlIgnore] public double PreviewBeamWidthMm;
+            [XmlIgnore] public double PreviewBeamHeightMm;
+            [XmlIgnore] public string PreviewSectionDescription;
+            [XmlIgnore] public List<BeamPreviewSupport> PreviewSupports = new List<BeamPreviewSupport>();
+            [XmlIgnore] public List<BeamPreviewSection> PreviewBeamSections = new List<BeamPreviewSection>();
+            // Creation geometry is deliberately isolated from densified UI sample
+            // segments: the approved 1:6 bottom transition needs stable stations.
+            [XmlIgnore] public List<BeamPreviewSection> RebarBeamSections = new List<BeamPreviewSection>();
+        }
+ internal static List<Tuple<double, double>> BuildSupportReinforcementRanges(IList<Tuple<double, double>> spans)
+        {
+            var ordered = (spans ?? new List<Tuple<double, double>>())
+                .Where(span => span != null && span.Item2 - span.Item1 >= 250)
+                .OrderBy(span => span.Item1).ToList();
+            var ranges = new List<Tuple<double, double>>();
+            if (ordered.Count == 0) return ranges;
+
+            // One range per support: end supports receive a bar into the adjacent span;
+            // each internal support receives one bar that continues through the support.
+            for (int supportIndex = 0; supportIndex <= ordered.Count; supportIndex++)
+            {
+                double start = supportIndex == 0
+                    ? ordered[0].Item1
+                    : ordered[supportIndex - 1].Item2 - (ordered[supportIndex - 1].Item2 - ordered[supportIndex - 1].Item1) / 4.0;
+                double end = supportIndex == ordered.Count
+                    ? ordered[ordered.Count - 1].Item2
+                    : ordered[supportIndex].Item1 + (ordered[supportIndex].Item2 - ordered[supportIndex].Item1) / 4.0;
+                if (end - start >= 50) ranges.Add(Tuple.Create(start, end));
+            }
+            return ranges;
+        }
+ internal static double CalculateTcvnRequiredAnchorageMm(RebarBarType barType, double a,double b,double c,double d,double e) => throw new NotSupportedException("Engineering calculations require Revit; this harness tests the editor only.");
+ }
+}

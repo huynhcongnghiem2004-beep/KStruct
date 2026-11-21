@@ -1,5 +1,6 @@
 bin/
 obj/
+beam-ui-previews/
 .vs/
 .ai-collab/
 *.user
