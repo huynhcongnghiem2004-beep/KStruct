@@ -3121,6 +3121,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 return top + (maxElevation - profile.BottomElevationMm) * beamHeight / elevationRange;
             }
             double dimY = top - 36;
+            bool fullBeamOverview = !(highlightEndMm > highlightStartMm && highlightStartMm >= 0);
             double axisY = Math.Min(h - 24, bottom + 96);
             double scale = (right - left) / beamLengthMm;
             var neutral = new SolidColorBrush(Color.FromRgb(100, 116, 139));
@@ -3389,7 +3390,7 @@ namespace SDK_HD.KStruct.NativeRebar
                                 : new PointCollection { new Point(x1, y - hook), new Point(x1, y), new Point(x2, y), new Point(x2, y - hook) }
                         };
                         canvas.Children.Add(steel);
-                            if ((key == "top1" || key == "top2" || key == "bottom1" || key == "bottom2") &&
+                            if (!fullBeamOverview && (key == "top1" || key == "top2" || key == "bottom1" || key == "bottom2") &&
                                 dimensionedSegments.Add(segment))
                             {
                                 double layerOffset = key.EndsWith("2", StringComparison.Ordinal) ? 44 : 0;
@@ -3456,7 +3457,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 canvas.Children.Add(new Line { X1 = x2, X2 = x2, Y1 = dimY + 2, Y2 = top - 3, Stroke = thin, StrokeThickness = 0.8 });
                 AddDoubleArrow(x1 + 3, x2 - 3, dimY, (end - start).ToString("N0") + " mm");
             }
-            if (tiesVisible && tieStations.Count > 1)
+            if (tiesVisible && !fullBeamOverview && tieStations.Count > 1)
             {
                 double rangeStart = highlightEndMm > highlightStartMm && highlightStartMm >= 0 ? highlightStartMm : 0;
                 double rangeEnd = highlightEndMm > highlightStartMm && highlightStartMm >= 0 ? highlightEndMm : beamLengthMm;
@@ -3477,24 +3478,41 @@ namespace SDK_HD.KStruct.NativeRebar
             // near the right support. Equal reinforcement quantities share a name.
             var sectionMarkers = new List<SectionMarker>();
             var labelsByQuantity = new Dictionary<string, string>();
+            bool overviewHasSingleCut = fullBeamOverview;
+            int spanIndex = 0;
             foreach (var span in cleanNodes.Zip(cleanNodes.Skip(1), (start, end) => Tuple.Create(start, end)))
             {
-                foreach (double fraction in new[] { 0.12, 0.50, 0.88 })
+                var fractions = overviewHasSingleCut ? new[] { 0.50 } : new[] { 0.12, 0.50, 0.88 };
+                foreach (double fraction in fractions)
                 {
                     double station = span.Item1 + (span.Item2 - span.Item1) * fraction;
-                    string quantityKey = SectionQuantityKey(rows, station);
-                    if (!labelsByQuantity.TryGetValue(quantityKey, out string label))
+                    string label;
+                    if (overviewHasSingleCut)
                     {
-                        label = "MC-" + (labelsByQuantity.Count + 1);
-                        labelsByQuantity[quantityKey] = label;
+                        label = "N" + (spanIndex + 1);
+                        labelsByQuantity["overview-" + spanIndex] = label;
+                    }
+                    else
+                    {
+                        string quantityKey = SectionQuantityKey(rows, station);
+                        if (!labelsByQuantity.TryGetValue(quantityKey, out label))
+                        {
+                            label = "MC-" + (labelsByQuantity.Count + 1);
+                            labelsByQuantity[quantityKey] = label;
+                        }
                     }
                     sectionMarkers.Add(new SectionMarker { Station = station, Label = label });
                     double sectionX = X(station);
-                    canvas.Children.Add(new Line { X1 = sectionX, X2 = sectionX, Y1 = top - 12, Y2 = bottom + 12,
-                        Stroke = Blue, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 3 } });
-                    AddCanvasText(canvas, label, sectionX - 14, top - 27, Blue, 10);
-                    AddCanvasText(canvas, label, sectionX - 14, bottom + 12, Blue, 10);
+                    if (!overviewHasSingleCut)
+                    {
+                        canvas.Children.Add(new Line { X1 = sectionX, X2 = sectionX, Y1 = top - 12, Y2 = bottom + 12,
+                            Stroke = Blue, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 3 } });
+                        // One label per cut is sufficient; duplicate labels above
+                        // and below the beam caused most of the visual collisions.
+                        AddCanvasText(canvas, label, sectionX - 14, top - 27, Blue, 10);
+                    }
                 }
+                spanIndex++;
             }
             AddCanvasText(canvas, "Mặt cắt: " + sectionMarkers.Count + " vị trí · " + labelsByQuantity.Count + " kiểu", left, Math.Max(4, top - 55), Blue, 11);
             canvas.Tag = sectionMarkers;
