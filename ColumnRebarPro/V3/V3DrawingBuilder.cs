@@ -368,8 +368,9 @@ namespace ColumnRebarPro.V3
                     outward = new XYZ(outward.DotProduct(right), outward.DotProduct(up), 0);
                     outward = outward.GetLength() < 1e-6 ? XYZ.BasisX : outward.Normalize();
                     XYZ direction = right * outward.X + up * outward.Y;
-                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s)))
-                        throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name);
+                    string tagError;
+                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s), out tagError))
+                        throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name + ": " + tagError);
                 }
             }
 
@@ -385,8 +386,9 @@ namespace ColumnRebarPro.V3
                 }
                 if (chosen == null) chosen = stirrups.OrderBy(b => b.Id.Value).First();
                 XYZ head = center + right * (g.Width / 2 + V3Units.Ft(12 * s)) + up * (g.Depth / 2);
-                if (!TryTag(doc, view, stirrupTag, chosen, head))
-                    throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name);
+                string tagError;
+                if (!TryTag(doc, view, stirrupTag, chosen, head, out tagError))
+                    throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name + ": " + tagError);
             }
         }
 
@@ -442,15 +444,56 @@ namespace ColumnRebarPro.V3
             catch (Autodesk.Revit.Exceptions.ApplicationException) { return false; }
         }
 
-        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ head)
+        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ head, out string error)
         {
+            var failures = new List<string>();
+            var references = new List<Reference>();
+            // Rebar sets may expose individually taggable subelements. Try the
+            // element reference first, retaining the former behavior, then a
+            // subelement reference if Revit rejects it.
+            references.Add(new Reference(bar));
             try
             {
-                IndependentTag.Create(doc, symbol.Id, view.Id, new Reference(bar), true, TagOrientation.Horizontal, head);
-                return true;
+                var subelement = bar.GetSubelements().FirstOrDefault();
+                if (subelement != null) references.Add(subelement.GetReference());
             }
-            catch (Autodesk.Revit.Exceptions.ArgumentException) { return false; }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException) { return false; }
+            catch (Autodesk.Revit.Exceptions.ApplicationException ex)
+            {
+                failures.Add("Không lấy được reference thanh con: " + ex.Message);
+            }
+            for (int i = 0; i < references.Count; i++)
+            {
+                if (references[i] == null) continue;
+                using (var attempt = new SubTransaction(doc))
+                {
+                    attempt.Start();
+                    try
+                    {
+                        IndependentTag.Create(doc, symbol.Id, view.Id, references[i], true, TagOrientation.Horizontal, head);
+                        var status = attempt.Commit();
+                        if (status == TransactionStatus.Committed)
+                        {
+                            error = null;
+                            return true;
+                        }
+                        failures.Add((i == 0 ? "Reference set: " : "Reference thanh con: ") +
+                            "SubTransaction " + status);
+                    }
+                    catch (Autodesk.Revit.Exceptions.ArgumentException ex)
+                    {
+                        attempt.RollBack();
+                        failures.Add((i == 0 ? "Reference set: " : "Reference thanh con: ") + ex.Message);
+                    }
+                    catch (Autodesk.Revit.Exceptions.InvalidOperationException ex)
+                    {
+                        attempt.RollBack();
+                        failures.Add((i == 0 ? "Reference set: " : "Reference thanh con: ") + ex.Message);
+                    }
+                }
+            }
+            error = "Tag '" + symbol.FamilyName + " : " + symbol.Name + "', Rebar " +
+                bar.Id.Value + ". " + string.Join(" | ", failures);
+            return false;
         }
 
         // Hai kích thước bao tiết diện cột: chiều rộng (phía trên) và chiều sâu (phía trái).
