@@ -156,6 +156,28 @@ namespace ColumnRebarPro.V3
                 return (DeploymentSettingsFile)new XmlSerializer(typeof(DeploymentSettingsFile)).Deserialize(input);
         }
 
+        internal static DeploymentSettingsFile ForExistingRebar(Document doc)
+        {
+            // Resolve saved family/type identities through the same UI loader, including
+            // projects created from templates. The standalone command itself enables drawing.
+            var control = new V3DeploymentControl();
+            control.Initialize(doc);
+            control.SetDeploymentEnabled(true);
+            foreach (string prefix in new[] { "Cross", "Long" })
+            {
+                foreach (string suffix in new[] { "Dimension", "TextType", "StirrupTag", "MainTag" })
+                {
+                    var picker = (ComboBox)control.FindName(prefix + suffix);
+                    bool needed = suffix == "Dimension" || suffix == "TextType"
+                        ? ((CheckBox)control.FindName(prefix + "ShowValue")).IsChecked == true
+                        : ((CheckBox)control.FindName(prefix + "ShowTag")).IsChecked == true;
+                    if (needed && (!(picker.SelectedItem is Choice selected) || selected.Id < 0))
+                        picker.SelectedItem = picker.Items.Cast<Choice>().FirstOrDefault(c => c.Id >= 0);
+                }
+            }
+            return control.Capture();
+        }
+
         public static void PersistSettings(Document doc, DeploymentSettingsFile file)
         {
             if (file == null) throw new ArgumentNullException(nameof(file));

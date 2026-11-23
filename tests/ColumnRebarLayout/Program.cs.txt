@@ -25,6 +25,14 @@ static class Program
         Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
     static void Main()
     {
+        // Dimensionless ratios also work in Revit internal feet.
+        Check(V3CapGeometryPolicy.IsSeparateCap(6, 6, 4.8, .8), "Separate 2x3 cap works without named thickness");
+        Check(!V3CapGeometryPolicy.IsSeparateCap(.16, .16, 1.6, 10), "Deep nested pile is not a cap");
+        Check(!V3CapGeometryPolicy.IsSeparateCap(6, .64, 9, 10), "Joined cap and piles cannot supply a cap underside");
+        Check(!V3CapGeometryPolicy.IsSeparateCap(6, 6, 4, .8), "Non-prismatic/void geometry needs explicit thickness");
+        Check(!V3CapGeometryPolicy.IsSeparateCap(6, 6, 0, .8), "Empty geometry is rejected");
+        Check(!V3CapGeometryPolicy.IsSeparateCap(double.NaN, 6, 4.8, .8), "Invalid geometry is rejected");
+        Check(!V3CapGeometryPolicy.IsSeparateCap(6, 6, double.PositiveInfinity, .8), "Infinite geometry is rejected");
         Check(!V4TieSetPlacementPolicy.NeedsFixedNumber(7, 7, 600, 100),
             "Matching Maximum Spacing set preserves its Revit layout rule");
         Check(V4TieSetPlacementPolicy.NeedsFixedNumber(7, 8, 600, 100),

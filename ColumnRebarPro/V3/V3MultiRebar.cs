@@ -6,9 +6,8 @@ using Autodesk.Revit.DB.Structure;
 
 namespace ColumnRebarPro.V3
 {
-    // Cross-section main bars use Multi-Rebar Annotation. Individual main-bar
-    // tags are not used as a fallback because the office template controls the
-    // annotation presentation.
+    // Distributed sets use Multi-Rebar Annotation; single/projected coincident
+    // positions use the selected main-bar tag without changing model geometry.
     internal sealed partial class V3DrawingBuilder
     {
         private MultiReferenceAnnotationType FindMultiRebarType(Document doc)
@@ -46,30 +45,27 @@ namespace ColumnRebarPro.V3
         {
             var covered = new HashSet<ElementId>();
             var type = FindMultiRebarType(doc);
-            if (type == null)
-                throw new InvalidOperationException(
-                    "Mặt cắt ngang yêu cầu Multi-Rebar Annotation Type; project/template chưa có MultiTag phù hợp.");
 
             var geometry = work.Geometry;
             double scale = view.Scale;
             double tolerance = doc.Application.ShortCurveTolerance;
             XYZ columnCenter = Project(view, geometry.At(0, 0, 0));
             XYZ right = view.RightDirection, up = view.UpDirection;
-            var done = new HashSet<string>();
 
             foreach (var bar in bars.OrderBy(item => item.Id.Value))
             {
-                if (bar.Quantity < 2)
-                    throw new InvalidOperationException(
-                        "Rebar " + bar.Id.Value + " không phải Rebar Set nhiều vị trí; không thể tag thép chủ mặt cắt bằng MultiTag.");
-
                 IList<Curve> first, last;
+                var positions = Enumerable.Range(0, bar.NumberOfBarPositions)
+                    .Where(bar.DoesBarExistAtPosition).ToList();
+                if (positions.Count == 0)
+                    throw new InvalidOperationException("Rebar " + bar.Id.Value + " không có vị trí thanh hiện hữu.");
+                int firstIndex = positions.First(), lastIndex = positions.Last();
                 try
                 {
                     first = bar.GetCenterlineCurves(false, true, true,
-                        MultiplanarOption.IncludeOnlyPlanarCurves, 0);
+                        MultiplanarOption.IncludeOnlyPlanarCurves, firstIndex);
                     last = bar.GetCenterlineCurves(false, true, true,
-                        MultiplanarOption.IncludeOnlyPlanarCurves, bar.NumberOfBarPositions - 1);
+                        MultiplanarOption.IncludeOnlyPlanarCurves, lastIndex);
                 }
                 catch (Exception ex)
                 {
@@ -79,24 +75,35 @@ namespace ColumnRebarPro.V3
                 if (first.Count == 0 || last.Count == 0)
                     throw new InvalidOperationException("Rebar " + bar.Id.Value + " không có đường tâm để tạo MultiTag.");
 
-                XYZ a = Project(view, first[0].GetEndPoint(0));
-                XYZ b = Project(view, last[0].GetEndPoint(0));
-                XYZ direction = b - a;
-                if (direction.GetLength() < tolerance)
-                    throw new InvalidOperationException("Rebar " + bar.Id.Value + " có khoảng phân bố bằng 0; không thể tạo MultiTag.");
-                direction = direction.Normalize();
-                XYZ midpoint = (a + b) / 2;
-                bool alongUp = Math.Abs(direction.DotProduct(up)) > Math.Abs(direction.DotProduct(right));
-
-                var barType = doc.GetElement(bar.GetTypeId()) as RebarBarType;
-                string key = (alongUp ? "U" : "R") + "|" + bar.Quantity + "|" +
-                    (barType == null ? 0 : Math.Round(V3Units.Mm(barType.BarNominalDiameter))) + "|" +
-                    Math.Round(V3Units.Mm(b.DistanceTo(a)));
-                if (!done.Add(key))
+                XYZ firstPoint = first[0].GetEndPoint(0), lastPoint = last[0].GetEndPoint(0);
+                if (bar.IsRebarShapeDriven())
                 {
+                    using (var accessor = bar.GetShapeDrivenAccessor())
+                    {
+                        firstPoint = accessor.GetBarPositionTransform(firstIndex).OfPoint(firstPoint);
+                        lastPoint = accessor.GetBarPositionTransform(lastIndex).OfPoint(lastPoint);
+                    }
+                }
+                XYZ a = Project(view, firstPoint);
+                XYZ b = Project(view, lastPoint);
+                XYZ direction = b - a;
+                if (positions.Count == 1 || direction.GetLength() < tolerance || type == null)
+                {
+                    ElementId tagId = Id("CrossMainTag");
+                    if (tagId == ElementId.InvalidElementId && type != null) tagId = type.TagTypeId;
+                    var tag = ActiveTagSymbol(doc, tagId);
+                    string error = "Chưa chọn Tag thép dọc cho mặt cắt ngang.";
+                    XYZ outward = a - columnCenter;
+                    if (outward.GetLength() < tolerance) outward = right;
+                    XYZ head = a + outward.Normalize() * V3Units.Ft(10 * scale);
+                    if (tag == null || !TryTag(doc, view, tag, bar, head, out error))
+                        throw new InvalidOperationException("Không gắn được tag cho Rebar " + bar.Id.Value + ": " + error);
                     covered.Add(bar.Id);
                     continue;
                 }
+                direction = direction.Normalize();
+                XYZ midpoint = (a + b) / 2;
+                bool alongUp = Math.Abs(direction.DotProduct(up)) > Math.Abs(direction.DotProduct(right));
 
                 XYZ normal, origin;
                 double along = (midpoint - columnCenter).DotProduct(alongUp ? up : right);
