@@ -131,11 +131,19 @@ namespace ColumnRebarPro.V3
                          element is FilledRegion)))
                     return false;
                 return sheet.GetAllPlacedViews().Select(doc.GetElement).OfType<View>()
-                    .All(view => view.Name.StartsWith("KSTR V3 MCD ", StringComparison.OrdinalIgnoreCase) ||
-                                 view.Name.StartsWith("KSTR V3 MCN ", StringComparison.OrdinalIgnoreCase) ||
-                                 view.Name.StartsWith("KSTR V3 3D ", StringComparison.OrdinalIgnoreCase));
+                    .All(IsGeneratedColumnViewName);
             }
             catch (Exception) { return false; }
+        }
+
+        private static bool IsGeneratedColumnViewName(View view)
+        {
+            if (view == null) return false;
+            string name = view.Name ?? "";
+            return name.StartsWith("KSTR V3 3D ", StringComparison.OrdinalIgnoreCase) ||
+                   name.StartsWith("MC-", StringComparison.OrdinalIgnoreCase) ||
+                   name.EndsWith(" MCD1", StringComparison.OrdinalIgnoreCase) ||
+                   name.IndexOf(" MCD1 (", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

@@ -16,6 +16,13 @@ namespace ColumnRebarPro.V3
     {
         public string Name { get; set; }
         public string Value { get; set; }
+        // Value remains the legacy ElementId representation. Identity fields
+        // allow settings to resolve in projects created from the RTE template.
+        public string UniqueId { get; set; }
+        public string FamilyName { get; set; }
+        public string TypeName { get; set; }
+        public string Category { get; set; }
+        public string ViewType { get; set; }
     }
 
     public sealed class DeploymentSettingsFile
@@ -30,6 +37,11 @@ namespace ColumnRebarPro.V3
         {
             public long Id { get; set; }
             public string Label { get; set; }
+            public string UniqueId { get; set; }
+            public string FamilyName { get; set; }
+            public string TypeName { get; set; }
+            public string Category { get; set; }
+            public string ViewType { get; set; }
             public override string ToString() { return Label; }
         }
 
@@ -177,6 +189,12 @@ namespace ColumnRebarPro.V3
                 box.Items.Add(new Choice
                 {
                     Id = e.Id.Value,
+                    UniqueId = e.UniqueId,
+                    FamilyName = symbol == null ? "" : symbol.FamilyName,
+                    TypeName = e.Name,
+                    Category = e.Category == null ? "" : e.Category.Name,
+                    ViewType = e is ViewFamilyType ? ((ViewFamilyType)e).ViewFamily.ToString() :
+                               e is View ? ((View)e).ViewType.ToString() : "",
                     Label = (symbol == null ? "" : symbol.FamilyName + " : ") + e.Name +
                             (e is ViewFamilyType ? " [" + ((ViewFamilyType)e).ViewFamily + "]" :
                              e is View ? " [" + ((View)e).ViewType + "]" : "")
@@ -184,6 +202,63 @@ namespace ColumnRebarPro.V3
             }
 
             if (box.Items.Count > 0) box.SelectedIndex = 0;
+        }
+
+        private static bool Same(string left, string right)
+        {
+            return string.IsNullOrWhiteSpace(left) ||
+                string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool MatchesIdentity(Choice choice, DeploymentSettingEntry entry)
+        {
+            return choice != null && entry != null &&
+                Same(entry.FamilyName, choice.FamilyName) &&
+                Same(entry.TypeName, choice.TypeName) &&
+                Same(entry.Category, choice.Category) &&
+                Same(entry.ViewType, choice.ViewType);
+        }
+
+        private static Choice ResolveChoice(ComboBox box, DeploymentSettingEntry entry)
+        {
+            var choices = box.Items.Cast<Choice>().ToList();
+            if (entry == null) return null;
+
+            long id;
+            if (long.TryParse(entry.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out id) && id < 0)
+                return choices.FirstOrDefault(c => c.Id < 0);
+
+            if (!string.IsNullOrWhiteSpace(entry.UniqueId))
+            {
+                var byUnique = choices.FirstOrDefault(c =>
+                    string.Equals(c.UniqueId, entry.UniqueId, StringComparison.Ordinal));
+                if (byUnique != null && MatchesIdentity(byUnique, entry)) return byUnique;
+            }
+
+            if (long.TryParse(entry.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out id))
+            {
+                var byId = choices.FirstOrDefault(c => c.Id == id);
+                if (byId != null && MatchesIdentity(byId, entry)) return byId;
+            }
+
+            // Projects created from the RTE have different ElementIds and
+            // UniqueIds. Family + Type is the stable deployment identity.
+            return choices.FirstOrDefault(c => MatchesIdentity(c, entry));
+        }
+
+        private static DeploymentSettingEntry Entry(string name, Choice choice)
+        {
+            if (choice == null) return new DeploymentSettingEntry { Name = name };
+            return new DeploymentSettingEntry
+            {
+                Name = name,
+                Value = choice.Id.ToString(CultureInfo.InvariantCulture),
+                UniqueId = choice.UniqueId,
+                FamilyName = choice.FamilyName,
+                TypeName = choice.TypeName,
+                Category = choice.Category,
+                ViewType = choice.ViewType
+            };
         }
 
         private void Enable_Changed(object sender, RoutedEventArgs e)
@@ -217,7 +292,7 @@ namespace ColumnRebarPro.V3
                     else if (_comboNames.Contains(name))
                     {
                         var box = (ComboBox)FindName(name);
-                        var choice = box.Items.Cast<Choice>().FirstOrDefault(c => c.Id.ToString(CultureInfo.InvariantCulture) == entry.Value);
+                        var choice = ResolveChoice(box, entry);
                         if (choice != null) box.SelectedItem = choice;
                         else { box.SelectedIndex = -1; missing++; }
                     }
@@ -249,8 +324,7 @@ namespace ColumnRebarPro.V3
             foreach (var name in _comboNames)
             {
                 var choice = ((ComboBox)FindName(name)).SelectedItem as Choice;
-                if (choice != null)
-                    file.Entries.Add(new DeploymentSettingEntry { Name = name, Value = choice.Id.ToString(CultureInfo.InvariantCulture) });
+                file.Entries.Add(Entry(name, choice));
             }
 
             return file;
@@ -294,8 +368,7 @@ namespace ColumnRebarPro.V3
                 foreach (var name in _comboNames)
                 {
                     var choice = ((ComboBox)FindName(name)).SelectedItem as Choice;
-                    if (choice != null)
-                        file.Entries.Add(new DeploymentSettingEntry { Name = name, Value = choice.Id.ToString(CultureInfo.InvariantCulture) });
+                    file.Entries.Add(Entry(name, choice));
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath));

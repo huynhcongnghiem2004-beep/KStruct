@@ -77,10 +77,11 @@ namespace ColumnRebarPro.V3
                 foreach(var level in levels)
                 {
                     var cross=Section(doc,w,"Cross",level.Item2,w.Geometry.Top);
+                    cross.Name = UniqueViewName(doc, "MC-" + index + "-" + index);
                     cross.get_Parameter(BuiltInParameter.VIEW_DESCRIPTION)?.Set(
                         "MC: "+index+"-"+index+" "+level.Item1);
                     doc.Regenerate();Annotate(doc,w,cross,"Cross");
-                    if(B("CrossShowValue") && level.Item1=="MID")SectionTable(doc,w,cross);
+                    if(B("CrossShowValue") && level.Item1=="MID")FamilySectionTable(doc,w,cross);
                     FitCrop(doc,cross);
                     sections.Add(cross);index++;
                 }
@@ -114,14 +115,12 @@ namespace ColumnRebarPro.V3
             sections.Add(rebar3D);
             string stackMark=first.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string markName=string.IsNullOrWhiteSpace(stackMark)?("C"+first.Column.Id.Value):stackMark.Trim();
-            string stackName=B("UseMarkForStackName")?markName:("TUYEN COT "+first.Column.Id.Value);
             string sheetName=B("UseMarkForSheetName")?markName:S("SheetName");
-            string draftName = "DRAFT - " + sheetName + " - " + stackName;
             // Project Marks and user-provided Sheet Names may contain symbols which
             // are not allowed in Revit element names. Normalize before assigning.
-            draftName = SafeSheetTitle(draftName, 240);
+            sheetName = SafeSheetTitle(sheetName, 240);
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
-            sheet.Name=draftName;
+            sheet.Name=sheetName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
             CreateStackSchedules(doc, sheet, ordered);
             InspectCompleteSheetLayout(doc, sheet);
@@ -304,7 +303,84 @@ namespace ColumnRebarPro.V3
         }
 
         // Bảng thép dưới mặt cắt: canh mép trái theo mặt cắt, khung đỏ, 3 dòng như bản vẽ mẫu.
-        private void SectionTable(Document doc,V3SegmentWork w,View view)
+        private void FamilySectionTable(Document doc, V3SegmentWork work, View view)
+        {
+            const string familyOrTypeName = "BS_Rebar_Detail 2D";
+            FamilySymbol symbol = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_DetailComponents)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .Where(item => string.Equals(item.FamilyName, familyOrTypeName, StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(item.Name, familyOrTypeName, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (symbol == null)
+                throw new InvalidOperationException(
+                    "Project chưa có Detail Family 'BS_Rebar_Detail 2D'. Không dựng bảng bằng TextNote/DetailLine thay thế.");
+
+            if (!symbol.IsActive)
+            {
+                symbol.Activate();
+                doc.Regenerate();
+            }
+
+            var c = work.Config;
+            bool fixedNumber = c.TieLayout == V3TieLayout.FixedNumber;
+            XYZ anchor = Project(view, work.Geometry.At(0, 0, work.Geometry.Bottom + work.Geometry.Height / 2)) -
+                         view.RightDirection * (work.Geometry.Width / 2) -
+                         view.UpDirection * (work.Geometry.Depth / 2 + V3DrawStyle.P(view, V3DrawStyle.TableGap));
+            FamilyInstance table;
+            try
+            {
+                table = doc.Create.NewFamilyInstance(anchor, symbol, view);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "Không đặt được family bảng 'BS_Rebar_Detail 2D' vào mặt cắt ngang.", ex);
+            }
+
+            SetTableNumber(table, "Quantity", c.BarCount, false);
+            SetTableNumber(table, "Bar Diameter_Main Rebar", c.MainDiameter, true);
+            SetTableNumber(table, "Bar Diameter_StirrupTop&Bot", c.TieDiameter, true);
+            SetTableNumber(table, "Bar Diameter_Stirrup Mid", c.TieDiameter, true);
+            SetTableNumber(table, "Spacing_Stirrup Top&Bot", fixedNumber ? c.EndTieCount : c.EndSpacing, !fixedNumber);
+            SetTableNumber(table, "Spacing_Stirrup Mid", fixedNumber ? c.MidTieCount : c.MidSpacing, !fixedNumber);
+            SetTableBoolean(table, "VNI", true);
+            SetTableBoolean(table, "ENG", false);
+        }
+
+        private static void SetTableNumber(FamilyInstance table, string name, double value, bool isLength)
+        {
+            Parameter parameter = table.LookupParameter(name);
+            if (parameter == null || parameter.IsReadOnly)
+                throw new InvalidOperationException("Family bảng thiếu Property ghi được: " + name);
+            if (parameter.StorageType == StorageType.Integer)
+            {
+                parameter.Set((int)Math.Round(value));
+                return;
+            }
+            if (parameter.StorageType != StorageType.Double)
+                throw new InvalidOperationException("Property bảng không phải Number/Length: " + name);
+            parameter.Set(isLength
+                ? UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters)
+                : value);
+        }
+
+        private static void SetTableBoolean(FamilyInstance table, string name, bool value)
+        {
+            Parameter parameter = table.LookupParameter(name);
+            if (parameter == null || parameter.IsReadOnly)
+                throw new InvalidOperationException("Family bảng thiếu Property ghi được: " + name);
+            if (parameter.StorageType != StorageType.Integer)
+                throw new InvalidOperationException("Property bảng không phải Yes/No: " + name);
+            parameter.Set(value ? 1 : 0);
+        }
+
+        // Legacy implementation retained for source compatibility only. New
+        // sheets use the project family above so its labels and Property values
+        // remain controlled by the office template.
+        private void LegacyTextSectionTable(Document doc,V3SegmentWork w,View view)
         {
             var c=w.Config;var g=w.Geometry;
             double width=V3DrawStyle.P(view,V3DrawStyle.TableWidth),row=V3DrawStyle.P(view,V3DrawStyle.TableRow);

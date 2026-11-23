@@ -80,6 +80,10 @@ namespace ColumnRebarPro.V3
             if (!Enabled) return;
             if (works != null)
             {
+                // Drawing production is allowed only after every column in the
+                // stack has a real Structural Column Tag in the source model.
+                V4ColumnTagRequirement.RequireTagged(doc, works);
+
                 foreach (V3SegmentWork work in works)
                 {
                     if (work.Config == null)
@@ -260,11 +264,10 @@ namespace ColumnRebarPro.V3
             string mark = work.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string markName = string.IsNullOrWhiteSpace(mark) ? ("C" + work.Column.Id.Value) : mark.Trim();
 
-            string viewName = "KSTR V3 " + (prefix == "Cross" ? "MCN" : "MCD") + " " +
-                (B("UseMarkForViewportName") ? markName : work.Column.Id.Value.ToString(CultureInfo.InvariantCulture));
-            viewName += " - DRAFT";
-            var level = doc.GetElement(work.Column.LevelId) as Level;
-            if (prefix == "Cross" && level != null) viewName += " - " + level.Name;
+            string viewName = prefix == "Cross"
+                ? "MC-" + work.Column.Id.Value.ToString(CultureInfo.InvariantCulture) + "-" +
+                  work.Column.Id.Value.ToString(CultureInfo.InvariantCulture)
+                : markName + " MCD1";
             // Các tầng cùng Mark nên tên view phải được làm duy nhất, nếu không Revit báo trùng tên.
             view.Name = UniqueViewName(doc, viewName);
 
@@ -321,8 +324,6 @@ namespace ColumnRebarPro.V3
             if (!B(prefix + "ShowTag")) return;
 
             FamilySymbol stirrupTag = ActiveTagSymbol(doc, Id(prefix + "StirrupTag"));
-            FamilySymbol mainTag = ActiveTagSymbol(doc, Id(prefix + "MainTag"));
-
             var stirrups = new List<Rebar>();
             var mains = new List<Rebar>();
             foreach (Rebar bar in ColumnRebars(doc, work, view))
@@ -351,6 +352,9 @@ namespace ColumnRebarPro.V3
             double s = view.Scale;
             XYZ right = view.RightDirection, up = view.UpDirection;
             XYZ center = Project(view, g.At(0, 0, 0));
+            // Main bars in a cross-section are intentionally not individually
+            // tagged. They must be covered by Multi-Rebar Annotation.
+            FamilySymbol mainTag = null;
 
             HashSet<ElementId> covered = mains.Count > 0
                 ? AnnotateMultiRebar(doc, work, view, mains)
