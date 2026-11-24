@@ -1165,7 +1165,8 @@ namespace ColumnRebarPro.V3
                     ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 1 : 2;
                 // Keep the quick editor active; route to the relevant main tab.
                 ColumnModeTabs.SelectedIndex = 0;
-                MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (!V3AnchorDiagnostic.Show(this, ex))
+                    MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra tuyến cột", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             Accepted = true;
