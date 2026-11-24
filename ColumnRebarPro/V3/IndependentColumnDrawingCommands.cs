@@ -49,9 +49,7 @@ namespace ColumnRebarPro.V3
                         .Select(r => doc.GetElement(r)).OfType<FamilyInstance>().Distinct().ToList();
                 if (picked.Count == 0) return Result.Cancelled;
 
-                DeploymentSettingsFile settings = V3DeploymentControl.LoadSavedSettings(doc);
-                if (settings == null || !settings.Entries.Any(e => e.Name == "EnableCheck" && e.Value == "true"))
-                    throw new InvalidOperationException("Chưa có thiết lập triển khai V3. Mở lệnh Thép cột, vào tab Triển khai, bật và lưu thiết lập trước.");
+                DeploymentSettingsFile settings = V3DeploymentControl.ForExistingRebar(doc);
 
                 var seen = new HashSet<ElementId>();
                 var jobs = new List<List<V3SegmentWork>>();
@@ -80,11 +78,11 @@ namespace ColumnRebarPro.V3
                 }
 
                 if (jobs.Count == 0) return Result.Cancelled;
-                var builders = jobs.Select(_ => new V3DrawingBuilder(settings, update)).ToList();
+                var builders = jobs.Select(_ => new V3DrawingBuilder(settings, update, true)).ToList();
                 for (int i = 0; i < jobs.Count; i++)
                 {
-                    V3StarterConnection.Resolve(jobs[i]);
-                    V3RebarValidator.Preflight(jobs[i]);
+                    // Document existing bars, including foundation-hosted bars identified
+                    // by partition. Do not run the creation/anchorage preflight again.
                     builders[i].UseSheetIdentity(jobs[i], i, jobs.Count);
                     builders[i].Validate(doc, jobs[i]);
                 }

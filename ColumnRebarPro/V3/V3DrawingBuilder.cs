@@ -12,13 +12,15 @@ namespace ColumnRebarPro.V3
         private readonly Dictionary<string, string> values;
         private int sheetIndex;
         private readonly bool replaceExistingSheet;
+        private readonly bool documentExistingRebar;
 
-        internal V3DrawingBuilder(DeploymentSettingsFile settings, bool replaceSheet = false)
+        internal V3DrawingBuilder(DeploymentSettingsFile settings, bool replaceSheet = false, bool existingRebar = false)
         {
             values = new Dictionary<string, string>();
             foreach (var entry in settings.Entries)
                 values[entry.Name] = entry.Value ?? "";
             replaceExistingSheet = replaceSheet;
+            documentExistingRebar = existingRebar;
         }
 
         private string S(string key)
@@ -88,9 +90,9 @@ namespace ColumnRebarPro.V3
                 {
                     if (work.Config == null)
                         throw new InvalidOperationException("Thiếu cấu hình thép cột để triển khai bản vẽ.");
-                    if (work.Config.Splice != V3SpliceStyle.None ||
+                    if (!documentExistingRebar && (work.Config.Splice != V3SpliceStyle.None ||
                         work.TransitionUp != null || work.TransitionDown != null ||
-                        (work.BottleneckToUpper && work.ConnectionPlan == null))
+                        (work.BottleneckToUpper && work.ConnectionPlan == null)))
                         throw new InvalidOperationException("Không đủ dữ liệu nối/chuyển tiếp đã kiểm tra để triển khai bản vẽ.");
                 }
             }

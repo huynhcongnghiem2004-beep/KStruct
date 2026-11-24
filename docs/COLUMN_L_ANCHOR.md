@@ -40,8 +40,14 @@
 
 - Tự tìm một FamilyInstance thuộc Structural Foundation tiếp giáp đáy cột, dung sai cao độ 1 mm.
   Nhiều móng cùng vị trí bị chặn, không tự chọn ngẫu nhiên.
-- Cao độ uốn lấy từ đáy bounding box móng thực + cover + nửa đường kính thanh.
-  Không phụ thuộc tên tham số `Foundation Thickness`.
+- Cao độ uốn lấy từ đáy solid thân đài đã nhận diện + cover + nửa đường kính thanh;
+  không lấy đáy bounding box của toàn bộ family (có thể chứa cọc).
+  Đọc chiều dày bằng BuiltInParameter trước, sau đó tên `Foundation Thickness`,
+  kiểm tra cả instance và type. Khi không có chiều dày, chỉ nhận một solid đài
+  dạng lăng trụ nông, có hai mặt ngang cùng diện tích, thể tích tương ứng và mặt
+  trên bao trọn tiết diện cột. Đài xoay được đối chiếu kích thước theo trục family.
+  Đài/cọc đã join, đài vát hoặc nhiều solid phù hợp vẫn cần xử lý hình học/tham số;
+  không đoán đáy để tạo neo.
 - Kiểm tra các đường bao mẫu của chân ngang và đoạn đứng với solid móng, kể cả
   nested instance có transform. Ngoài móng/không đủ cover theo đường bao kiểm tra thì chặn
   trước khi cửa sổ đóng. Kiểm tra này không thay thế kiểm tra cấu tạo, bán kính uốn,

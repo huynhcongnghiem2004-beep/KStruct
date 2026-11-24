@@ -47,10 +47,9 @@ namespace ColumnRebarPro.V3
             if (candidates.Count > 1)
                 throw new InvalidOperationException("Có nhiều móng tại chân cột; cần xử lý mô hình để xác định duy nhất móng nhận neo.");
             FamilyInstance footing = candidates[0].Foundation;
-            BoundingBoxXYZ box = candidates[0].Box;
             double cover = V3Units.Ft(settings.CoverMm);
             double barRadius = V3Units.Ft(bottomWork.Config.MainDiameter / 2.0);
-            double capBottom = ResolveCapBottom(footing, bottomWork.Geometry.Bottom);
+            double capBottom = ResolveCapBottom(footing, bottomWork.Geometry);
             double zBend = capBottom + cover + barRadius;
             double vertical = bottomWork.Geometry.Bottom - zBend;
             if (vertical <= cover + barRadius)
@@ -72,11 +71,14 @@ namespace ColumnRebarPro.V3
         }
         // Resolve the structural cap independently of nested pile and blinding solids.
         // Never substitute the whole-family BoundingBox for the cap underside.
-        private static double ResolveCapBottom(FamilyInstance footing, double columnBottom)
+        private static double ResolveCapBottom(FamilyInstance footing, V3Geometry column)
         {
-            double thickness = ReadDimension(footing, "Foundation Thickness");
+            double columnBottom = column.Bottom;
+            double thickness = ReadPositive(footing.get_Parameter(BuiltInParameter.STRUCTURAL_FOUNDATION_THICKNESS));
             if (thickness <= 0)
-                throw new InvalidOperationException("Không đọc được Foundation Thickness của đài. Không thể phân biệt đáy đài với cọc lồng; dừng tạo neo.");
+                thickness = ReadPositive(footing.Symbol?.get_Parameter(BuiltInParameter.STRUCTURAL_FOUNDATION_THICKNESS));
+            if (thickness <= 0)
+                thickness = ReadDimension(footing, "Foundation Thickness");
             double length = ReadDimension(footing, "Length");
             double width = ReadDimension(footing, "Width");
             var solids = new List<Solid>();
@@ -90,14 +92,19 @@ namespace ColumnRebarPro.V3
                     points.AddRange(edge.AsCurve().Tessellate());
                 if (points.Count == 0) continue;
                 double minZ = points.Min(p => p.Z), maxZ = points.Max(p => p.Z);
-                double sx = points.Max(p => p.X) - points.Min(p => p.X);
-                double sy = points.Max(p => p.Y) - points.Min(p => p.Y);
+                // Family dimensions are local; world extents are wrong for rotated caps.
+                Transform inverse = footing.GetTransform().Inverse;
+                var local = points.Select(inverse.OfPoint).ToList();
+                double sx = local.Max(p => p.X) - local.Min(p => p.X);
+                double sy = local.Max(p => p.Y) - local.Min(p => p.Y);
                 if (Math.Abs(maxZ - columnBottom) > tolerance ||
-                    Math.Abs(maxZ - minZ - thickness) > tolerance)
+                    (thickness > 0 && Math.Abs(maxZ - minZ - thickness) > tolerance))
                     continue;
                 if (length > 0 && width > 0 &&
                     !((Math.Abs(sx - length) <= tolerance && Math.Abs(sy - width) <= tolerance) ||
                       (Math.Abs(sx - width) <= tolerance && Math.Abs(sy - length) <= tolerance)))
+                    continue;
+                if (thickness <= 0 && !IsCapPrism(solid, minZ, maxZ, tolerance, column))
                     continue;
                 matches.Add(minZ);
             }
@@ -109,9 +116,34 @@ namespace ColumnRebarPro.V3
 
         private static double ReadDimension(FamilyInstance instance, string name)
         {
-            Parameter parameter = instance.LookupParameter(name) ?? instance.Symbol?.LookupParameter(name);
-            return parameter != null && parameter.HasValue && parameter.StorageType == StorageType.Double
+            double value = ReadPositive(instance.LookupParameter(name));
+            return value > 0 ? value : ReadPositive(instance.Symbol?.LookupParameter(name));
+        }
+
+        private static double ReadPositive(Parameter parameter)
+        {
+            double value = parameter != null && parameter.HasValue && parameter.StorageType == StorageType.Double
                 ? parameter.AsDouble() : 0;
+            return double.IsNaN(value) || double.IsInfinity(value) || value <= 0 ? 0 : value;
+        }
+
+        private static bool IsCapPrism(Solid solid, double bottom, double top, double tolerance, V3Geometry column)
+        {
+            // Without a thickness parameter accept only a separate, shallow prismatic
+            // cap with matching horizontal faces. Joined cap/pile solids remain ambiguous.
+            var faces = solid.Faces.Cast<Face>().OfType<PlanarFace>().ToList();
+            var upper = faces.Where(f => f.FaceNormal.Z > .999 && Math.Abs(f.Origin.Z - top) < tolerance).ToList();
+            var lower = faces.Where(f => f.FaceNormal.Z < -.999 && Math.Abs(f.Origin.Z - bottom) < tolerance).ToList();
+            if (upper.Count != 1 || lower.Count != 1) return false;
+            foreach (double x in new[] { -column.Width / 2, column.Width / 2 })
+            foreach (double y in new[] { -column.Depth / 2, column.Depth / 2 })
+            {
+                XYZ corner = column.At(x, y, 0);
+                var projected = upper[0].Project(new XYZ(corner.X, corner.Y, top));
+                if (projected == null || !upper[0].IsInside(projected.UVPoint)) return false;
+            }
+            double area = upper[0].Area, depth = top - bottom;
+            return V3CapGeometryPolicy.IsSeparateCap(area, lower[0].Area, solid.Volume, depth);
         }
 
         private static void CollectSolids(GeometryElement geometry, List<Solid> solids)
