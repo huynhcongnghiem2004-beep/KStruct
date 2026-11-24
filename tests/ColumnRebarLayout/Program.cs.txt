@@ -25,6 +25,17 @@ static class Program
         Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
     static void Main()
     {
+        Check(V3TableParameterNames.Find(new[] { "Bar Diameter_Stirrup Top&Bot", "Bar Diameter_Stirrup Mid" },
+            "Bar Diameter_StirrupTop&Bot") == 0, "Table resolves spacing variant without selecting middle ties");
+        Check(V3TableParameterNames.Find(new[] { "BAR DIAMETER_Stirrup\u00a0Top & Bot" },
+            "Bar Diameter_StirrupTop&Bot") == 0, "Table resolves nonbreaking spaces and case");
+        Check(V3TableParameterNames.Find(new[] { "Bar Diameter_Stirrup Mid" },
+            "Bar Diameter_StirrupTop&Bot") == -1, "Missing end-tie diameter must not map to middle ties");
+        Check(V3TableParameterNames.Find(new[] { "Quantity", "Quan tity" }, "Quantity") == 0,
+            "Exact family parameter takes priority");
+        Reject(() => V3TableParameterNames.Find(new[] { "Bar Diameter_Stirrup Top&Bot", "BarDiameter_StirrupTop&Bot" },
+            "Bar Diameter_StirrupTop&Bot"));
+        Reject(() => V3TableParameterNames.Find(new[] { "Quantity", "Quantity" }, "Quantity"));
         // Dimensionless ratios also work in Revit internal feet.
         Check(V3CapGeometryPolicy.IsSeparateCap(6, 6, 4.8, .8), "Separate 2x3 cap works without named thickness");
         Check(!V3CapGeometryPolicy.IsSeparateCap(.16, .16, 1.6, 10), "Deep nested pile is not a cap");
