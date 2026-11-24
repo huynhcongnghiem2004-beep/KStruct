@@ -170,7 +170,7 @@ namespace ColumnRebarPro.V3
                 ? (int)bottomConfig.FoundationAnchorDirection : 0;
             // Preserve a nonstandard saved length as a custom engineering value.
             double savedLn = bottomConfig.FoundationAnchorLength;
-            double standardLn = Math.Max(40 * bottomConfig.MainDiameter, 400);
+            double standardLn = 40 * bottomConfig.MainDiameter;
             FoundationLengthPreset.SelectedIndex = savedLn > 0 && Math.Abs(savedLn - standardLn) > .1 ? 3 : 0;
             if (FoundationLengthPreset.SelectedIndex == 0)
                 FoundationLengthBox.Text = standardLn.ToString("0.##", CultureInfo.InvariantCulture);
@@ -1351,13 +1351,13 @@ namespace ColumnRebarPro.V3
             {
                 double diameter = _configs[_segments[0].Id.Value].MainDiameter;
                 double factor = index == 0 ? 40 : index == 1 ? 45 : 50;
-                double length = Math.Max(factor * diameter, 400);
+                double length = factor * diameter;
                 FoundationLengthBox.Text = length.ToString("0.##", CultureInfo.InvariantCulture);
-                FoundationLengthHint.Text = "Lₙ = max(" + factor.ToString("0") +
-                    "d, 400 mm) = " + length.ToString("0.##") +
+                FoundationLengthHint.Text = "Lₙ = " + factor.ToString("0") +
+                    "d = " + length.ToString("0.##") +
                     " mm · kiểm tra theo thiết kế";
             }
-            else FoundationLengthHint.Text = "Nhập Lₙ (mm), tối thiểu 400 mm; cần thiết kế duyệt";
+            else FoundationLengthHint.Text = "Nhập Lₙ > 0 (mm) theo thiết kế";
             SetFoundationControlState();
             RefreshDiagramSelections();
             UpdateFoundationAnchorSummary();

@@ -503,7 +503,7 @@
                                              Width="90" Margin="8,0,0,0" LostFocus="FoundationAnchor_Changed"
                                              IsEnabled="False" ToolTip="Chiều dài chân neo ngang Lₙ, đơn vị mm"/>
                                 </StackPanel>
-                                <TextBlock x:Name="FoundationLengthHint" Text="Lₙ = max(40 × d, 400 mm) · Theo thiết kế được duyệt"
+                                <TextBlock x:Name="FoundationLengthHint" Text="Lₙ = 40 × d · Theo thiết kế được duyệt"
                                            Foreground="#FF986B48" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                 <TextBlock Text="Hướng bẻ neo" FontWeight="SemiBold" Foreground="#FF173657"/>
                                 <ComboBox x:Name="FoundationDirectionBox" Style="{StaticResource AnchorageDisabledCombo}"
