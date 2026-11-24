@@ -340,6 +340,17 @@ namespace ColumnRebarPro.V3
                     "Không đặt được family bảng 'BS_Rebar_Detail 2D' vào mặt cắt ngang.", ex);
             }
 
+            // Never edit a shared family type used by existing tables. If this family
+            // stores table data on its type, give this new table a private type first.
+            string[] tableFields = { "Quantity", "Bar Diameter_Main Rebar", "Bar Diameter_StirrupTop&Bot",
+                "Bar Diameter_Stirrup Mid", "Spacing_Stirrup Top&Bot", "Spacing_Stirrup Mid", "VNI", "ENG" };
+            if (tableFields.Any(name => FindTableParameter(table, name) == null &&
+                                       FindTableParameter(table.Symbol, name) != null))
+            {
+                table.Symbol = (FamilySymbol)table.Symbol.Duplicate("KSTR_Table_" + Guid.NewGuid().ToString("N"));
+                doc.Regenerate();
+            }
+
             SetTableNumber(table, "Quantity", c.BarCount, false);
             SetTableNumber(table, "Bar Diameter_Main Rebar", c.MainDiameter, true);
             SetTableNumber(table, "Bar Diameter_StirrupTop&Bot", c.TieDiameter, true);
@@ -352,29 +363,79 @@ namespace ColumnRebarPro.V3
 
         private static void SetTableNumber(FamilyInstance table, string name, double value, bool isLength)
         {
-            Parameter parameter = table.LookupParameter(name);
-            if (parameter == null || parameter.IsReadOnly)
-                throw new InvalidOperationException("Family bảng thiếu Property ghi được: " + name);
+            Parameter parameter = RequireTableParameter(table, name);
+            if (parameter.StorageType == StorageType.String)
+            {
+                string text = value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                if (parameter.AsString() == text) return;
+                RequireWritableTableParameter(table, parameter, name);
+                if (!parameter.Set(text)) throw new InvalidOperationException("Không ghi được tham số bảng: " + name);
+                return;
+            }
             if (parameter.StorageType == StorageType.Integer)
             {
-                parameter.Set((int)Math.Round(value));
+                if (Math.Abs(value - Math.Round(value)) > 1e-6)
+                    throw new InvalidOperationException("Tham số bảng Integer không thể chứa giá trị " + value + ": " + name);
+                int integer = checked((int)Math.Round(value));
+                if (parameter.AsInteger() == integer && parameter.HasValue) return;
+                RequireWritableTableParameter(table, parameter, name);
+                if (!parameter.Set(integer)) throw new InvalidOperationException("Không ghi được tham số bảng: " + name);
                 return;
             }
             if (parameter.StorageType != StorageType.Double)
                 throw new InvalidOperationException("Property bảng không phải Number/Length: " + name);
-            parameter.Set(isLength
-                ? UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters)
-                : value);
+            var dataType = parameter.Definition.GetDataType();
+            if (dataType != SpecTypeId.Number && dataType != SpecTypeId.Length)
+                throw new InvalidOperationException("Tham số bảng không phải Number/Length: " + name);
+            if (!isLength && dataType == SpecTypeId.Length)
+                throw new InvalidOperationException("Tham số số lượng đang khai báo Length: " + name);
+            double stored = dataType == SpecTypeId.Length
+                ? UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters) : value;
+            if (parameter.HasValue && Math.Abs(parameter.AsDouble() - stored) < 1e-8) return;
+            RequireWritableTableParameter(table, parameter, name);
+            if (!parameter.Set(stored)) throw new InvalidOperationException("Không ghi được tham số bảng: " + name);
         }
 
         private static void SetTableBoolean(FamilyInstance table, string name, bool value)
         {
-            Parameter parameter = table.LookupParameter(name);
-            if (parameter == null || parameter.IsReadOnly)
-                throw new InvalidOperationException("Family bảng thiếu Property ghi được: " + name);
+            Parameter parameter = RequireTableParameter(table, name);
             if (parameter.StorageType != StorageType.Integer)
                 throw new InvalidOperationException("Property bảng không phải Yes/No: " + name);
-            parameter.Set(value ? 1 : 0);
+            int stored = value ? 1 : 0;
+            if (parameter.HasValue && parameter.AsInteger() == stored) return;
+            RequireWritableTableParameter(table, parameter, name);
+            if (!parameter.Set(stored)) throw new InvalidOperationException("Không ghi được tham số bảng: " + name);
+        }
+
+        private static Parameter FindTableParameter(Element element, string name)
+        {
+            var parameters = element.Parameters.Cast<Parameter>().ToList();
+            int index = V3TableParameterNames.Find(parameters.Select(p => p.Definition.Name).ToList(), name);
+            return index < 0 ? null : parameters[index];
+        }
+
+        private static Parameter RequireTableParameter(FamilyInstance table, string name)
+        {
+            var parameter = FindTableParameter(table, name) ?? FindTableParameter(table.Symbol, name);
+            if (parameter != null)
+            {
+                if (parameter.IsReadOnly) table.Document.Regenerate();
+                return parameter;
+            }
+            string available = string.Join(", ", table.Parameters.Cast<Parameter>()
+                .Concat(table.Symbol.Parameters.Cast<Parameter>()).Select(p => p.Definition.Name)
+                .Where(n => n.IndexOf("Stirrup", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            n.IndexOf("Diameter", StringComparison.OrdinalIgnoreCase) >= 0)
+                .Distinct().OrderBy(n => n));
+            throw new InvalidOperationException("Family bảng '" + table.Symbol.FamilyName + " : " + table.Symbol.Name +
+                "' thiếu tham số '" + name + "' trên cả Instance và Type. Các tham số thép hiện có: " + available);
+        }
+
+        private static void RequireWritableTableParameter(FamilyInstance table, Parameter parameter, string name)
+        {
+            if (parameter.IsReadOnly)
+                throw new InvalidOperationException("Family bảng '" + table.Symbol.FamilyName + "': tham số '" +
+                    name + "' chỉ đọc/có công thức và giá trị hiện tại không khớp thép cột. Cần sửa tham số đầu vào của family.");
         }
 
         // Legacy implementation retained for source compatibility only. New
