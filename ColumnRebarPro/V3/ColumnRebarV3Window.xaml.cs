@@ -1381,7 +1381,7 @@ namespace ColumnRebarPro.V3
             var bottom = _configs[_segments[0].Id.Value];
             FoundationAnchorSummary.Text = "Áp dụng tại " + _segments[0].LevelName + ": " + FormatBars(bottom) +
                 (bottom.GroupLongBars ? " — nhóm Fixed Number theo cạnh (1 thanh dùng Single)." : " — tạo từng thanh.") +
-                " Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang Lₙ được tính theo đường kính thanh và lựa chọn 40d/45d/50d hoặc nhập tay; không cộng đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
+                " Đo từ đáy cột: đoạn xuống đến mép ngoài chân thép = High Foundation − cover móng; đoạn xuống đến tim = High Foundation − cover − d/2. Không lặp thanh góc; nhóm vuông góc hướng chân neo; chân ngang Lₙ được tính theo đường kính thanh và lựa chọn 40d/45d/50d hoặc nhập tay; không cộng đoạn đứng trong móng. Kiểm tra solid móng trước khi tạo.";
             DrawFoundationPreview();
         }
 

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../ColumnRebarPro/V3/V3FoundationDepth.cs" Link="V3FoundationDepth.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3TableParameterNames.cs" Link="V3TableParameterNames.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3CapGeometryPolicy.cs" Link="V3CapGeometryPolicy.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />

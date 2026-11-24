@@ -50,8 +50,12 @@ namespace ColumnRebarPro.V3
             double cover = V3Units.Ft(settings.CoverMm);
             double barRadius = V3Units.Ft(bottomWork.Config.MainDiameter / 2.0);
             double capBottom = ResolveCapBottom(footing, bottomWork.Geometry);
-            double zBend = capBottom + cover + barRadius;
-            double vertical = bottomWork.Geometry.Bottom - zBend;
+            double height = ReadDimension(footing, "High Foundation");
+            if (height <= 0) height = bottomWork.Geometry.Bottom - capBottom;
+            double vertical = V3FoundationDepth.CenterlineDepth(height, cover, barRadius * 2);
+            double zBend = bottomWork.Geometry.Bottom - vertical;
+            if (zBend - barRadius < capBottom + cover - V3Units.Ft(.1))
+                throw new InvalidOperationException("High Foundation không khớp đáy solid đài: chân thép không đủ cover đáy. Kiểm tra lại chiều cao móng.");
             if (vertical <= cover + barRadius)
                 throw new InvalidOperationException("Chiều dày móng không đủ để đặt chân neo L với cover đã chọn.");
             // Ln is the horizontal leg, independent of the vertical embedment.
@@ -74,7 +78,9 @@ namespace ColumnRebarPro.V3
         private static double ResolveCapBottom(FamilyInstance footing, V3Geometry column)
         {
             double columnBottom = column.Bottom;
-            double thickness = ReadPositive(footing.get_Parameter(BuiltInParameter.STRUCTURAL_FOUNDATION_THICKNESS));
+            double thickness = ReadDimension(footing, "High Foundation");
+            if (thickness <= 0)
+                thickness = ReadPositive(footing.get_Parameter(BuiltInParameter.STRUCTURAL_FOUNDATION_THICKNESS));
             if (thickness <= 0)
                 thickness = ReadPositive(footing.Symbol?.get_Parameter(BuiltInParameter.STRUCTURAL_FOUNDATION_THICKNESS));
             if (thickness <= 0)
@@ -110,7 +116,7 @@ namespace ColumnRebarPro.V3
             }
             if (matches.Count != 1)
                 throw new InvalidOperationException("Không xác định duy nhất Solid thân đài (tìm thấy " +
-                    matches.Count + "). Kiểm tra Foundation Thickness, hình học đài/cọc Nested và cao độ; không lấy đáy cọc để neo.");
+                    matches.Count + "). Kiểm tra High Foundation/Foundation Thickness, hình học đài/cọc Nested và cao độ; không lấy đáy cọc để neo.");
             return matches[0];
         }
 

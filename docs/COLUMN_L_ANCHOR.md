@@ -40,9 +40,14 @@
 
 - Tự tìm một FamilyInstance thuộc Structural Foundation tiếp giáp đáy cột, dung sai cao độ 1 mm.
   Nhiều móng cùng vị trí bị chặn, không tự chọn ngẫu nhiên.
-- Cao độ uốn lấy từ đáy solid thân đài đã nhận diện + cover + nửa đường kính thanh;
+- Ưu tiên `High Foundation` của instance, sau đó type. Từ cao độ thấp nhất của cột:
+  đoạn xuống đến mép ngoài chân thép = `High Foundation − cover móng`;
+  đoạn xuống đến tim chân thép = `High Foundation − cover móng − d/2`.
+  Ví dụ H=1000, cover=50, D20: mép ngoài xuống 950 mm, tim xuống 940 mm.
+  Khi không có giá trị High Foundation dương, cao độ uốn lấy từ đáy solid thân đài
+  đã nhận diện + cover + nửa đường kính thanh;
   không lấy đáy bounding box của toàn bộ family (có thể chứa cọc).
-  Đọc chiều dày bằng BuiltInParameter trước, sau đó tên `Foundation Thickness`,
+  Nhận diện chiều dày ưu tiên `High Foundation`, tiếp đến BuiltInParameter và `Foundation Thickness`,
   kiểm tra cả instance và type. Khi không có chiều dày, chỉ nhận một solid đài
   dạng lăng trụ nông, có hai mặt ngang cùng diện tích, thể tích tương ứng và mặt
   trên bao trọn tiết diện cột. Đài xoay được đối chiếu kích thước theo trục family.
