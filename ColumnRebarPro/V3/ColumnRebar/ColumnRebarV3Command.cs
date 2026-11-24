@@ -285,7 +285,7 @@ namespace ColumnRebarPro.V3
             catch (Exception ex)
             {
                 message = ex.ToString();
-                TaskDialog.Show("KStruct V3 - Lỗi", ex.Message);
+                if (!V3AnchorDiagnostic.Show(null, ex)) TaskDialog.Show("KStruct V3 - Lỗi", ex.Message);
                 return Result.Failed;
             }
         }

@@ -25,6 +25,18 @@ static class Program
         Enumerable.Range(0, b.Count).Select(b.Position)).ToArray();
     static void Main()
     {
+        Check(V3AnchorGap.FirstGap(new[] { Tuple.Create(5.0,10.0), Tuple.Create(0.0,6.0) },10,.1) == null,
+            "Nested solid intervals merge without false gap");
+        var gap = V3AnchorGap.FirstGap(new[] { Tuple.Create(2.0,10.0) },10,.1);
+        Check(gap.Item1 == 0 && gap.Item2 == 2, "Report outside beginning of probe");
+        gap = V3AnchorGap.FirstGap(new[] { Tuple.Create(0.0,4.0), Tuple.Create(7.0,10.0) },10,.1);
+        Check(gap.Item1 == 4 && gap.Item2 == 7, "Report an interior void, not total remainder");
+        gap = V3AnchorGap.FirstGap(new[] { Tuple.Create(0.0,8.0) },10,.1);
+        Check(gap.Item1 == 8 && gap.Item2 == 10, "Report outside end of probe");
+        Check(V3AnchorGap.FirstGap(new[] { Tuple.Create(0.0,4.0), Tuple.Create(4.05,10.0) },10,.1) == null,
+            "Preserve existing geometric tolerance");
+        gap = V3AnchorGap.FirstGap(new Tuple<double,double>[0],10,.1);
+        Check(gap.Item1 == 0 && gap.Item2 == 10, "Entire probe outside solid");
         Check(Math.Abs(V3FoundationDepth.CenterlineDepth(1000, 50, 20) - 940) < 1e-9,
             "1000 mm cap / 50 cover / D20 gives 940 mm centerline depth and 950 mm outer depth");
         Check(Math.Abs(V3FoundationDepth.CenterlineDepth(1000, 50, 32) + 16 - 950) < 1e-9,

@@ -25,9 +25,12 @@ namespace ColumnRebarPro.V3
                 throw new InvalidOperationException("Chân neo ngang quá ngắn để Revit tạo hình.");
             double margin = V3Units.Ft(work.FoundationCoverMm + work.Config.MainDiameter / 2 - .05);
             double epsilon = V3Units.Ft(.05);
+            var errors = new List<V3AnchorErrorRow>();
+            int barIndex = 0;
             foreach (var array in V3RebarSetCreator.AnchorPlan(work))
             for (int i = 0; i < array.Count; i++)
             {
+                barIndex++;
                 XYZ bend = g.At(V3Units.Ft(array.X + array.StepX * i),
                     V3Units.Ft(array.Y + array.StepY * i), work.FoundationBendZ);
                 XYZ direction = g.X * array.HookX + g.Y * array.HookY;
@@ -38,12 +41,27 @@ namespace ColumnRebarPro.V3
                 foreach (int zSign in new[] { -1, 0, 1 })
                 {
                     XYZ offset = side * (sideSign * margin) + XYZ.BasisZ * (zSign * margin);
-                    RequireInside(solids, Line.CreateBound(toe + direction * margin + offset,
-                        bend - direction * margin + offset));
+                    Inspect(solids, Line.CreateBound(toe + direction * margin + offset,
+                        bend - direction * margin + offset), errors, barIndex, "Chân ngang",
+                        (sideSign < 0 ? "Bên phải" : sideSign > 0 ? "Bên trái" : "Giữa") +
+                        "; " + (zSign < 0 ? "bao đáy" : zSign > 0 ? "bao trên" : "cao độ tim"));
                 }
                 XYZ embedTop = new XYZ(bend.X, bend.Y, g.Bottom - epsilon);
-                foreach (XYZ offset in new[] { XYZ.Zero, g.X * margin, -g.X * margin, g.Y * margin, -g.Y * margin })
-                    RequireInside(solids, Line.CreateBound(bend + offset, embedTop + offset));
+                var offsets = new[] { XYZ.Zero, g.X * margin, -g.X * margin, g.Y * margin, -g.Y * margin };
+                string[] sides = { "Tim", "Bao +X cột", "Bao -X cột", "Bao +Y cột", "Bao -Y cột" };
+                for (int j = 0; j < offsets.Length; j++)
+                    Inspect(solids, Line.CreateBound(bend + offsets[j], embedTop + offsets[j]), errors,
+                        barIndex, "Đoạn đứng", sides[j]);
+            }
+            if (errors.Count > 0)
+            {
+                string mark = work.Column.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
+                string context = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | Cột " + mark + " (ID " + work.Column.Id.Value + "); móng ID " + work.FoundationHost.Id.Value +
+                    "; Lₙ=" + work.FoundationAnchorLengthMm + " mm; cover=" + work.FoundationCoverMm +
+                    " mm; D=" + work.Config.MainDiameter + " mm; hướng=" + work.Config.FoundationAnchorDirection +
+                    "; đáy cột Z=" + V3Units.Mm(g.Bottom).ToString("0.###") +
+                    "; tim chân neo Z=" + V3Units.Mm(work.FoundationBendZ).ToString("0.###") + " mm.";
+                throw new V3AnchorDiagnosticException(context, errors);
             }
         }
 
@@ -59,7 +77,8 @@ namespace ColumnRebarPro.V3
             }
         }
 
-        private static void RequireInside(List<Part> solids, Line line)
+        private static void Inspect(List<Part> solids, Line line, List<V3AnchorErrorRow> errors,
+            int barIndex, string segmentName, string probe)
         {
             var intervals = new List<Tuple<double, double>>();
             XYZ origin = line.GetEndPoint(0), axis = line.Direction;
@@ -76,14 +95,15 @@ namespace ColumnRebarPro.V3
                         intervals.Add(Tuple.Create(Math.Min(a, b), Math.Max(a, b)));
                     }
             }
-            double covered = 0, tolerance = V3Units.Ft(.1);
-            foreach (var interval in intervals.OrderBy(x => x.Item1))
-            {
-                if (interval.Item1 > covered + tolerance) break;
-                covered = Math.Max(covered, interval.Item2);
-            }
-            if (covered < line.Length - tolerance)
-                throw new InvalidOperationException("Hướng/chiều dài chân L không nằm đủ trong solid móng với cover đã nhập. Đổi hướng neo hoặc đối chiếu lại kích thước thiết kế.");
+            var gap = V3AnchorGap.FirstGap(intervals, line.Length, V3Units.Ft(.1));
+            if (gap != null) errors.Add(new V3AnchorErrorRow {
+                Bar = barIndex, Segment = segmentName, Probe = probe,
+                Start = Coordinates(origin + axis * gap.Item1), End = Coordinates(origin + axis * gap.Item2),
+                GapMm = V3Units.Mm(gap.Item2 - gap.Item1)
+            });
         }
+
+        private static string Coordinates(XYZ point) => string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "{0:0.###}; {1:0.###}; {2:0.###}", V3Units.Mm(point.X), V3Units.Mm(point.Y), V3Units.Mm(point.Z));
     }
 }
