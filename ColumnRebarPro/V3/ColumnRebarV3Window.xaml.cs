@@ -764,6 +764,14 @@ namespace ColumnRebarPro.V3
                 "KStruct - Xem trước dữ liệu", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
+        private void AnchorageSettings_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // Two readable card columns on wide windows; preserve access on small screens.
+            int columns = e.NewSize.Width >= 840 ? 2 : 1;
+            if (AnchoragePrimaryCards != null) AnchoragePrimaryCards.Columns = columns;
+            if (AnchorageSecondaryCards != null) AnchorageSecondaryCards.Columns = columns;
+        }
+
         private void AnchorageElevationCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             DrawAnchorageElevation();

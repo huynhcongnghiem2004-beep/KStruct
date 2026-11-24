@@ -452,18 +452,19 @@
             <TabItem Header="⌁  3. NEO &amp; NỐI TẦNG">
                 <Grid Background="#FFF4F7FB" TextBlock.Foreground="#FF173657">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="20*" MinWidth="210"/>
-                        <ColumnDefinition Width="45*" MinWidth="320"/>
-                        <ColumnDefinition Width="35*" MinWidth="520"/>
+                        <ColumnDefinition Width="200" MinWidth="180"/>
+                        <ColumnDefinition Width="240" MinWidth="210"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="12" TextBlock.Foreground="#FF173657">
+                    <StackPanel Margin="8" TextBlock.Foreground="#FF173657" SizeChanged="AnchorageSettings_SizeChanged">
                     <Border Background="#FF1E3A5F" CornerRadius="4" Padding="11" Margin="0,0,0,12"><TextBlock Text="Thiết lập neo, nối và chuyển tiếp" Foreground="White" FontSize="15" FontWeight="Bold"/></Border>
                     <!-- Foundation L anchorage is the first section in the anchorage/splice tab. -->
-                    <Border BorderBrush="#FFB9C9DC" BorderThickness="1" Padding="12" CornerRadius="7" Background="#FFF8FAFD" Margin="0,0,0,12">
+                    <UniformGrid x:Name="AnchoragePrimaryCards" Columns="2">
+                    <Border BorderBrush="#FFB9C9DC" BorderThickness="1" Padding="10" CornerRadius="7" Background="#FFF8FAFD" Margin="0,0,6,8">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="235"/></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="160"/></Grid.ColumnDefinitions>
                             <CheckBox Grid.ColumnSpan="2" x:Name="FoundationAnchorCheck" Content="Neo chân L xuống móng tại chân tuyến" Foreground="#FF173657" IsChecked="False" FontWeight="SemiBold" Margin="0,0,0,10" Checked="FoundationAnchor_Changed" Unchecked="FoundationAnchor_Changed"/>
                             <StackPanel Grid.Row="1" Margin="0,0,12,0">
                                 <TextBlock Text="Chọn chi tiết neo" Foreground="#FF52647A" FontWeight="SemiBold" Margin="0,0,0,4"/>
@@ -512,9 +513,7 @@
                                     <ComboBoxItem Content="Theo trục +X cột"/><ComboBoxItem Content="Theo trục -X cột"/>
                                     <ComboBoxItem Content="Theo trục +Y cột"/><ComboBoxItem Content="Theo trục -Y cột"/>
                                 </ComboBox>
-                                <Border Background="#FFEAF0F7" BorderBrush="#FFC9D6E4" BorderThickness="1" CornerRadius="4" Width="93" Height="38" HorizontalAlignment="Left"><TextBlock Text="90°" FontSize="15" FontWeight="Bold" Foreground="#FF173657" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border>
-                                <TextBlock Text="Góc bẻ" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,0"/>
-                                <TextBlock Text="90° (cấu hình hiện hỗ trợ)" Foreground="#FF52647A" Margin="0,3,0,7"/>
+                                <TextBlock Text="Góc bẻ: 90°" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,7"/>
                                 <TextBlock Text="Cover móng đáy và bên (mm)" Foreground="#FF173657"/>
                                 <TextBox x:Name="FoundationCoverBox" Style="{StaticResource AnchorageDisabledText}"
                                          Width="125" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
@@ -522,7 +521,7 @@
                                           Margin="0,10,0,4" Content="Mở view 3D kiểm tra sau khi tạo"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1">
-                                <TextBlock Text="Chi tiết neo L xuống móng" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <TextBlock Text="Chi tiết neo L xuống móng" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,5"/>
                                 <Border Background="#FFF4F7FA" BorderBrush="#FFD8DFEA" BorderThickness="1">
                                     <Canvas x:Name="FoundationCanvas" Height="180" ClipToBounds="True" SizeChanged="FoundationCanvas_SizeChanged"/>
                                 </Border>
@@ -532,7 +531,7 @@
                         </Grid>
                     </Border>
 
-                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Background="#FFF8FAFD" Padding="10" Margin="0,0,0,12">
+                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Background="#FFF8FAFD" Padding="10" Margin="0,0,0,8">
                         <StackPanel>
                             <DockPanel Background="#FFE7EDF5" Margin="0,0,0,10">
                                 <CheckBox x:Name="SplicePanelToggle" DockPanel.Dock="Right" Content="Bật nối" IsChecked="True"
@@ -542,11 +541,11 @@
                                            Foreground="#FF173657" Margin="8"/>
                             </DockPanel>
                             <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="225"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="135"/></Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
-                                        <TextBlock Text="Kiểu nối" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
-                                        <ComboBox x:Name="SpliceMethodSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
+                                        <TextBlock Text="Kiểu nối" Width="90" VerticalAlignment="Center" Foreground="#FF173657"/>
+                                        <ComboBox x:Name="SpliceMethodSelector" Width="120" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
                                             <ComboBoxItem Content="Nối chồng"/>
                                         </ComboBox>
                                     </StackPanel>
@@ -566,16 +565,16 @@
                                         <Button x:Name="Splice60Visual" Style="{StaticResource DiagramChoice}" Tag="2" Click="SpliceDiagramChoice_Click" Content="60d"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
-                                        <TextBlock Text="Chiều dài nối (Lₛ)" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
-                                        <ComboBox x:Name="SpliceLengthSelector" Width="165" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
+                                        <TextBlock Text="Chiều dài nối (Lₛ)" Width="90" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#FF173657"/>
+                                        <ComboBox x:Name="SpliceLengthSelector" Width="120" SelectedIndex="0" SelectionChanged="SplicePanel_Changed">
                                             <ComboBoxItem Content="50d"/><ComboBoxItem Content="55d"/><ComboBoxItem Content="60d"/>
                                         </ComboBox>
                                     </StackPanel>
                                     <TextBlock x:Name="SpliceLengthHint" Text="Lₛ = max(50d, 600 mm); cần thiết kế phê duyệt"
-                                               Foreground="#FF986B48" TextWrapping="Wrap" Margin="132,0,0,7"/>
+                                               Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,0,0,7"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
-                                        <TextBlock Text="Vị trí nối" Width="132" VerticalAlignment="Center" Foreground="#FF173657"/>
-                                        <ComboBox x:Name="SplicePositionSelector" Width="165" SelectedIndex="0" IsEnabled="False" ToolTip="Chưa hỗ trợ bố trí nối tại giữa chiều cao tầng trong Rebar builder" SelectionChanged="SplicePanel_Changed">
+                                        <TextBlock Text="Vị trí nối" Width="90" VerticalAlignment="Center" Foreground="#FF173657"/>
+                                        <ComboBox x:Name="SplicePositionSelector" Width="120" SelectedIndex="0" IsEnabled="False" ToolTip="Chưa hỗ trợ bố trí nối tại giữa chiều cao tầng trong Rebar builder" SelectionChanged="SplicePanel_Changed">
                                             <ComboBoxItem Content="Giữa chiều cao tầng"/>
                                         </ComboBox>
                                     </StackPanel>
@@ -588,7 +587,7 @@
                                 </StackPanel>
                                 <Border Grid.Column="1" Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1" Padding="5">
                                     <StackPanel>
-                                        <Canvas x:Name="SpliceDetailCanvas" Width="210" Height="128" Background="White" ClipToBounds="True" SizeChanged="DynamicPreview_SizeChanged"/>
+                                        <Viewbox Stretch="Uniform"><Canvas x:Name="SpliceDetailCanvas" Width="210" Height="128" Background="White" ClipToBounds="True" SizeChanged="DynamicPreview_SizeChanged"/></Viewbox>
                                         <TextBlock Text="Minh họa nối chồng · chưa phải Rebar 3D"
                                                    FontSize="10" Foreground="#FF986B48" TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -600,6 +599,7 @@
                                        Text="Chiều dài Lₛ là giá trị tham khảo theo cấu hình thiết kế. Vị trí giữa tầng và so le đang khóa cho đến khi được kiểm thử trong Revit."/>
                         </StackPanel>
                     </Border>
+                    </UniformGrid>
                     <!-- Existing validated pairing and bottleneck controls remain instantiated,
                          but are deliberately hidden from the simplified mockup panel. -->
                     <StackPanel Visibility="Collapsed">
@@ -648,7 +648,8 @@
                         </StackPanel>
                     </GroupBox>
                     </StackPanel>
-                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,12" Background="#FFF8FAFC">
+                    <UniformGrid x:Name="AnchorageSecondaryCards" Columns="2">
+                    <Border BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,0,6,8" Background="#FFF8FAFC">
                         <StackPanel>
                             <TextBlock Text="③  NÚT GIAO DẦM – CỘT" FontWeight="Bold" FontSize="16" Foreground="#FF173657" Margin="0,0,0,8"/>
                             <Border Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="5" Padding="5" HorizontalAlignment="Left" Margin="0,0,0,8">
@@ -663,12 +664,12 @@
                             </Border>
                             <CheckBox x:Name="JointAutoDetectCheck" IsChecked="True" IsEnabled="False"
                                       Content="Tự nhận diện dầm trong mô hình Revit (bắt buộc)" Foreground="#FF173657"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
+                            <WrapPanel Margin="0,8,0,5">
                                 <CheckBox Content="Nhập chiều cao dầm" IsEnabled="False" Foreground="#FF52647A" Width="180"/>
                                 <TextBox Width="95" IsEnabled="False" Text="300" Style="{StaticResource AnchorageDisabledText}"/>
                                 <TextBlock Text="mm · chỉ minh họa, không thay thế Solid" Margin="8,2,0,0" Foreground="#FF986B48"/>
-                            </StackPanel>
-                            <TextBlock Text="Khoảng hở mép dầm ≥ 0 mm · kiểm tra từ Solid thật" Foreground="#FF173657" Margin="0,4,0,8"/>
+                            </WrapPanel>
+                            <TextBlock Text="Khoảng hở mép dầm ≥ 0 mm · kiểm tra từ Solid thật" TextWrapping="Wrap" Foreground="#FF173657" Margin="0,4,0,8"/>
                             <CheckBox x:Name="JointOmitTiesCheck" Content="Bỏ bố trí đai trong nút"
                                       Foreground="#FF173657" Checked="JointOmitTies_Changed" Unchecked="JointOmitTies_Changed"/>
                             <TextBlock Text="Giữ đai / bỏ đai theo vùng giao đã xác minh"
@@ -703,14 +704,15 @@
                                        Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/>
                         </StackPanel>
                     </Border>
-                    <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#FF986B48"
+                    </UniformGrid>
+                    <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FF986B48"
                         Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Ghép cổ chai theo vị trí thực khi cùng số thanh; nối so le và tự bổ sung/kết thúc khi đổi số thanh chưa được hỗ trợ. Bản vẽ là DRAFT."/>
                 </StackPanel>
                     </ScrollViewer>
                     <Border Grid.Column="1" Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1,0,1,0" Padding="10">
                         <DockPanel>
                             <Border DockPanel.Dock="Top" Background="#FF173657" Padding="11" CornerRadius="5" Margin="0,0,0,10">
-                                <TextBlock Text="MẶT ĐỨNG TOÀN TUYẾN" Foreground="White" FontWeight="Bold" FontSize="13"/>
+                                <TextBlock Text="MẶT ĐỨNG TOÀN TUYẾN" TextWrapping="Wrap" Foreground="White" FontWeight="Bold" FontSize="12"/>
                             </Border>
                             <TextBlock DockPanel.Dock="Bottom" Text="Đỏ liền: đường tâm builder đã xác minh. Cam đứt: chưa đủ dữ liệu hình học; không dùng để gia công." FontSize="11" TextWrapping="Wrap" Foreground="#FF986B48" Margin="3,8,3,0"/>
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -746,7 +748,7 @@
                     <Border Grid.Column="0" Background="#FFFDFEFF" Padding="10">
                         <DockPanel>
                             <Border DockPanel.Dock="Top" Background="#FF173657" Padding="11" CornerRadius="5" Margin="0,0,0,10">
-                                <TextBlock Text="DANH SÁCH TẦNG · MẶT CẮT" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                                <TextBlock Text="DANH SÁCH TẦNG · MẶT CẮT" TextWrapping="Wrap" Foreground="White" FontWeight="Bold" FontSize="12"/>
                             </Border>
                             <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
                                 <Border Background="#FFFFF7ED" Padding="9" CornerRadius="5">
