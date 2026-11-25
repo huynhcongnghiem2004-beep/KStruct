@@ -175,7 +175,9 @@ namespace ColumnRebarPro.V3
         {
             var g=item.Geometry;var c=item.Config;var result=new List<V3BarPath>();
             double low=item.FoundationHost==null?V3Units.Mm(g.Bottom)+c.Cover+c.MainDiameter/2:V3Units.Mm(item.FoundationBendZ);
-            double high=c.StarterBars?V3Units.Mm(g.Top)+c.StarterLength:V3Units.Mm(g.Top)-c.Cover-c.MainDiameter/2;
+            double starterLength = item.OutgoingStarterLengthMm > 0
+                ? item.OutgoingStarterLengthMm : c.StarterLength;
+            double high=c.StarterBars?V3Units.Mm(g.Top)+starterLength:V3Units.Mm(g.Top)-c.Cover-c.MainDiameter/2;
             // Ln is the horizontal L-leg dimension measured from the bend tangent
             // to the end, not the sum of vertical embedment and horizontal leg.
             double footLength=item.FoundationHost==null?0:item.FoundationAnchorLengthMm;
@@ -215,7 +217,16 @@ namespace ColumnRebarPro.V3
                         path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,V3Units.Mm(g.Top)));
                     }
                     if(!connection.Terminated)
-                        path.Points.Add(new V3Point3(connection.End.X,connection.End.Y,high+connection.SpliceEndOffsetMm));
+                    {
+                        var end = new V3Point3(connection.End.X,connection.End.Y,
+                            high+connection.SpliceEndOffsetMm);
+                        path.Points.Add(end);
+                        if(item.OutgoingRoofHook90)
+                            path.Points.Add(V3ProfileGeometry.InwardRoofHookEnd(end,
+                                item.ConnectionPlan.Upper.Center,
+                                item.OutgoingRoofHookLegMm, c.MainDiameter,
+                                item.OutgoingRoofTieDiameterMm));
+                    }
                 }
                 else
                 {
@@ -225,32 +236,10 @@ namespace ColumnRebarPro.V3
                         if (item.HasNext || item.BottleneckToUpper || c.StarterBars)
                             throw new InvalidOperationException("Móc 90° hướng tâm chỉ áp dụng cho cột cuối tuyến, không có thép chờ lên tầng trên.");
                         XYZ center = g.At(0, 0, 0);
-                        double dx = V3Units.Mm(center.X) - xy.X;
-                        double dy = V3Units.Mm(center.Y) - xy.Y;
-                        double distance = Math.Sqrt(dx * dx + dy * dy);
-                        // Conservative bend and cover allowance. Never shorten a required
-                        // anchorage leg to make it fit the column.
-                        double bendAllowance = c.MainDiameter + c.TieDiameter / 2;
-                        double available = distance - bendAllowance;
-                        bool validLength = c.TerminalHookLegMm > 0 &&
-                            !double.IsNaN(c.TerminalHookLegMm) &&
-                            !double.IsInfinity(c.TerminalHookLegMm);
-                        if (validLength && available >= c.TerminalHookLegMm - 1e-6)
-                        {
-                            double scale = c.TerminalHookLegMm / distance;
-                            path.Points.Add(new V3Point3(xy.X + dx * scale, xy.Y + dy * scale, high));
-                        }
-                        else
-                        {
-                            // Never silently replace a requested roof hook with a straight bar.
-                            string reason = !validLength
-                                ? "chiều dài Lm tùy chỉnh không hợp lệ"
-                                : "không đủ khoảng trống (khả dụng " + available.ToString("0.##") + " mm)";
-                            throw new InvalidOperationException(
-                                "Móc mái 90°: " + reason + "; Lm = " +
-                                c.TerminalHookLegMm.ToString("0.##") +
-                                " mm. Điều chỉnh chiều dài hoặc kích thước cột.");
-                        }
+                        path.Points.Add(V3ProfileGeometry.InwardRoofHookEnd(
+                            new V3Point3(xy.X, xy.Y, high),
+                            new V3Point2(V3Units.Mm(center.X), V3Units.Mm(center.Y)),
+                            c.TerminalHookLegMm, c.MainDiameter, c.TieDiameter));
                     }
                 }
                 result.Add(path);

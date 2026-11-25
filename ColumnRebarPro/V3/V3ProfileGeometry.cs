@@ -51,6 +51,34 @@ namespace ColumnRebarPro.V3
     }
     internal static class V3ProfileGeometry
     {
+        internal static V3Point3 InwardRoofHookEnd(V3Point3 start, V3Point2 center,
+            double hookLegMm, double barDiameterMm, double tieDiameterMm)
+        {
+            double dx = center.X - start.X;
+            double dy = center.Y - start.Y;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            bool validLength = V3BottleneckRules.Finite(hookLegMm) && hookLegMm > 0;
+            double available = distance - barDiameterMm - tieDiameterMm / 2;
+            if (!validLength || !V3BottleneckRules.Finite(start.X) ||
+                !V3BottleneckRules.Finite(start.Y) || !V3BottleneckRules.Finite(start.Z) ||
+                !V3BottleneckRules.Finite(center.X) || !V3BottleneckRules.Finite(center.Y) ||
+                !V3BottleneckRules.Finite(barDiameterMm) || barDiameterMm <= 0 ||
+                !V3BottleneckRules.Finite(tieDiameterMm) || tieDiameterMm <= 0 ||
+                !V3BottleneckRules.Finite(available) ||
+                distance <= 1e-9 || available < hookLegMm - 1e-6)
+            {
+                string reason = !validLength
+                    ? "chiều dài Lm tùy chỉnh không hợp lệ"
+                    : "không đủ khoảng trống (khả dụng " + available.ToString("0.##") + " mm)";
+                throw new InvalidOperationException(
+                    "Móc mái 90°: " + reason + "; Lm = " +
+                    hookLegMm.ToString("0.##") +
+                    " mm. Điều chỉnh chiều dài hoặc kích thước cột.");
+            }
+            double scale = hookLegMm / distance;
+            return new V3Point3(start.X + dx * scale, start.Y + dy * scale, start.Z);
+        }
+
         internal static double SegmentDistance(V3Point3 a,V3Point3 b,V3Point3 c,V3Point3 d)
         {
             var u=b-a;var v=d-c;var w=a-c;

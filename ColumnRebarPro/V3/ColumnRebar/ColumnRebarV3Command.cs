@@ -168,8 +168,15 @@ namespace ColumnRebarPro.V3
                     "Tuyến bị bỏ qua trong kiểm tra: " + failures.Count + "\n\n" +
                     "KStruct V4 sẽ rollback tuyến nếu Revit xóa kèm phần tử ngoài bộ thép cũ.\n" +
                     "Thao tác tạo bản vẽ sử dụng cấu hình hồ sơ của project.";
+                var starterAdjustments = allWorks
+                    .Where(w => !string.IsNullOrWhiteSpace(w.StarterWarning))
+                    .Select(w => w.Segment.LevelName + ": " + w.StarterWarning)
+                    .ToList();
+                if (starterAdjustments.Count > 0)
+                    previewSummary += "\n\nĐIỀU CHỈNH THÉP CHỜ:\n" +
+                        string.Join("\n", starterAdjustments);
                 if (allWorks.Any(w => w.Config.StarterBars))
-                    previewSummary += "\n\nThép chờ lấy theo đúng chiều dài thiết kế đã nhập; " +
+                    previewSummary += "\n\nThép chờ giữ chiều dài đã nhập, ngoại trừ điều chỉnh được liệt kê ở trên; " +
                         "chưa tự tính nối chồng hoặc chuyển tiếp tiết diện.";
                 var confirmation = TaskDialog.Show("KStruct V4 - Kiểm tra trước khi tạo",
                     previewSummary + "\n\nTiếp tục tạo Rebar 3D" +

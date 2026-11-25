@@ -101,6 +101,9 @@ namespace ColumnRebarPro.V3
         internal readonly List<V3PositionOffset> IncomingSpliceOffsets = new List<V3PositionOffset>();
         public bool IncomingStagger;
         public string StarterWarning;
+        public double OutgoingStarterLengthMm;
+        public bool OutgoingRoofHook90;
+        public double OutgoingRoofHookLegMm, OutgoingRoofTieDiameterMm;
         // Chuyển tiếp khi đổi tiết diện/đường kính: null nếu hai tầng cùng cấu tạo.
         public V3Transition TransitionUp, TransitionDown;
     }

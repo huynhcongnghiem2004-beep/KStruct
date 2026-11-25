@@ -914,6 +914,14 @@ namespace ColumnRebarPro.V3
                         label(center + half + 5, yTop + 8,
                             "Móc mái 90° · Lm " + work.Config.TerminalHookLegMm.ToString("0") + " mm",
                             Brushes.DarkGreen);
+                    if (work != null && work.OutgoingRoofHook90)
+                        label(center + half + 5, yTop + 24,
+                            "Thép chờ: móc mái 90° · Lm " +
+                            work.OutgoingRoofHookLegMm.ToString("0") + " mm",
+                            Brushes.DarkGreen);
+                    if (work != null && !string.IsNullOrWhiteSpace(work.StarterWarning))
+                        label(center + half + 5, yTop + 40,
+                            work.StarterWarning, Brushes.DarkOrange);
                     if (work != null && work.FoundationHost != null)
                         label(center + half + 5, yBottom - 30,
                             "Neo L · Ln " + work.FoundationAnchorLengthMm.ToString("0") + " mm",
@@ -2027,6 +2035,24 @@ namespace ColumnRebarPro.V3
 
             // Chiều cao tổng cộng cần vẽ
             double starterMm = c.StarterBars ? c.StarterLength : 0;
+            bool roofStarterHook = false;
+            bool roofStarterCapped = false;
+            double roofHookLegMm = 0;
+            if (c.StarterBars && hasUpper && segIdx + 2 == _segments.Count &&
+                _configs.TryGetValue(_segments[segIdx + 1].Id.Value, out var upperConfig) &&
+                upperConfig.TerminalInwardHook90)
+            {
+                double upperInsetMm = upperConfig.Cover + upperConfig.MainDiameter / 2;
+                double availableUpperMm = upperHeightMm - upperInsetMm;
+                double requestedIncomingMm = c.StarterLength - upperGapMm;
+                if (requestedIncomingMm >= availableUpperMm - 1e-6 && availableUpperMm > 0)
+                {
+                    starterMm = upperGapMm + Math.Min(requestedIncomingMm, availableUpperMm);
+                    roofStarterHook = true;
+                    roofStarterCapped = requestedIncomingMm > availableUpperMm;
+                    roofHookLegMm = upperConfig.TerminalHookLegMm;
+                }
+            }
             double totalDrawH = heightMm + Math.Max(beamH, Math.Max(starterMm, hasUpper ? upperGapMm + upperHeightMm * 0.4 : 0));
             double totalDrawW = Math.Max(widthMm, upperWidthMm + 2*Math.Abs(upperCenterX)) + 120;
 
@@ -2128,10 +2154,20 @@ namespace ColumnRebarPro.V3
                     if(pair.Height>0)
                         addLn(mmToX(x),mmToY(colH-pair.Height),mmToX(endX),mmToY(colH),barBrush,barThick);
                     addLn(mmToX(endX),mmToY(colH),mmToX(endX),mmToY(colH+starterMm),Brushes.OrangeRed,barThick);
+                    if (roofStarterHook)
+                    {
+                        double hookDirection = upperCenterX >= endX ? 1 : -1;
+                        double hookEndX = endX + hookDirection * roofHookLegMm;
+                        addLn(mmToX(endX), mmToY(colH + starterMm),
+                            mmToX(hookEndX), mmToY(colH + starterMm), Brushes.OrangeRed, barThick);
+                    }
                     addLn(mmToX(upperX),mmToY(colH+upperGapMm+preview.Upper.Cover+preview.Upper.Diameter/2),
                         mmToX(upperX),mmToY(colH+upperGapMm+upperDrawH),Brushes.Firebrick,1.2);
                 }
                 addTxt(8,18,"Chiếu theo trục X cột dưới; các thanh có thể chồng hình.",Brushes.DimGray,9);
+                if (roofStarterCapped)
+                    addTxt(8,32,"Thép chờ đã giới hạn theo cột mái; móc 90° vào tâm cột.",
+                        Brushes.DarkOrange,9);
             }
             else
             {

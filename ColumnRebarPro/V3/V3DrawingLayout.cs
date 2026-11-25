@@ -20,7 +20,9 @@ namespace ColumnRebarPro.V3
                 foreach(double a in new[]{-w.Geometry.Width/2,w.Geometry.Width/2})
                     foreach(double b in new[]{-w.Geometry.Depth/2,w.Geometry.Depth/2})points.Add(w.Geometry.At(a,b,0)-new XYZ(origin.X,origin.Y,0));
             double bottom=works.Min(w=>w.Geometry.Bottom);
-            double top=works.Max(w=>w.Geometry.Top+V3Units.Ft(w.Config.StarterBars?w.Config.StarterLength:0));
+            double top=works.Max(w=>w.Geometry.Top+V3Units.Ft(w.Config.StarterBars
+                ? (w.OutgoingStarterLengthMm > 0 ? w.OutgoingStarterLengthMm : w.Config.StarterLength)
+                : 0));
             var partitions=new HashSet<string>(works.Select(w=>V3RebarBuilder.Partition(w.Column.Id)));
             foreach(var bar in new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>())
             {
@@ -239,7 +241,9 @@ namespace ColumnRebarPro.V3
             if(!B("LongShowValue"))return;
             if(!work.Config.StarterBars)return;
             var g=work.Geometry;
-            double lap=V3Units.Ft(work.Config.StarterLength);
+            double starterLength = work.OutgoingStarterLengthMm > 0
+                ? work.OutgoingStarterLengthMm : work.Config.StarterLength;
+            double lap=V3Units.Ft(starterLength);
             if(lap<doc.Application.ShortCurveTolerance)return;
             ChainLeft(doc,view,g,new[]{g.Top,g.Top+lap},V3DrawStyle.ZoneChainOffset);
         }
