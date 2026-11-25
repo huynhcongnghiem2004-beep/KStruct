@@ -103,6 +103,51 @@ namespace ColumnRebarPro.V3
                 (string.IsNullOrEmpty(lastError) ? "" : " Chi tiết: " + lastError));
         }
 
+        internal static Rebar CreateFreeForm(Document doc, RebarBarType type, Element host,
+            IList<IList<Curve>> curves, ElementId columnId, string group)
+        {
+            if (doc == null || type == null || host == null || curves == null || curves.Count == 0)
+                throw new InvalidOperationException("Cột " + columnId.Value + ": thiếu dữ liệu tạo FreeForm " + group + ".");
+            foreach (var barCurves in curves)
+            {
+                if (barCurves == null || barCurves.Count == 0)
+                    throw new InvalidOperationException("Cột " + columnId.Value + ": FreeForm " + group + " có thanh rỗng.");
+                for (int i = 0; i < barCurves.Count; i++)
+                {
+                    Curve curve = barCurves[i];
+                    if (curve == null || !curve.IsBound || !(curve is Line || curve is Arc) ||
+                        curve.Length <= doc.Application.ShortCurveTolerance ||
+                        (i > 0 && barCurves[i - 1].GetEndPoint(1).DistanceTo(curve.GetEndPoint(0)) >
+                            Math.Max(doc.Application.ShortCurveTolerance, 1e-6)))
+                        throw new InvalidOperationException("Cột " + columnId.Value + ": đường FreeForm " +
+                            group + " không liên tục hoặc có đoạn không hợp lệ.");
+                }
+            }
+
+            using (var attempt = new SubTransaction(doc))
+            {
+                attempt.Start();
+                try
+                {
+                    RebarFreeFormValidationResult validation;
+                    Rebar bar = Rebar.CreateFreeForm(doc, type, host, curves, out validation);
+                    if (bar == null || validation != RebarFreeFormValidationResult.Success)
+                        throw new InvalidOperationException("Revit từ chối FreeForm: " + validation + ".");
+                    doc.Regenerate();
+                    if (!bar.IsRebarFreeForm())
+                        throw new InvalidOperationException("Revit không tạo đúng Rebar FreeForm.");
+                    if (attempt.Commit() != TransactionStatus.Committed)
+                        throw new InvalidOperationException("Revit không commit được Rebar FreeForm.");
+                    return bar;
+                }
+                catch
+                {
+                    if (attempt.GetStatus() == TransactionStatus.Started) attempt.RollBack();
+                    throw;
+                }
+            }
+        }
+
         private static void ValidateGeometry(IList<Curve> curves, XYZ normal,
             double shortTolerance, ElementId columnId, string group)
         {

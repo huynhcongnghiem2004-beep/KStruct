@@ -105,7 +105,28 @@ namespace ColumnRebarPro.V3
                         throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": đoạn nối thẳng sau gối uốn không đủ chiều dài tối thiểu.");
                 }
                 if(!path.Planar)
-                    throw new InvalidOperationException("Thanh "+(path.BarIndex+1)+": đường nhiều mặt phẳng chưa hỗ trợ bằng Rebar Shape có sẵn. Lệnh không tạo FreeForm hoặc shape mới.");
+                {
+                    var freeFormCurves = new List<IList<Curve>>();
+                    var freeFormExpected = new List<XYZ>();
+                    foreach (var barPath in group.Bars)
+                    {
+                        var barRounded = V3ProfileGeometry.Round(barPath.Points, radius, tolerance);
+                        var barTarget = barPath.Points.Select(ModelPoint).ToList();
+                        freeFormCurves.Add(V4AutomaticRebar.Lines(barTarget.ToArray()));
+                        freeFormExpected.AddRange(barRounded.SelectMany(curve => curve.Arc
+                            ? new[] { curve.Start, curve.Mid, curve.End }
+                            : new[] { curve.Start, curve.End }).Select(ModelPoint));
+                    }
+                    Rebar freeForm = V4AutomaticRebar.CreateFreeForm(doc, type,
+                        item.FoundationHost ?? (Element)item.Column, freeFormCurves,
+                        item.Column.Id, "thanh neo/chuyển tiếp");
+                    V3RebarShapeFactory.ValidateFreeFormEnvelope(freeForm, freeFormExpected,
+                        V3Units.Ft(2), item.Column.Id, "thanh neo/chuyển tiếp");
+                    V3RebarBuilder.SetPartition(freeForm, item.Column.Id);
+                    report.MainSets++;
+                    report.MainBars += group.Bars.Count;
+                    continue;
+                }
                 // A bar plane must be inferred from the actual design legs.
                 // The array step is a distribution direction, never the definition of the bar plane.
                 var distribution = group.Bars.Count > 1 ? (V3Point3?)group.Step : null;
@@ -211,11 +232,10 @@ namespace ColumnRebarPro.V3
                         // anchorage leg to make it fit the column.
                         double bendAllowance = c.MainDiameter + c.TieDiameter / 2;
                         double available = distance - bendAllowance;
-                        bool approved = c.DesignValuesConfirmed &&
-                            c.TerminalHookLegMm > 0 &&
+                        bool validLength = c.TerminalHookLegMm > 0 &&
                             !double.IsNaN(c.TerminalHookLegMm) &&
                             !double.IsInfinity(c.TerminalHookLegMm);
-                        if (approved && available >= c.TerminalHookLegMm - 1e-6)
+                        if (validLength && available >= c.TerminalHookLegMm - 1e-6)
                         {
                             double scale = c.TerminalHookLegMm / distance;
                             path.Points.Add(new V3Point3(xy.X + dx * scale, xy.Y + dy * scale, high));
@@ -223,10 +243,13 @@ namespace ColumnRebarPro.V3
                         else
                         {
                             // Never silently replace a requested roof hook with a straight bar.
+                            string reason = !validLength
+                                ? "chiều dài Lm tùy chỉnh không hợp lệ"
+                                : "không đủ khoảng trống (khả dụng " + available.ToString("0.##") + " mm)";
                             throw new InvalidOperationException(
-                                "Móc mái 90°: không đủ khoảng trống trong tiết diện hoặc chưa duyệt chiều dài Lm = " +
+                                "Móc mái 90°: " + reason + "; Lm = " +
                                 c.TerminalHookLegMm.ToString("0.##") +
-                                " mm. Điều chỉnh thiết kế hoặc tắt tùy chọn; không tự rút ngắn móc.");
+                                " mm. Điều chỉnh chiều dài hoặc kích thước cột.");
                         }
                     }
                 }

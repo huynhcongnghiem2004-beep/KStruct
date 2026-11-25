@@ -180,8 +180,7 @@ namespace ColumnRebarPro.V3
                     foreach(var path in V3RebarSetCreator.ConnectionPaths(work))
                     {
                         path.Inspect();
-                        if(!path.Planar)throw new InvalidOperationException("Cột "+work.Column.Id.Value+
-                            ": thanh neo L kết hợp cổ chai nằm nhiều mặt phẳng. Chưa hỗ trợ dựng thanh này từ Rebar Shape có sẵn; không tự chuyển sang FreeForm. Kiểm tra lại hướng neo/nhấn.");
+                        // Multiplanar paths are created as FreeForm by the shaped-set builder.
                     }
             }
         }

@@ -83,12 +83,10 @@ namespace ColumnRebarPro.V3
 
                 if (a.DistanceTo(b) > tolerance) continue;
 
-                var level = doc.GetElement(col.LevelId) as Level;
-
                 result.Add(new ColumnSegment
                 {
                     Id = col.Id,
-                    LevelName = level == null ? "Không rõ tầng" : level.Name,
+                    LevelName = LevelSpanName(doc, col, geom),
                     BottomMm = V3Units.Mm(geom.Bottom),
                     TopMm = V3Units.Mm(geom.Top),
                     WidthMm = V3Units.Mm(geom.Width),
@@ -97,6 +95,33 @@ namespace ColumnRebarPro.V3
             }
 
             return result.OrderBy(s => s.BottomMm).ThenBy(s => s.Id.Value).ToList();
+        }
+
+        private static string LevelSpanName(Document doc, FamilyInstance column, V3Geometry geometry)
+        {
+            var levels = new FilteredElementCollector(doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .OrderBy(level => level.Elevation)
+                .ToList();
+            if (levels.Count == 0) return "Không rõ tầng";
+
+            double tolerance = V3Units.Ft(5);
+            Level baseLevel = levels.LastOrDefault(level => level.Elevation <= geometry.Bottom + tolerance);
+            Level topLevel = levels.LastOrDefault(level => level.Elevation <= geometry.Top + tolerance);
+            if (baseLevel == null) baseLevel = doc.GetElement(column.LevelId) as Level;
+            if (baseLevel == null) return topLevel == null ? "Không rõ tầng" : topLevel.Name;
+            if (topLevel == null || baseLevel.Id == topLevel.Id) return baseLevel.Name;
+
+            var crossed = levels
+                .Where(level => level.Elevation >= baseLevel.Elevation - tolerance &&
+                    level.Elevation <= topLevel.Elevation + tolerance)
+                .Select(level => level.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return crossed.Count > 1
+                ? string.Join(" → ", crossed)
+                : baseLevel.Name + " → " + topLevel.Name;
         }
     }
 }

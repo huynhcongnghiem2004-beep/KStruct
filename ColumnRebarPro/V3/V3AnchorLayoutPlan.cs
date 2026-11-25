@@ -3,7 +3,11 @@ using System.Collections.Generic;
 
 namespace ColumnRebarPro.V3
 {
-    public enum V3AnchorDirection { Inward, Outward, PositiveX, NegativeX, PositiveY, NegativeY }
+    public enum V3AnchorDirection
+    {
+        Inward, Outward, PositiveX, NegativeX, PositiveY, NegativeY,
+        PositiveXPositiveY45, PositiveXNegativeY45, NegativeXPositiveY45, NegativeXNegativeY45
+    }
 
     internal sealed class V3AnchorArray
     {
@@ -47,6 +51,28 @@ namespace ColumnRebarPro.V3
                     bool edge = i == 0 || i == cx - 1;
                     arrays.Add(Array(-hx + dx * i, -hy, 0, edge ? dy : 2 * hy, edge ? cy : 2, sign, 0));
                 }
+            }
+            else if (direction == V3AnchorDirection.PositiveXPositiveY45 ||
+                direction == V3AnchorDirection.PositiveXNegativeY45 ||
+                direction == V3AnchorDirection.NegativeXPositiveY45 ||
+                direction == V3AnchorDirection.NegativeXNegativeY45)
+            {
+                double diagonal = 1 / Math.Sqrt(2);
+                double hookX = direction == V3AnchorDirection.PositiveXPositiveY45 ||
+                    direction == V3AnchorDirection.PositiveXNegativeY45 ? diagonal : -diagonal;
+                double hookY = direction == V3AnchorDirection.PositiveXPositiveY45 ||
+                    direction == V3AnchorDirection.NegativeXPositiveY45 ? diagonal : -diagonal;
+                // Diagonal hooks are not distributed on one straight edge.
+                // Keep each perimeter bar as a Single array so its vertical +
+                // diagonal L plane remains valid for Rebar Shape/FreeForm.
+                for (int i = 0; i < cx; i++)
+                    arrays.Add(Array(-hx + dx * i, -hy, 0, 0, 1, hookX, hookY));
+                for (int j = 1; j < cy - 1; j++)
+                    arrays.Add(Array(hx, -hy + dy * j, 0, 0, 1, hookX, hookY));
+                for (int i = cx - 1; i >= 0; i--)
+                    arrays.Add(Array(-hx + dx * i, hy, 0, 0, 1, hookX, hookY));
+                for (int j = cy - 2; j >= 1; j--)
+                    arrays.Add(Array(-hx, -hy + dy * j, 0, 0, 1, hookX, hookY));
             }
             else
             {

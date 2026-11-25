@@ -139,6 +139,24 @@ namespace ColumnRebarPro.V3
                         Math.Round(V3Units.Mm(effectiveToleranceFt), 1) + " mm); đã dừng trước khi thay thép cũ.");
         }
 
+        internal static void ValidateFreeFormEnvelope(Rebar bar, IList<XYZ> expected, double toleranceFt,
+            ElementId columnId, string groupName)
+        {
+            if (bar == null || expected == null || expected.Count == 0)
+                throw new InvalidOperationException("Cột " + columnId.Value + ": thiếu hình học kiểm tra FreeForm cho " + groupName + ".");
+            var actual = bar.GetCenterlineCurves(false, false, false,
+                MultiplanarOption.IncludeAllMultiplanarCurves, 0)
+                .SelectMany(curve => curve.Tessellate()).ToList();
+            if (actual.Count == 0)
+                throw new InvalidOperationException("Cột " + columnId.Value + ": FreeForm không tạo được hình học cho " + groupName + ".");
+            double[] expectedBounds = Bounds(expected), actualBounds = Bounds(actual);
+            double effectiveToleranceFt = Math.Max(toleranceFt, V3Units.Ft(25));
+            for (int i = 0; i < 6; i++)
+                if (Math.Abs(expectedBounds[i] - actualBounds[i]) > effectiveToleranceFt)
+                    throw new InvalidOperationException("Cột " + columnId.Value + ": FreeForm nhóm " + groupName +
+                        " không đạt kích thước/vị trí thiết kế.");
+        }
+
         internal static void ValidateInside(Rebar bar, V3Geometry geometry, double minZ, double maxZ,
             double coverFt, ElementId columnId, string groupName)
         {

@@ -26,7 +26,14 @@ namespace ColumnRebarPro.V3
             double low = cover + diameter / 2, high = height - low;
             if (cover <= 0 || diameter <= 0 || high <= low || endZone < 0 ||
                 endZone > (high - low) / 2 || endSpacing <= 0 || midSpacing <= 0)
-                throw new InvalidOperationException("Vùng đai đầu không được chồng nhau; kiểm tra chiều cao, cover và bước đai.");
+            {
+                double maxEndZone = Math.Max(0, (high - low) / 2);
+                throw new InvalidOperationException("Vùng đai đầu không được chồng nhau: " +
+                    "H=" + height.ToString("0.##") + " mm, cover=" + cover.ToString("0.##") +
+                    " mm, Øđai=" + diameter.ToString("0.##") + " mm, vùng đầu đang nhập=" +
+                    endZone.ToString("0.##") + " mm, tối đa=" + maxEndZone.ToString("0.##") +
+                    " mm. Kiểm tra chiều cao cột và vùng đai đầu.");
+            }
             if (fixedNumber && (endCount < 2 || midCount < 2 || endCount > 1002 || midCount > 1002))
                 throw new InvalidOperationException("Số vị trí đai mỗi vùng phải từ 2 đến 1002.");
             if (joint && (jointHeight <= 0 || jointSpacing <= 0))

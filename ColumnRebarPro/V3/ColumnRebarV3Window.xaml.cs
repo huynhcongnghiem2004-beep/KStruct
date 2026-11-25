@@ -415,8 +415,18 @@ namespace ColumnRebarPro.V3
                 RoofHookCheck.IsChecked = terminal && c.TerminalInwardHook90;
                 if (RoofHookPreset != null)
                 {
-                    double ratio = c.MainDiameter > 0 ? c.TerminalHookLegMm / c.MainDiameter : 12;
-                    RoofHookPreset.SelectedIndex = ratio >= 15 ? 2 : ratio >= 13 ? 1 : 0;
+                    double d = c.MainDiameter > 0 ? c.MainDiameter : 16;
+                    double l12 = Math.Max(12 * d, 200), l14 = Math.Max(14 * d, 200), l16 = Math.Max(16 * d, 200);
+                    bool matchesPreset = Math.Abs(c.TerminalHookLegMm - l12) < .1 ||
+                        Math.Abs(c.TerminalHookLegMm - l14) < .1 || Math.Abs(c.TerminalHookLegMm - l16) < .1;
+                    bool custom = c.TerminalHookCustomLength || (c.TerminalHookLegMm > 0 && !matchesPreset);
+                    RoofHookPreset.SelectedIndex = custom ? 3 :
+                        Math.Abs(c.TerminalHookLegMm - l16) < .1 ? 2 :
+                        Math.Abs(c.TerminalHookLegMm - l14) < .1 ? 1 : 0;
+                    if (RoofHookCustomLengthBox != null)
+                        RoofHookCustomLengthBox.Text = c.TerminalHookLegMm > 0
+                            ? c.TerminalHookLegMm.ToString("0.##", CultureInfo.InvariantCulture) : "";
+                    SetRoofHookControlState(terminal);
                 }
             }
             JointHeightBox.Text = c.JointBeamHeight > 0 ? c.JointBeamHeight.ToString(CultureInfo.InvariantCulture) : "";
@@ -498,10 +508,14 @@ namespace ColumnRebarPro.V3
                 if (RoofHookCheck != null && RoofHookPreset != null &&
                     _activeId.Value == _segments[_segments.Count - 1].Id.Value)
                 {
+                    bool custom = RoofHookPreset.SelectedIndex == 3;
                     double factor = RoofHookPreset.SelectedIndex == 2 ? 16 :
                         RoofHookPreset.SelectedIndex == 1 ? 14 : 12;
                     c.TerminalInwardHook90 = RoofHookCheck.IsChecked == true;
-                    c.TerminalHookLegMm = Math.Max(factor * c.MainDiameter, 200);
+                    c.TerminalHookCustomLength = custom;
+                    c.TerminalHookLegMm = custom
+                        ? ReadPositive(RoofHookCustomLengthBox, "Chiều dài neo mái tùy chỉnh (mm)")
+                        : Math.Max(factor * c.MainDiameter, 200);
                 }
                 c.JointTies = false; // Legacy starter-zone setting remains disabled.
                 double beamHeight = ReadOptionalPositive(QuickBeamHeightBox, "Cao dầm sàn");
@@ -694,17 +708,15 @@ namespace ColumnRebarPro.V3
                     JointHeightBox.Text = beam;
                 }
                 finally { _compactSync = false; }
-                if (!SaveActive(true))
+                if (!SaveActive(false))
                 {
-                    LoadActive();
                     return;
                 }
                 SyncCompactFromLegacy();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                MessageBox.Show(this, ex.Message, "KStruct - Dữ liệu thép", MessageBoxButton.OK, MessageBoxImage.Warning);
-                SyncCompactFromLegacy();
+                // Incomplete live input is reported only when the user creates steel.
             }
         }
 
@@ -956,7 +968,7 @@ namespace ColumnRebarPro.V3
             if (target == null) return;
             long targetId = target.Segment.Id.Value;
             if (_activeId.HasValue && _activeId.Value == targetId) return;
-            if (_activeId.HasValue && !SaveActive(true))
+            if (_activeId.HasValue && !SaveActive(false))
             {
                 _loading = true;
                 FloorList.SelectedItem = ActiveRow;
@@ -1258,17 +1270,39 @@ namespace ColumnRebarPro.V3
             bool terminal = _activeId.Value == _segments[_segments.Count - 1].Id.Value;
             if (!terminal) return;
             var c = ActiveConfig;
+            SetRoofHookControlState(true);
             double factor = RoofHookPreset.SelectedIndex == 2 ? 16 :
                 RoofHookPreset.SelectedIndex == 1 ? 14 : 12;
-            double leg = Math.Max(factor * c.MainDiameter, 200);
+            bool custom = RoofHookPreset.SelectedIndex == 3;
+            double leg = custom ? 0 : Math.Max(factor * c.MainDiameter, 200);
+            if (custom && RoofHookCustomLengthBox != null)
+            {
+                double parsed;
+                if (double.TryParse(RoofHookCustomLengthBox.Text.Trim().Replace(',', '.'),
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out parsed) && parsed > 0)
+                    leg = parsed;
+            }
             c.TerminalInwardHook90 = RoofHookCheck.IsChecked == true;
-            c.TerminalHookLegMm = leg;
+            c.TerminalHookCustomLength = custom;
+            if (leg > 0) c.TerminalHookLegMm = leg;
             if (RoofHookHint != null)
-                RoofHookHint.Text = "Lₘ = max(" + factor.ToString("0") + "d, 200 mm) = " +
-                    leg.ToString("0.##", CultureInfo.InvariantCulture) +
-                    " mm · chỉ tạo khi hình học đủ và thiết kế đã duyệt";
+                RoofHookHint.Text = custom
+                    ? (leg >= 200 ? "Lm tùy chỉnh = " + leg.ToString("0.##", CultureInfo.InvariantCulture) +
+                        " mm · móc 90° vào tâm cột" : leg > 0 ? "Lm tùy chỉnh = " +
+                        leg.ToString("0.##", CultureInfo.InvariantCulture) + " mm · móc 90° vào tâm cột" :
+                        "Nhập Lm tùy chỉnh theo thực tế · móc 90° vào tâm cột")
+                    : "Lm = max(" + factor.ToString("0") + "d, 200 mm) = " +
+                        leg.ToString("0.##", CultureInfo.InvariantCulture) +
+                        " mm · móc 90° vào tâm cột";
             DrawAnchorageElevation();
             DrawV4DynamicPreviews();
+        }
+
+        private void SetRoofHookControlState(bool terminal)
+        {
+            if (RoofHookCustomLengthBox == null || RoofHookPreset == null || RoofHookCheck == null) return;
+            RoofHookCustomLengthBox.IsEnabled = terminal && RoofHookCheck.IsChecked == true &&
+                RoofHookPreset.SelectedIndex == 3;
         }
 
         private static void HighlightDiagramChoice(Button choice, bool selected)

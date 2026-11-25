@@ -16,8 +16,16 @@ namespace ColumnRebarPro.V3
         internal static void Validate(Document doc, V3SegmentWork work)
         {
             var solids = new List<Part>();
-            Collect(work.FoundationHost.get_Geometry(new Options()), Transform.Identity, solids);
-            if (solids.Count == 0) throw new InvalidOperationException("Không đọc được solid móng để kiểm tra chân neo.");
+            var options = new Options
+            {
+                DetailLevel = ViewDetailLevel.Fine,
+                IncludeNonVisibleObjects = true,
+                ComputeReferences = false
+            };
+            Collect(work.FoundationHost.get_Geometry(options), Transform.Identity, solids);
+            if (solids.Count == 0)
+                throw new InvalidOperationException("Không đọc được solid móng để kiểm tra chân neo (móng ID " +
+                    work.FoundationHost.Id.Value + "). Kiểm tra family có hình học 3D hợp lệ và không chỉ chứa symbolic/2D geometry.");
             var g = work.Geometry;
             // The current UI defines FoundationAnchorLengthMm as the horizontal L-leg (Ln).
             double horizontal = V3Units.Ft(work.FoundationAnchorLengthMm);
@@ -73,7 +81,20 @@ namespace ColumnRebarPro.V3
                 var solid = obj as Solid;
                 if (solid != null && solid.Volume > 1e-9) parts.Add(new Part { Solid = solid, ToModel = transform });
                 var instance = obj as GeometryInstance;
-                if (instance != null) Collect(instance.GetSymbolGeometry(), transform.Multiply(instance.Transform), parts);
+                if (instance == null) continue;
+
+                // GetInstanceGeometry() is already expressed in the owning
+                // instance's model coordinate system.  Using only
+                // GetSymbolGeometry() here loses the family-instance transform
+                // for common footing families and makes the anchor check report
+                // that the footing has no usable solid or miss the bar entirely.
+                int before = parts.Count;
+                Collect(instance.GetInstanceGeometry(), transform, parts);
+                if (parts.Count != before) continue;
+
+                // Some nested families expose only symbol geometry.  Keep a
+                // transformed fallback for those families.
+                Collect(instance.GetSymbolGeometry(), transform.Multiply(instance.Transform), parts);
             }
         }
 

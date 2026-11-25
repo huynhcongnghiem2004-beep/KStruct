@@ -39,6 +39,7 @@ namespace ColumnRebarPro.V3
         // engineer-approved horizontal leg length and geometric clearance.
         public bool TerminalInwardHook90;
         public double TerminalHookLegMm;
+        public bool TerminalHookCustomLength;
         // Engineer-supplied straight embedment for supplemental upper-floor bars; zero disables it.
         public double SupplementalAnchorLengthMm;
         // Beam data are explicit inputs; they are never inferred from a column cover or defaulted.

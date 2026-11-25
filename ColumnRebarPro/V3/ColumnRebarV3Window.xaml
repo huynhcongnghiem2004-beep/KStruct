@@ -512,6 +512,10 @@
                                     <ComboBoxItem Content="Hướng ra ngoài cột"/>
                                     <ComboBoxItem Content="Theo trục +X cột"/><ComboBoxItem Content="Theo trục -X cột"/>
                                     <ComboBoxItem Content="Theo trục +Y cột"/><ComboBoxItem Content="Theo trục -Y cột"/>
+                                    <ComboBoxItem Content="Theo hướng +X/+Y (45°)"/>
+                                    <ComboBoxItem Content="Theo hướng +X/-Y (45°)"/>
+                                    <ComboBoxItem Content="Theo hướng -X/+Y (45°)"/>
+                                    <ComboBoxItem Content="Theo hướng -X/-Y (45°)"/>
                                 </ComboBox>
                                 <TextBlock Text="Góc bẻ: 90°" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,7"/>
                                 <TextBlock Text="Cover móng đáy và bên (mm)" Foreground="#FF173657"/>
@@ -694,11 +698,14 @@
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
                                 <TextBlock Text="Chiều dài neo mái Lₘ" Width="165" Foreground="#FF173657" VerticalAlignment="Center"/>
                                 <ComboBox x:Name="RoofHookPreset" Width="105" SelectedIndex="0" SelectionChanged="RoofHook_Changed">
-                                    <ComboBoxItem Content="12d"/><ComboBoxItem Content="14d"/><ComboBoxItem Content="16d"/>
+                                    <ComboBoxItem Content="12d"/><ComboBoxItem Content="14d"/><ComboBoxItem Content="16d"/><ComboBoxItem Content="Tùy chỉnh"/>
                                 </ComboBox>
-                                <TextBlock Text="≥ 200 mm" Margin="10,2,0,0" Foreground="#FF986B48"/>
+                                <TextBox x:Name="RoofHookCustomLengthBox" Style="{StaticResource AnchorageDisabledText}"
+                                         Width="90" Margin="8,0,0,0" IsEnabled="False"
+                                         LostFocus="RoofHook_Changed" ToolTip="Chiều dài móc neo mái tùy chỉnh, đơn vị mm"/>
+                                <TextBlock Text="mm" Margin="8,2,0,0" Foreground="#FF986B48"/>
                             </StackPanel>
-                            <TextBlock x:Name="RoofHookHint" Text="Lₘ = max(12d, 200 mm) · kiểm tra không gian bẻ"
+                            <TextBlock x:Name="RoofHookHint" Text="Lₘ = max(12d, 200 mm) · móc 90° vào tâm cột"
                                        Foreground="#FF986B48" TextWrapping="Wrap"/>
                             <TextBlock Text="Không đủ khoảng trống: chặn tạo Rebar"
                                        Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/>

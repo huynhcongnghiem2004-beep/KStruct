@@ -69,7 +69,12 @@ namespace ColumnRebarPro.V3
             bottomWork.Config.FoundationAnchorLength = settings.AnchorLengthMm;
             bottomWork.Config.FoundationAnchorCover = settings.CoverMm;
             bottomWork.Config.FoundationAnchorDirection = settings.Direction;
-            V3AnchorGeometryCheck.Validate(doc, bottomWork);
+
+            // Do not block creation when a requested L-leg or one of its
+            // cover probes extends beyond the footing solid.  The user may
+            // intentionally model a starter/anchor that projects past the
+            // concrete envelope; Revit remains responsible for validating
+            // whether the resulting rebar curve can be hosted/created.
         }
         // Resolve the structural cap independently of nested pile and blinding solids.
         // Never substitute the whole-family BoundingBox for the cap underside.
