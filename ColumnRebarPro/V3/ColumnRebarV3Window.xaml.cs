@@ -1306,6 +1306,34 @@ namespace ColumnRebarPro.V3
             DrawV4DynamicPreviews();
         }
 
+        private void RoofHookTerminal_Click(object sender, RoutedEventArgs e)
+        {
+            var terminal = _segments[_segments.Count - 1];
+            var terminalRow = _rows.FirstOrDefault(row => row.Segment.Id.Value == terminal.Id.Value);
+            if (terminalRow == null || RoofHookCheck == null)
+            {
+                MessageBox.Show(this, "Không tìm thấy hàng cấu hình của cột trên cùng.",
+                    "KStruct - Neo mái", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!_activeId.HasValue || _activeId.Value != terminal.Id.Value)
+            {
+                FloorList.SelectedItem = terminalRow;
+                if (!_activeId.HasValue || _activeId.Value != terminal.Id.Value)
+                {
+                    MessageBox.Show(this,
+                        "Không thể chuyển sang cột trên cùng vì cấu hình tầng đang sửa chưa hợp lệ. " +
+                        "Kiểm tra các trường bắt buộc rồi bấm lại.",
+                        "KStruct - Neo mái", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            WithoutEvents(() => RoofHookCheck.IsChecked = true);
+            RoofHook_Changed(RoofHookCheck, new RoutedEventArgs());
+        }
+
         private void SetRoofHookControlState(bool terminal)
         {
             if (RoofHookCustomLengthBox == null || RoofHookPreset == null || RoofHookCheck == null) return;

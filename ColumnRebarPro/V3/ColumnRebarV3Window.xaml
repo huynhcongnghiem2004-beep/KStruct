@@ -695,6 +695,10 @@
                             </Border>
                             <CheckBox x:Name="RoofHookCheck" Content="Móc 90° hướng vào tâm cột (tầng cuối)"
                                       Foreground="#FF173657" Checked="RoofHook_Changed" Unchecked="RoofHook_Changed"/>
+                            <Button Content="Tự chọn cột trên cùng + bật móc neo mái"
+                                    HorizontalAlignment="Left" Margin="0,6,0,2" Padding="10,6"
+                                    Click="RoofHookTerminal_Click"
+                                    ToolTip="Tự chuyển cấu hình sang cột có cao độ trên cùng và bật móc mái 90°; không cần chọn hàng cột trước."/>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,5">
                                 <TextBlock Text="Chiều dài neo mái Lₘ" Width="165" Foreground="#FF173657" VerticalAlignment="Center"/>
                                 <ComboBox x:Name="RoofHookPreset" Width="105" SelectedIndex="0" SelectionChanged="RoofHook_Changed">
