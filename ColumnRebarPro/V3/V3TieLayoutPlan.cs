@@ -25,13 +25,12 @@ namespace ColumnRebarPro.V3
                     throw new InvalidOperationException("Thông số vùng đai phải là số hữu hạn.");
             double low = cover + diameter / 2, high = height - low;
             if (cover <= 0 || diameter <= 0 || high <= low || endZone < 0 ||
-                endZone > (high - low) / 2 || endSpacing <= 0 || midSpacing <= 0)
+                endSpacing <= 0 || midSpacing <= 0)
             {
-                double maxEndZone = Math.Max(0, (high - low) / 2);
-                throw new InvalidOperationException("Vùng đai đầu không được chồng nhau: " +
+                throw new InvalidOperationException("Thông số vùng đai không hợp lệ: " +
                     "H=" + height.ToString("0.##") + " mm, cover=" + cover.ToString("0.##") +
                     " mm, Øđai=" + diameter.ToString("0.##") + " mm, vùng đầu đang nhập=" +
-                    endZone.ToString("0.##") + " mm, tối đa=" + maxEndZone.ToString("0.##") +
+                    endZone.ToString("0.##") +
                     " mm. Kiểm tra chiều cao cột và vùng đai đầu.");
             }
             if (fixedNumber && (endCount < 2 || midCount < 2 || endCount > 1002 || midCount > 1002))
@@ -40,9 +39,18 @@ namespace ColumnRebarPro.V3
                 throw new InvalidOperationException("Nhập chiều cao và bước đai vùng nút dầm sàn.");
 
             var bands = new List<V3TieBand>();
-            Add(bands, low, low + endZone, endSpacing, fixedNumber, endCount);
-            Add(bands, low + endZone, high - endZone, midSpacing, fixedNumber, midCount);
-            Add(bands, high - endZone, high, endSpacing, fixedNumber, endCount);
+            if (endZone >= (high - low) / 2)
+            {
+                // Touching/overlapping end zones cover the whole usable height.
+                // Use end spacing once, without a middle band or duplicate ties.
+                Add(bands, low, high, endSpacing, false, 0);
+            }
+            else
+            {
+                Add(bands, low, low + endZone, endSpacing, fixedNumber, endCount);
+                Add(bands, low + endZone, high - endZone, midSpacing, fixedNumber, midCount);
+                Add(bands, high - endZone, high, endSpacing, fixedNumber, endCount);
+            }
             // Region above the column: user-specified, supported by starter bars.
             if (joint) Add(bands, high, high + jointHeight, jointSpacing, false, 0);
             return bands;

@@ -167,10 +167,10 @@ static class Program
             Check(b.Count == 1 || (b.End-b.Start)/(b.Count-1) <= b.MaximumSpacing + 1e-7, "Maximum spacing");
         Check(Positions(Plan(fixedCount:true)).Length == 6 + 9 + 6 - 2, "Fixed counts share boundaries");
         Check(Plan(zone:0).Count == 1, "Zero end region");
-        Check(Plan(zone:1466).Count == 2, "End regions meet without a duplicate middle");
+        Check(Plan(zone:1466).Count == 1, "Meeting end regions merge without a middle");
         Check(Plan(joint:true).Last().FixedNumber == false, "Joint always uses its spacing");
         Check(Math.Abs(Positions(Plan(joint:true)).Last() - 3366) < 1e-7, "Joint height is included");
-        Check(Positions(Plan(zone:1466,fixedCount:true)).Length == 11, "Meeting fixed end regions");
+        Check(Positions(Plan(zone:1466,fixedCount:true)).Length == 31, "Meeting end regions use end spacing");
         Check(Plan(zone:1, spacing:10000)[1].Count == 1, "Boundary removal can leave a singleton");
         foreach (var zone in new[]{0.0, 1.0, 100.0, 500.0, 1466.0})
         foreach (var space in new[]{10.0, 100.0, 333.0, 5000.0})
@@ -188,7 +188,28 @@ static class Program
                 previous = pos;
             }
         }
-        Reject(()=>Plan(zone:1467));
+        Check(Plan(zone:1467).Count == 1, "Overlapping end zones merge");
+        foreach (double zone in new[] { 321.0, 600.0, 1000.0 })
+        foreach (bool fixedCount in new[] { false, true })
+        {
+            var shortColumn = V3TieLayoutPlan.Create(700,25,8,zone,100,175,
+                fixedCount,6,9,false,0,0);
+            var positions = Positions(shortColumn);
+            Check(shortColumn.Count == 1, "Short column has no middle tie band");
+            Check(positions.First() == 29 && positions.Last() == 671,
+                "Short-column ties retain top and bottom cover");
+            Check(positions.Length == 8 && positions.Distinct().Count() == positions.Length,
+                "Short column uses end spacing without duplicate ties");
+            Check(!shortColumn[0].FixedNumber && shortColumn[0].MaximumSpacing == 100,
+                "Merged band uses end maximum spacing even in legacy fixed-count mode");
+            Check(positions.Zip(positions.Skip(1), (a,b) => b-a).All(d => d > 0 && d <= 100),
+                "Every short-column gap respects end spacing");
+        }
+        Check(V3TieLayoutPlan.Create(700,25,8,320,100,175,false,6,9,false,0,0).Count == 3,
+            "Separated end zones retain middle band");
+        var shortJoint = V3TieLayoutPlan.Create(700,25,8,600,100,175,false,6,9,true,400,80);
+        Check(shortJoint.Count == 2 && Positions(shortJoint).Distinct().Count() == Positions(shortJoint).Length,
+            "Merged column band and joint band share no duplicate tie");
         Reject(()=>Plan(zone:-1));
         Reject(()=>Plan(spacing:0));
         Reject(()=>Plan(spacing:double.NaN));
