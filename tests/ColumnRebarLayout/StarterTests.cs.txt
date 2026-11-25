@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ColumnRebarPro.V3;
 
 // Test doubles replace Revit objects only. V3StarterConnection and TCVN rules below are production code.
@@ -25,6 +26,8 @@ namespace ColumnRebarPro.V3
         public ColumnSegment Segment;
         public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper, VerifiedBeamJoint;
         public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
+        public double OutgoingStarterLengthMm, OutgoingRoofHookLegMm, OutgoingRoofTieDiameterMm;
+        public bool OutgoingRoofHook90;
         public double IncomingSupplementalAnchorLengthMm;
         internal readonly List<V3Point2> IncomingSupplementalPositions = new List<V3Point2>();
         internal readonly List<V3PositionOffset> IncomingSpliceOffsets = new List<V3PositionOffset>();
@@ -67,6 +70,48 @@ static class StarterTests
         V3StarterConnection.Resolve(roofOnly);
         Check(!roofOnly[0].BottleneckToUpper && roofOnly[0].IncomingStarterLength==0,
             "2500 mm roof terminal column has no upper joint and must not require beam detection");
+        var shortRoof=Pair(gap:400,length:1800,upperHeight:700);
+        shortRoof[1].Config.TerminalInwardHook90=true;
+        shortRoof[1].Config.TerminalHookLegMm=200;
+        V3StarterConnection.Resolve(shortRoof);
+        Near(shortRoof[1].IncomingStarterLength,660,
+            "Short terminal column caps incoming starter at the upper cover limit");
+        Near(shortRoof[0].OutgoingStarterLengthMm,1060,
+            "Cap preserves the beam gap and limits total starter to the terminal column");
+        Check(shortRoof[0].OutgoingRoofHook90 &&
+            shortRoof[0].OutgoingRoofHookLegMm==200 &&
+            shortRoof[0].OutgoingRoofTieDiameterMm==8,
+            "Short terminal starter inherits the selected 90-degree roof hook");
+        Check(shortRoof[0].Config.StarterLength==1800,
+            "Capping a terminal starter does not overwrite the user's requested length");
+        Check(shortRoof[0].StarterWarning!=null,
+            "The adjusted starter length is reported for review");
+        var staggeredShortRoof=Pair(gap:400,length:1800,upperHeight:700);
+        staggeredShortRoof[1].Config.TerminalInwardHook90=true;
+        staggeredShortRoof[1].Config.TerminalHookLegMm=200;
+        V3StarterConnection.Resolve(staggeredShortRoof);
+        double maximumRoofEndMm=V3Units.Mm(staggeredShortRoof[0].Geometry.Top)+
+            staggeredShortRoof[0].OutgoingStarterLengthMm+
+            staggeredShortRoof[0].ConnectionPlan.Bars
+                .Where(bar=>!bar.Terminated)
+                .Max(bar=>bar.SpliceEndOffsetMm);
+        double roofSteelLimitMm=V3Units.Mm(staggeredShortRoof[1].Geometry.Top)-
+            staggeredShortRoof[1].Config.Cover-staggeredShortRoof[1].Config.MainDiameter/2;
+        Check(staggeredShortRoof[1].IncomingStagger &&
+            maximumRoofEndMm<=roofSteelLimitMm+1e-6,
+            "Staggered short-roof starter ends remain below the roof cover limit");
+        var shortRoofWithoutHook=Pair(gap:400,length:1800,upperHeight:700);
+        Reject(()=>V3StarterConnection.Resolve(shortRoofWithoutHook),"không đủ chiều cao hình học");
+        var roofHookEnd=V3ProfileGeometry.InwardRoofHookEnd(
+            new V3Point3(300,0,660),new V3Point2(0,0),200,20,8);
+        Near(roofHookEnd.X,100,"Roof starter hook turns inward toward the column center");
+        Near(roofHookEnd.Z,660,"Roof starter hook stays at the capped column-top elevation");
+        Reject(()=>V3ProfileGeometry.InwardRoofHookEnd(
+            new V3Point3(30,0,660),new V3Point2(0,0),200,20,8),"Móc mái 90°");
+        var insufficientShortRoof=Pair(gap:400,length:1800,upperHeight:500);
+        insufficientShortRoof[1].Config.TerminalInwardHook90=true;
+        insufficientShortRoof[1].Config.TerminalHookLegMm=200;
+        Reject(()=>V3StarterConnection.Resolve(insufficientShortRoof),"nối tối thiểu");
         var pair=Pair();V3StarterConnection.Resolve(pair);
         Near(pair[1].IncomingStarterLength,1000,"400 mm beam/slab gap must be deducted from entered extension");
         Near(pair[0].Config.StarterLength,1400,"Never silently change the user's length");

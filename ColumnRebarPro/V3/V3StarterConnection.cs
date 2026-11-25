@@ -15,6 +15,10 @@ namespace ColumnRebarPro.V3
                 w.IncomingSupplementalAnchorLengthMm = 0; w.IncomingSupplementalPositions.Clear();
                 w.IncomingSpliceOffsets.Clear();
                 w.IncomingStagger = false; w.StarterWarning = null;
+                w.OutgoingStarterLengthMm = 0;
+                w.OutgoingRoofHook90 = false;
+                w.OutgoingRoofHookLegMm = 0;
+                w.OutgoingRoofTieDiameterMm = 0;
                 w.TransitionUp = null; w.TransitionDown = null;
             }
             foreach (var work in works)
@@ -48,14 +52,39 @@ namespace ColumnRebarPro.V3
                         "Kiểm tra cao độ, offset và hình học dầm; không dùng chiều cao dầm nhập tay để bỏ qua xác minh.");
                 if (!a.BottleneckRibbed || !b.BottleneckRibbed)
                     throw new InvalidOperationException("Nối cổ chai đầu thẳng hiện áp dụng thép có gân; thép trơn cần chi tiết móc/U phù hợp theo TCVN 5574:2018.");
-                double incomingMm = a.StarterLength - gapMm;
+                double requestedIncomingMm = a.StarterLength - gapMm;
+                double incomingMm = requestedIncomingMm;
                 double upperEndInsetMm = b.Cover + b.MainDiameter / 2;
+                double availableUpperHeightMm = heightMm - upperEndInsetMm;
+                bool terminalRoofHook = i + 2 == works.Count && b.TerminalInwardHook90;
+                bool hookOutgoingStarter = terminalRoofHook &&
+                    incomingMm >= availableUpperHeightMm - 1e-6;
+                if (hookOutgoingStarter)
+                {
+                    if (incomingMm > availableUpperHeightMm)
+                    {
+                        incomingMm = availableUpperHeightMm;
+                        lower.StarterWarning = "Thép chờ lên cột mái được giới hạn còn " +
+                            Math.Round(incomingMm, 1) +
+                            " mm trong cột để bẻ móc neo mái 90°.";
+                    }
+                    lower.OutgoingStarterLengthMm = gapMm + incomingMm;
+                    lower.OutgoingRoofHook90 = true;
+                    lower.OutgoingRoofHookLegMm = b.TerminalHookLegMm;
+                    lower.OutgoingRoofTieDiameterMm = b.TieDiameter;
+                }
                 double minimumLap = V3BottleneckRules.MinimumLap(Math.Max(a.MainDiameter, b.MainDiameter));
                 if (incomingMm - upperEndInsetMm < minimumLap - 1e-6)
+                {
+                    string starterLengthDescription = lower.OutgoingRoofHook90
+                        ? "chờ sau khi giới hạn còn " + Math.Round(lower.OutgoingStarterLengthMm, 1) +
+                            " mm tổng cộng (" + Math.Round(incomingMm, 1) + " mm trong cột mái)"
+                        : "chờ đã nhập " + Math.Round(a.StarterLength, 1) + " mm";
                     throw new InvalidOperationException("Chiều dài chờ tầng " + lower.Segment.LevelName + " chưa đủ: khoảng hở " +
-                        Math.Round(Math.Max(0, gapMm), 1) + " mm, chờ đã nhập " + Math.Round(a.StarterLength, 1) +
-                        " mm; để có đoạn nối tối thiểu max(20d, 250 mm), chiều dài chờ từ đỉnh cột dưới phải ít nhất " +
+                        Math.Round(Math.Max(0, gapMm), 1) + " mm, " + starterLengthDescription +
+                        "; để có đoạn nối tối thiểu max(20d, 250 mm), chiều dài chờ từ đỉnh cột dưới phải ít nhất " +
                         Math.Round(gapMm + upperEndInsetMm + minimumLap, 1) + " mm. Chiều dài tính toán theo TCVN 5574 có thể lớn hơn.");
+                }
                 var plan = V3ConnectionAdapter.Plan(lower, upper);
                 int splicedBars = plan.Bars.Count(bar => !bar.Terminated);
                 int barsAtLargerSection = Math.Max(a.BarCount, b.BarCount);
@@ -123,7 +152,7 @@ namespace ColumnRebarPro.V3
                 lower.ConnectionPlan = plan;
                 lower.BottleneckToUpper = true;
                 lower.BottleneckUpperBarStart = h.Bottom + V3Units.Ft(upperEndInsetMm);
-                if (incomingMm >= heightMm - upperEndInsetMm)
+                if (incomingMm >= availableUpperHeightMm && !hookOutgoingStarter)
                     throw new InvalidOperationException("Tầng " + upper.Segment.LevelName +
                         " không đủ chiều cao hình học cho phần thép chờ đi vào cột (" + Math.Round(incomingMm, 1) + " mm).");
                 upper.IncomingStarterLength = incomingMm;
