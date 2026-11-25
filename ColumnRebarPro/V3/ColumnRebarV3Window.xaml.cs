@@ -196,7 +196,7 @@ namespace ColumnRebarPro.V3
             foreach (BarSizeChoice size in _sizes) QuickTieBarBox.Items.Add(size);
             foreach (var label in new[] { "B20", "B25", "B30", "B35", "B40" }) QuickConcreteBox.Items.Add(label);
             foreach (var label in new[] { "CB300-V", "CB400-V", "CB500-V" }) QuickSteelGradeBox.Items.Add(label);
-            QuickConcreteBox.SelectedItem = "B30";
+            QuickConcreteBox.SelectedItem = "B20";
             QuickSteelGradeBox.SelectedItem = "CB400-V";
             foreach (ColumnSegment s in _segments.OrderByDescending(s => s.BottomMm))
             {
