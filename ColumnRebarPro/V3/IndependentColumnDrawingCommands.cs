@@ -31,7 +31,7 @@ namespace ColumnRebarPro.V3
             public bool AllowReference(Reference reference, XYZ position) => false;
         }
 
-        // Use the same full KStruct V3 documentation pipeline as "Thép cột". This keeps the
+        // Use the same full KStruct documentation pipeline as "Thép cột". This keeps the
         // ribbon's standalone create/update drawing buttons from falling back to the old
         // two-view placeholder implementation below.
         internal static Result ExecuteV3(ExternalCommandData data, ref string message, bool update)
@@ -65,12 +65,12 @@ namespace ColumnRebarPro.V3
                         seen.Add(column.Id);
                         V3RebarConfig config = V3RebarConfigStorage.Read(column);
                         if (config == null)
-                            throw new InvalidOperationException("Cột " + column.Id.Value + " chưa có cấu hình KStruct V3 đã lưu. Hãy tạo thép bằng KStruct trước.");
+                            throw new InvalidOperationException("Cột " + column.Id.Value + " chưa có cấu hình thép cột đã lưu. Hãy chạy Tạo thép cột trước.");
                         bool hasKStructBars = new FilteredElementCollector(doc).OfClass(typeof(Rebar)).Cast<Rebar>()
                             .Any(r => string.Equals(r.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString(),
                                     V3RebarBuilder.Partition(column.Id), StringComparison.Ordinal));
                         if (!hasKStructBars)
-                            throw new InvalidOperationException("Cột " + column.Id.Value + " chưa có thép KStruct V3 để triển khai.");
+                            throw new InvalidOperationException("Cột " + column.Id.Value + " chưa có thép cột KStruct để triển khai.");
                         works.Add(new V3SegmentWork { Column = column, Segment = segment,
                             Geometry = V3GeometryReader.Read(column), Config = config });
                     }

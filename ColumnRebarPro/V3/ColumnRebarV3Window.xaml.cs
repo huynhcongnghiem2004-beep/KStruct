@@ -13,7 +13,7 @@ using System.Windows.Shapes;
 namespace ColumnRebarPro.V3
 {
     /// <summary>
-    /// WPF UI for KStruct V3.2. This is a replacement for ColumnRebarV3Window.cs
+    /// WPF UI thống nhất cho công cụ bố trí thép cột.
     /// from V3.1: do NOT keep the original class in the same project.
     /// </summary>
     public partial class ColumnRebarV3Window : Window

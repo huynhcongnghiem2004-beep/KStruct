@@ -99,7 +99,7 @@ namespace ColumnRebarPro.V3
                 // ── 3. Thông báo phân loại (nếu có cả hai loại) ─────────────────────
                 if (rectColumns.Count > 0 && roundColumns.Count > 0)
                 {
-                    var msg = $"Phát hiện:\n• {rectColumns.Count} cột chữ nhật → dùng quy trình V3\n" +
+                    var msg = $"Phát hiện:\n• {rectColumns.Count} cột chữ nhật → bố trí thép cột chữ nhật\n" +
                               $"• {roundColumns.Count} cột tròn → dùng quy trình cột tròn\n\n" +
                               "Tiếp tục xử lý tuần tự từng nhóm?";
                     var dlg = new TaskDialog("KStruct – Phân loại cột") { MainContent = msg };

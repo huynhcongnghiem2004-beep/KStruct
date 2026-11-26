@@ -22,7 +22,7 @@ namespace ColumnRebarPro.V3
             if (candidates == null || candidates.Count == 0) return new HashSet<int>();
             var window = new Window
             {
-                Title = "KStruct V4 - Chọn tuyến áp dụng cấu hình",
+                Title = "KStruct – Chọn tuyến áp dụng cấu hình thép cột",
                 Width = 630, Height = Math.Min(610, 235 + candidates.Count * 35),
                 MinWidth = 500, MinHeight = 270,
                 ResizeMode = ResizeMode.CanResize,
