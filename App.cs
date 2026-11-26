@@ -36,6 +36,7 @@ namespace SDK_HD.KStruct
                     ?? app.CreateRibbonPanel(tab, "Thép cột");
                 var columnRebarSplit = columnPanel.AddItem(new SplitButtonData("KStruct_ColumnRebarSplit", "Tạo thép cột")) as SplitButton;
                 Add(columnRebarSplit, dll, "KStruct_ColumnRebarUnified", "Tạo thép cột", typeof(global::ColumnRebarPro.V3.UnifiedColumnRebarCommand), "RebarColumnV3");
+                Add(columnRebarSplit, dll, "KStruct_RoundColumnRebar", "Thép cột tròn", typeof(global::SDK_HD.KStruct.NativeRebar.RoundColumnRebarCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_CreateColumnDrawingsNative", "Tạo bộ bản vẽ thép cột", typeof(global::ColumnRebarPro.V3.CreateColumnDrawingsCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_UpdateColumnDrawings", "Cập nhật bản vẽ cột", typeof(global::ColumnRebarPro.V3.UpdateColumnDrawingsCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_StructuralPlanDimensionNative", "Dim cột/dầm/móng theo lưới", typeof(global::ColumnRebarPro.V3.V3StructuralPlanDimensionCommand), "RebarColumnV3");
