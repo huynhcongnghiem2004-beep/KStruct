@@ -156,7 +156,7 @@ namespace ColumnRebarPro.V3
                 if (jobs.Count == 0)
                     throw new InvalidOperationException("Không còn tuyến cột hợp lệ để tạo thép.\n" + string.Join("\n", failures));
 
-                // Preflight summary: no document modification has happened yet.
+                // V4 preflight summary: no document modification has happened yet.
                 var allWorks = jobs.SelectMany(x => x.Works).ToList();
                 int drawingsRequested = jobs.Count(job => job.Drawings.Enabled);
                 int replacementJobs = jobs.Count(job => job.ReplaceOld);
@@ -166,7 +166,7 @@ namespace ColumnRebarPro.V3
                     "Tuyến có triển khai bản vẽ: " + drawingsRequested + "\n" +
                     "Tuyến bật thay thép V3 cũ: " + replacementJobs + "\n" +
                     "Tuyến bị bỏ qua trong kiểm tra: " + failures.Count + "\n\n" +
-                    "KStruct sẽ rollback tuyến nếu Revit xóa kèm phần tử ngoài bộ thép cũ.\n" +
+                    "KStruct V4 sẽ rollback tuyến nếu Revit xóa kèm phần tử ngoài bộ thép cũ.\n" +
                     "Thao tác tạo bản vẽ sử dụng cấu hình hồ sơ của project.";
                 var starterAdjustments = allWorks
                     .Where(w => !string.IsNullOrWhiteSpace(w.StarterWarning))
@@ -178,7 +178,7 @@ namespace ColumnRebarPro.V3
                 if (allWorks.Any(w => w.Config.StarterBars))
                     previewSummary += "\n\nThép chờ giữ chiều dài đã nhập, ngoại trừ điều chỉnh được liệt kê ở trên; " +
                         "chưa tự tính nối chồng hoặc chuyển tiếp tiết diện.";
-                var confirmation = TaskDialog.Show("KStruct – Kiểm tra trước khi tạo thép cột",
+                var confirmation = TaskDialog.Show("KStruct V4 - Kiểm tra trước khi tạo",
                     previewSummary + "\n\nTiếp tục tạo Rebar 3D" +
                     (drawingsRequested > 0 ? " và hồ sơ bản vẽ" : "") + "?",
                     TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
@@ -188,14 +188,14 @@ namespace ColumnRebarPro.V3
                 int sheetCount = 0;
                 ElementId modelPreviewId = ElementId.InvalidElementId;
 
-                using (var group = new TransactionGroup(doc, "KStruct – Cốt thép nhiều tuyến cột"))
+                using (var group = new TransactionGroup(doc, "KStruct V3 - Cốt thép nhiều tuyến cột"))
                 {
                     group.Start();
 
                     for (int j = 0; j < jobs.Count; j++)
                     {
                         var job = jobs[j];
-                        using (var transaction = new Transaction(doc, "KStruct – " + job.Label))
+                        using (var transaction = new Transaction(doc, "KStruct V3 - " + job.Label))
                         {
                             transaction.Start();
                             try
@@ -254,7 +254,7 @@ namespace ColumnRebarPro.V3
                 if (reports.Count == 0)
                 {
                     summary = "Không tạo được tuyến nào.\n\n" + string.Join("\n", failures);
-                    TaskDialog.Show("KStruct – Lỗi thép cột", summary);
+                    TaskDialog.Show("KStruct V3 - Lỗi", summary);
                     return Result.Failed;
                 }
 
@@ -292,7 +292,7 @@ namespace ColumnRebarPro.V3
             catch (Exception ex)
             {
                 message = ex.ToString();
-                if (!V3AnchorDiagnostic.Show(null, ex)) TaskDialog.Show("KStruct – Lỗi thép cột", ex.Message);
+                if (!V3AnchorDiagnostic.Show(null, ex)) TaskDialog.Show("KStruct V3 - Lỗi", ex.Message);
                 return Result.Failed;
             }
         }

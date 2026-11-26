@@ -62,7 +62,7 @@ namespace ColumnRebarPro.V3
                         if (column == null) throw new InvalidOperationException("Một cột trong tuyến đã bị xóa.");
                         V3RebarConfig config = V3RebarConfigStorage.Read(column);
                         if (config == null)
-                            throw new InvalidOperationException("Cột " + segment.Id.Value + " chưa có cấu hình thép cột lưu trong mô hình. Hãy chạy Tạo thép cột một lần để lưu cấu hình trước khi cập nhật.");
+                            throw new InvalidOperationException("Cột " + segment.Id.Value + " chưa có cấu hình KStruct V3 lưu trong mô hình. Hãy chạy V3 một lần để lưu cấu hình trước khi cập nhật.");
                         if (!HasV3Rebar(doc, column.Id))
                             throw new InvalidOperationException("Cột " + segment.Id.Value + " không còn Rebar V3 để triển khai lại.");
                         works.Add(new V3SegmentWork
@@ -89,7 +89,7 @@ namespace ColumnRebarPro.V3
 
                 var failures = new List<string>();
                 int updated = 0;
-                using (var group = new TransactionGroup(doc, "KStruct – Cập nhật bản vẽ cột"))
+                using (var group = new TransactionGroup(doc, "KStruct V3 - Cập nhật bản vẽ cột"))
                 {
                     group.Start();
                     for (int index = 0; index < jobs.Count; index++)
@@ -99,7 +99,7 @@ namespace ColumnRebarPro.V3
                         try
                         {
                             job.Builder.Validate(doc, job.Works);
-                            using (var transaction = new Transaction(doc, "KStruct – Cập nhật " + job.Label))
+                            using (var transaction = new Transaction(doc, "KStruct V3 - Cập nhật " + job.Label))
                             {
                                 transaction.Start();
                                 job.Builder.Build(doc, job.Works);
@@ -116,14 +116,14 @@ namespace ColumnRebarPro.V3
 
                 string report = "Đã cập nhật " + updated + "/" + jobs.Count + " tuyến cột từ Rebar V3 hiện có.";
                 if (failures.Count > 0) report += "\nBỏ qua:\n" + string.Join("\n", failures.Take(10));
-                TaskDialog.Show("KStruct – Cập nhật bản vẽ cột", report);
+                TaskDialog.Show("KStruct V3 - Cập nhật bản vẽ", report);
                 return updated > 0 ? Result.Succeeded : Result.Cancelled;
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException) { return Result.Cancelled; }
             catch (Exception ex)
             {
                 message = ex.ToString();
-                TaskDialog.Show("KStruct – Cập nhật bản vẽ cột", ex.Message);
+                TaskDialog.Show("KStruct V3 - Cập nhật bản vẽ", ex.Message);
                 return Result.Failed;
             }
         }

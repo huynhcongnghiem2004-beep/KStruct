@@ -73,7 +73,7 @@ namespace ColumnRebarPro.V3
             if (schema != null) return schema;
             var builder = new SchemaBuilder(SchemaGuid);
             builder.SetSchemaName("KStructColumnRebarConfig");
-            builder.SetDocumentation("KStruct column reinforcement configuration used to regenerate native detailing views.");
+            builder.SetDocumentation("KStruct V3 column reinforcement configuration used to regenerate native detailing views.");
             builder.SetVendorId("KSTR");
             builder.SetReadAccessLevel(AccessLevel.Public);
             builder.SetWriteAccessLevel(AccessLevel.Public);

@@ -16,7 +16,7 @@ namespace ColumnRebarPro.V3
             var unexpected = actuallyDeletedIds.Where(id => !expected.Contains(id)).Distinct().ToList();
             if (unexpected.Count != 0)
                 throw new InvalidOperationException(
-                    "KStruct: Hủy " + operation + " vì Revit xóa kèm " +
+                    "KStruct V4: Hủy " + operation + " vì Revit xóa kèm " +
                     unexpected.Count + " đối tượng ngoài bộ thép dự kiến (có thể là Tag/Dimension). " +
                     "Transaction sẽ rollback để giữ mô hình và hồ sơ cũ.");
         }
