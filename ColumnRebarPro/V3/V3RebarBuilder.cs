@@ -121,6 +121,7 @@ namespace ColumnRebarPro.V3
                         }
 
                         if (work.Config.TerminalInwardHook90 || work.FoundationHost != null || work.BottleneckToUpper ||
+                            work.IncomingContinuousStarter ||
                             work.IncomingSupplementalPositions.Count > 0 ||
                             work.IncomingSpliceOffsets.Count > 0)
                             V3RebarSetCreator.CreateShapedLongitudinalSets(doc, work, mainType, report);
@@ -174,7 +175,7 @@ namespace ColumnRebarPro.V3
                     !type.GetHookPermission(hook90.Id))
                     throw new InvalidOperationException("RebarBarType đai không cho phép Hook 90° đã chọn ở cột "+work.Column.Id.Value+".");
                 if(mainType==null)throw new InvalidOperationException("Không tìm thấy loại thép dọc đúng đường kính cho cột "+work.Column.Id.Value+".");
-                if(work.FoundationHost!=null || work.BottleneckToUpper ||
+                if(work.FoundationHost!=null || work.BottleneckToUpper || work.IncomingContinuousStarter ||
                     work.IncomingSupplementalPositions.Count > 0 ||
                     work.IncomingSpliceOffsets.Count > 0)
                     foreach(var path in V3RebarSetCreator.ConnectionPaths(work))

@@ -25,6 +25,7 @@ namespace ColumnRebarPro.V3
         public V3Geometry Geometry;
         public ColumnSegment Segment;
         public bool HasPrevious, HasNext, IncomingStagger, BottleneckToUpper, VerifiedBeamJoint;
+        public bool IncomingContinuousStarter, OutgoingContinuousToTerminal;
         public double IncomingStarterLength, IncomingJoint, BottleneckUpperBarStart;
         public double OutgoingStarterLengthMm, OutgoingRoofHookLegMm, OutgoingRoofTieDiameterMm;
         public bool OutgoingRoofHook90;
@@ -66,6 +67,16 @@ static class StarterTests
         { Work("Trệt",0,3000,true,length),Work("Lầu 1",3000+gap,3000+gap+upperHeight) };
     internal static void Run()
     {
+        Check(V3TerminalStarterPolicy.CoversTerminalColumn(660,700,40),
+            "The starter reaches the top steel line of a short terminal column");
+        Check(!V3TerminalStarterPolicy.CoversTerminalColumn(659,700,40),
+            "A starter that stops below the top steel line still requires a splice");
+        Check(!V3TerminalStarterPolicy.CoversTerminalColumn(50,40,40),
+            "A column with no usable top steel height is not treated as covered");
+        Check(!V3TerminalStarterPolicy.IncludeUpperLongitudinalPosition(true,false) &&
+            V3TerminalStarterPolicy.IncludeUpperLongitudinalPosition(true,true) &&
+            V3TerminalStarterPolicy.IncludeUpperLongitudinalPosition(false,false),
+            "Continuous starters replace matched upper bars but retain supplemental bars");
         var roofOnly=new List<V3SegmentWork>{Work("Mái",0,2500,true)};
         V3StarterConnection.Resolve(roofOnly);
         Check(!roofOnly[0].BottleneckToUpper && roofOnly[0].IncomingStarterLength==0,
@@ -85,7 +96,9 @@ static class StarterTests
         Check(shortRoof[0].Config.StarterLength==1800,
             "Capping a terminal starter does not overwrite the user's requested length");
         Check(shortRoof[0].StarterWarning!=null,
-            "The adjusted starter length is reported for review");
+            "The terminal starter conversion is reported for review");
+        Check(shortRoof[0].OutgoingContinuousToTerminal && shortRoof[1].IncomingContinuousStarter,
+            "A short terminal column uses incoming starters as its longitudinal bars");
         var staggeredShortRoof=Pair(gap:400,length:1800,upperHeight:700);
         staggeredShortRoof[1].Config.TerminalInwardHook90=true;
         staggeredShortRoof[1].Config.TerminalHookLegMm=200;
@@ -97,11 +110,15 @@ static class StarterTests
                 .Max(bar=>bar.SpliceEndOffsetMm);
         double roofSteelLimitMm=V3Units.Mm(staggeredShortRoof[1].Geometry.Top)-
             staggeredShortRoof[1].Config.Cover-staggeredShortRoof[1].Config.MainDiameter/2;
-        Check(staggeredShortRoof[1].IncomingStagger &&
+        Check(!staggeredShortRoof[1].IncomingStagger &&
+            staggeredShortRoof[1].IncomingSpliceOffsets.Count==0 &&
             maximumRoofEndMm<=roofSteelLimitMm+1e-6,
-            "Staggered short-roof starter ends remain below the roof cover limit");
+            "Continuous short-roof starters end below the roof cover without a lap or stagger");
         var shortRoofWithoutHook=Pair(gap:400,length:1800,upperHeight:700);
-        Reject(()=>V3StarterConnection.Resolve(shortRoofWithoutHook),"không đủ chiều cao hình học");
+        V3StarterConnection.Resolve(shortRoofWithoutHook);
+        Check(shortRoofWithoutHook[0].OutgoingContinuousToTerminal &&
+            !shortRoofWithoutHook[0].OutgoingRoofHook90,
+            "A short terminal column uses incoming starters continuously without requiring a roof hook");
         var roofHookEnd=V3ProfileGeometry.InwardRoofHookEnd(
             new V3Point3(300,0,660),new V3Point2(0,0),200,20,8);
         Near(roofHookEnd.X,100,"Roof starter hook turns inward toward the column center");
@@ -111,7 +128,17 @@ static class StarterTests
         var insufficientShortRoof=Pair(gap:400,length:1800,upperHeight:500);
         insufficientShortRoof[1].Config.TerminalInwardHook90=true;
         insufficientShortRoof[1].Config.TerminalHookLegMm=200;
-        Reject(()=>V3StarterConnection.Resolve(insufficientShortRoof),"nối tối thiểu");
+        V3StarterConnection.Resolve(insufficientShortRoof);
+        Near(insufficientShortRoof[1].IncomingStarterLength,460,
+            "A very short terminal column caps the continuous starter at its top cover");
+        var shortTerminalWithUnmatchedBars=Pair(gap:400,length:1800,upperHeight:700);
+        shortTerminalWithUnmatchedBars[1].Config.Cx=5;
+        Reject(()=>V3StarterConnection.Resolve(shortTerminalWithUnmatchedBars),"chiều dài neo thẳng trong dầm");
+        shortTerminalWithUnmatchedBars[1].Config.SupplementalAnchorLengthMm=200;
+        V3StarterConnection.Resolve(shortTerminalWithUnmatchedBars);
+        Check(shortTerminalWithUnmatchedBars[1].IncomingContinuousStarter &&
+            shortTerminalWithUnmatchedBars[1].IncomingSupplementalPositions.Count>0,
+            "A short terminal column keeps the existing anchored-bar handling for unmatched upper bars");
         var pair=Pair();V3StarterConnection.Resolve(pair);
         Near(pair[1].IncomingStarterLength,1000,"400 mm beam/slab gap must be deducted from entered extension");
         Near(pair[0].Config.StarterLength,1400,"Never silently change the user's length");
@@ -128,7 +155,12 @@ static class StarterTests
         Reject(()=>V3StarterConnection.Resolve(Pair(gap:-3)),"chồng lấn");
         var wideGap=Pair(gap:1500,length:2600);wideGap[0].Config.JointBeamHeight=1500;V3StarterConnection.Resolve(wideGap);
         V3StarterConnection.Resolve(Pair(length:1400,upperHeight:1800));
-        Reject(()=>V3StarterConnection.Resolve(Pair(length:1400,upperHeight:900)),"chiều cao");
+        var shortTerminal=Pair(length:1400,upperHeight:900);
+        V3StarterConnection.Resolve(shortTerminal);
+        Check(shortTerminal[1].IncomingContinuousStarter &&
+            shortTerminal[0].OutgoingContinuousToTerminal,
+            "A terminal column shorter than its incoming starter is reinforced continuously");
+        Reject(()=>V3StarterConnection.Resolve(Pair(length:800,upperHeight:700)),"nối tối thiểu");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:840)),"không đủ vừa nối tối thiểu"); // minimum lap alone is insufficient for 50% stagger
         Reject(()=>V3StarterConnection.Resolve(Pair(length:839.9)),"840");
         Reject(()=>V3StarterConnection.Resolve(Pair(length:400)),"840");
@@ -147,10 +179,13 @@ static class StarterTests
         Reject(()=>V3StarterConnection.Resolve(pair),"nhấn cổ chai");
         pair=Pair();pair[0].Config.StarterBars=false;
         pair[0].BottleneckToUpper=true;pair[0].BottleneckUpperBarStart=99;
+        pair[0].OutgoingContinuousToTerminal=true;pair[1].IncomingContinuousStarter=true;
         pair[1].IncomingStarterLength=99;pair[0].HasNext=true;pair[1].HasPrevious=true;
         V3StarterConnection.Resolve(pair);
         Check(!pair[0].BottleneckToUpper && pair[1].IncomingStarterLength==0 && pair[0].BottleneckUpperBarStart==0,
             "Turning starter off must clear derived geometry");
+        Check(!pair[0].OutgoingContinuousToTerminal && !pair[1].IncomingContinuousStarter,
+            "Turning starter off must clear the continuous-terminal decision");
         Check(!pair[0].HasNext && !pair[1].HasPrevious,"Do not enter unsupported legacy transition mode");
         var three=new List<V3SegmentWork>{Work("T0",0,3000,true),Work("T1",3400,6400,true),Work("T2",6800,9800,true)};
         V3StarterConnection.Resolve(three);
