@@ -95,7 +95,7 @@ namespace ColumnRebarPro.V3
             {
                 var path=group.Bars[0];
                 var rounded=V3ProfileGeometry.Round(path.Points,radius,tolerance);
-                if(item.BottleneckToUpper && !path.Terminated)
+                if(item.BottleneckToUpper && !item.OutgoingContinuousToTerminal && !path.Terminated)
                 {
                     double configuredLapStart=path.SpliceUpperStartZMm>0
                         ? path.SpliceUpperStartZMm : V3Units.Mm(item.BottleneckUpperBarStart);
@@ -185,8 +185,10 @@ namespace ColumnRebarPro.V3
             {
                 XYZ model=g.At(V3Units.Ft(array.X+array.StepX*i),V3Units.Ft(array.Y+array.StepY*i),0);
                 var xy=new V3Point2(V3Units.Mm(model.X),V3Units.Mm(model.Y));
-                var path=new V3BarPath{BarIndex=result.Count,Points=new List<V3Point3>()};
                 bool supplemental=item.IncomingSupplementalPositions.Any(p=>(p-xy).Length<.05);
+                if (!V3TerminalStarterPolicy.IncludeUpperLongitudinalPosition(
+                    item.IncomingContinuousStarter, supplemental)) continue;
+                var path=new V3BarPath{BarIndex=result.Count,Points=new List<V3Point3>()};
                 var spliceOffset=item.IncomingSpliceOffsets.FirstOrDefault(p=>(p.Position-xy).Length<.05);
                 double barLow=supplemental
                     ? V3Units.Mm(g.Bottom)-item.IncomingSupplementalAnchorLengthMm
