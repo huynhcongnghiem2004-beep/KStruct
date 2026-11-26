@@ -12,3 +12,5 @@ KStruct.addin
 BimSpeedStructureColumnDesignPort/
 BimSpeedStructureBeamDesign/
 Resources/SlabModules/
+
+column-ui-previews/

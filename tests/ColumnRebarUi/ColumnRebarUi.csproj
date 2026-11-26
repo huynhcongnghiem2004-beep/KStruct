@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework><UseWPF>true</UseWPF>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <LangVersion>latest</LangVersion><PlatformTarget>x64</PlatformTarget>
+    <RevitInstallDir Condition="'$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2024\</RevitInstallDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../KStruct.csproj" />
+    <Reference Include="RevitAPI"><HintPath>$(RevitInstallDir)RevitAPI.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="RevitAPIUI"><HintPath>$(RevitInstallDir)RevitAPIUI.dll</HintPath><Private>true</Private></Reference>
+    <Compile Include="Render.cs.txt" />
+  </ItemGroup>
+</Project>

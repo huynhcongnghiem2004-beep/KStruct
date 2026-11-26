@@ -1,0 +1,101 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Autodesk.Revit.DB;
+using ColumnRebarPro.V3;
+
+internal static class Render
+{
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        string output = Path.GetFullPath(args.Length == 0 ? "column-ui-previews" : args[0]);
+        Directory.CreateDirectory(output);
+        try
+        {
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            var window = new ColumnRebarV3Window(new List<ColumnSegment> {
+                new ColumnSegment { Id = new ElementId(101L), LevelName = "Tầng 1", BottomMm = 0,
+                    TopMm = 3200, WidthMm = 300, DepthMm = 500 }
+            }, new double[] { 8, 16, 20 }, previewOnly: true);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var configs = (Dictionary<long, V3RebarConfig>)window.GetType().GetField("_configs", flags).GetValue(window);
+            configs[101] = new V3RebarConfig { MainDiameter = 16, TieDiameter = 8, Cx = 3, Cy = 4,
+                Cover = 30, EndZone = 600, EndSpacing = 100, MidSpacing = 150, JointBeamHeight = 400, TieStyle = V3TieStyle.Hook135, StarterBars = false };
+            window.GetType().GetMethod("LoadActive", flags).Invoke(window, null);
+            window.Show();
+            Pump(150);
+            var cover = (TextBox)window.FindName("QuickCoverBox");
+            cover.Focus();
+            Pump(50);
+            cover.Text = "45";
+            Assert(window.Configurations[101].Cover == 30, "Debounce updated synchronously");
+            cover.Select(1, 0);
+            Pump(450);
+            Assert(window.Configurations[101].Cover == 45, "Cover did not update while focused: " + ((TextBlock)window.FindName("LivePreviewStatus")).Text + " Focus=" + cover.IsKeyboardFocused);
+            Assert(cover.SelectionStart == 1 && cover.Text == "45", "Typing caret was lost");
+            var section = (Canvas)window.FindName("SectionCanvas");
+            Assert(section.Children.Count > 10, "Section preview was not drawn");
+            cover.Text = "-";
+            Pump(450);
+            Assert(window.Configurations[101].Cover == 45, "Invalid input replaced valid configuration");
+            Assert(((TextBlock)window.FindName("LivePreviewStatus")).Text.Contains("hợp lệ gần nhất"), "Missing draft status");
+            cover.Text = "35";
+            Pump(450);
+            Assert(window.Configurations[101].Cover == 35, "Preview did not recover after invalid input");
+            cover.Text = "999";
+            Pump(450);
+            Assert(window.Configurations[101].Cover == 35, "Impossible section replaced valid preview");
+            cover.Text = "35";
+            Pump(450);
+            var beam = (TextBox)window.FindName("QuickBeamHeightBox");
+            beam.Focus(); beam.Text = ""; Pump(450);
+            Assert(window.Configurations[101].JointBeamHeight == 0, "Optional empty beam height blocks preview");
+            var count = (ComboBox)window.FindName("QuickCxBox");
+            count.SelectedItem = 4; Pump(100);
+            Assert(window.Configurations[101].Cx == 4, "Bar count did not update preview");
+            Assert(!((Button)window.FindName("RunButton")).IsEnabled, "Preview command can create steel");
+            Capture(window, Path.Combine(output, "column-preview.png"));
+            var tabs = (TabControl)window.FindName("MainTabs");
+            tabs.SelectedIndex = 1; Pump(100);
+            var spacing = (TextBox)window.FindName("EndStepBox");
+            spacing.Focus(); spacing.Text = "125"; Pump(450);
+            Assert(window.Configurations[101].EndSpacing == 125, "Tie spacing did not update while focused");
+            Capture(window, Path.Combine(output, "column-ties.png"));
+            tabs.SelectedIndex = 2; Pump(100);
+            Capture(window, Path.Combine(output, "column-anchors.png"));
+            tabs.SelectedIndex = 0; Pump(100);
+            window.Width = 1360; window.Height = 740; Pump(100);
+            Capture(window, Path.Combine(output, "column-compact.png"));
+            window.Close();
+            Pump(400);
+            app.Shutdown();
+            File.WriteAllText(Path.Combine(output, "results.txt"), "PASS: focused edit, debounce, caret, invalid input, recovery, section rendering, preview-only create guard, close. No Revit model operations tested.");
+            return 0;
+        }
+        catch (Exception ex) { File.WriteAllText(Path.Combine(output, "render-error.txt"), ex.ToString()); Console.Error.WriteLine(ex); return 1; }
+    }
+    private static void Assert(bool pass, string message) { if (!pass) throw new InvalidOperationException(message); }
+    private static void Pump(int ms)
+    {
+        var frame = new DispatcherFrame();
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
+        timer.Tick += (s, e) => { timer.Stop(); frame.Continue = false; };
+        timer.Start(); Dispatcher.PushFrame(frame);
+    }
+    private static void Capture(Window window, string path)
+    {
+        window.UpdateLayout();
+        var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap));
+        using (var stream = File.Create(path)) png.Save(stream);
+    }
+}

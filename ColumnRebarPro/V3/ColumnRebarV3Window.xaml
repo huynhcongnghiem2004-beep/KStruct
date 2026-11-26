@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="KStruct V4.0 – Tạo thép cột | Revit 2024" Width="1648" Height="930"
         MinWidth="1360" MinHeight="740" WindowStartupLocation="CenterScreen"
-        Background="#FFEAF0F7" FontFamily="Segoe UI" FontSize="12"
+        Background="#FFEAF0F7" FontFamily="Segoe UI" FontSize="13"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <!-- KStruct palette is applied to the entire Column V4 interior, not only the window chrome. -->
@@ -189,6 +189,10 @@
     </Window.Resources>
 
     <DockPanel LastChildFill="True">
+        <Border DockPanel.Dock="Top" Background="#FFEAF3FB" Padding="12,5">
+            <TextBlock x:Name="LivePreviewStatus" Text="Xem trước tự cập nhật khi đổi thông số · chưa tạo thép trong mô hình"
+                       FontSize="12" Foreground="#FF254C76" TextWrapping="Wrap"/>
+        </Border>
         <Border DockPanel.Dock="Top" Background="#FF1E3A5F" Padding="16,8" MinHeight="64">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -274,7 +278,7 @@
                                                 <TextBlock Text="▤" Foreground="#FF986B48" FontSize="17" Margin="0,0,9,0"/>
                                                 <StackPanel VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding FloorTitle}" FontSize="13" FontWeight="SemiBold"/>
-                                                    <TextBlock Text="{Binding BarText}" FontSize="10" Foreground="#FF6A7B8E"/>
+                                                    <TextBlock Text="{Binding BarText}" FontSize="12" Foreground="#FF6A7B8E"/>
                                                 </StackPanel>
                                             </StackPanel>
                                             <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontSize="11" Foreground="#FF4A5E77" VerticalAlignment="Center"/>
@@ -301,15 +305,15 @@
                                 <StackPanel Margin="18,17,16,12">
                                     <Expander Header="Tiết diện &amp; vật liệu" Style="{StaticResource InspectorSection}"><StackPanel Margin="4,8,4,4">
                                     <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Rộng B (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickWidthBox" Height="27" IsReadOnly="True" Background="#FFF3F5F8" Padding="6,0" VerticalContentAlignment="Center" ToolTip="Tiết diện được đọc từ cột Revit. Chỉnh kích thước qua Family/Type trong mô hình."/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Cao H (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickHeightBox" Height="27" IsReadOnly="True" Background="#FFF3F5F8" Padding="6,0" VerticalContentAlignment="Center" ToolTip="Tiết diện được đọc từ cột Revit. Chỉnh kích thước qua Family/Type trong mô hình."/></StackPanel></Grid>
-                                    <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Bảo vệ Cover (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickCoverBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Cao dầm sàn (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickBeamHeightBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus"/></StackPanel></Grid>
+                                    <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Bảo vệ Cover (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickCoverBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus" TextChanged="QuickText_Changed"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Cao dầm sàn (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickBeamHeightBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus" TextChanged="QuickText_Changed"/></StackPanel></Grid>
                                     <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Bê tông (TCVN):" Margin="0,0,0,3"/><ComboBox x:Name="QuickConcreteBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Thép dọc:" Margin="0,0,0,3"/><ComboBox x:Name="QuickSteelGradeBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel></Grid>
-                                    <TextBlock Text="Mác vật liệu chỉ phục vụ tham chiếu giao diện, chưa ghi đè thuộc tính vật liệu Revit." FontSize="10" Foreground="#FF986B48" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Mác vật liệu chỉ phục vụ tham chiếu giao diện, chưa ghi đè thuộc tính vật liệu Revit." FontSize="12" Foreground="#FF986B48" TextWrapping="Wrap"/>
                                     </StackPanel></Expander><Expander Header="Thép dọc" Style="{StaticResource InspectorSection}"><StackPanel Margin="4,8,4,4">
                                     <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Số thanh cạnh B (X):" Margin="0,0,0,3"/><ComboBox x:Name="QuickCxBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Số thanh cạnh H (Y):" Margin="0,0,0,3"/><ComboBox x:Name="QuickCyBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel></Grid>
                                     <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Đường kính thép (mm):" Margin="0,0,0,3"/><ComboBox x:Name="QuickMainBarBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel><StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,9"><CheckBox x:Name="QuickLapCheck" Content="Nối so le 50%" IsEnabled="False" ToolTip="Tùy chọn này chỉ được bật sau khi có xử lý nối so le thực tế trong lõi tạo thép."/></StackPanel></Grid>
                                     </StackPanel></Expander><Expander Header="Thép đai" Style="{StaticResource InspectorSection}"><StackPanel Margin="4,8,4,4">
-                                    <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Đường kính đai:" Margin="0,0,0,3"/><ComboBox x:Name="QuickTieBarBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Vùng đai dày (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickZoneBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus"/></StackPanel></Grid>
-                                    <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Bước đai dày s1 (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickEndBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Bước đai thưa s2 (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickMidBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus"/></StackPanel></Grid>
+                                    <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Đường kính đai:" Margin="0,0,0,3"/><ComboBox x:Name="QuickTieBarBox" Height="27" SelectionChanged="QuickInput_Changed"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Vùng đai dày (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickZoneBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus" TextChanged="QuickText_Changed"/></StackPanel></Grid>
+                                    <Grid Margin="0,0,0,2"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="9"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Margin="0,0,0,7"><TextBlock Text="Bước đai dày s1 (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickEndBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus" TextChanged="QuickText_Changed"/></StackPanel><StackPanel Grid.Column="2" Margin="0,0,0,7"><TextBlock Text="Bước đai thưa s2 (mm):" Margin="0,0,0,3"/><TextBox x:Name="QuickMidBox" Height="27" Padding="6,0" VerticalContentAlignment="Center" LostFocus="QuickText_LostFocus" TextChanged="QuickText_Changed"/></StackPanel></Grid>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,4"><TextBlock Text="Kiểu đai:" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="QuickTieStyleBox" Width="160" SelectionChanged="QuickInput_Changed"><ComboBoxItem Content="Đai móc 135°"/><ComboBoxItem Content="Đai lồng kín"/></ComboBox></StackPanel>
                                     <CheckBox x:Name="QuickStarterCheck" Content="Có thép chờ lên tầng trên" Margin="2,16,0,8"
                                               Checked="QuickInput_Changed" Unchecked="QuickInput_Changed"/>
@@ -340,7 +344,7 @@
                             <Grid Grid.Column="2">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <Border Background="#FF17365D" Padding="10,9"><TextBlock Text="MẶT CẮT ĐỨNG · TOÀN TUYẾN CỘT / LEVEL / NÚT DẦM" Foreground="White" FontWeight="Bold"/></Border>
-                                <Canvas Grid.Row="1" x:Name="LongSectionCanvas" MinWidth="250" MinHeight="350" Margin="8" ClipToBounds="True" Background="White" SizeChanged="LongSectionCanvas_SizeChanged" PreviewMouseLeftButtonDown="LongSectionCanvas_MouseLeftButtonDown" MouseLeftButtonUp="LongSectionCanvas_MouseLeftButtonUp" MouseMove="LongSectionCanvas_MouseMove" MouseWheel="LongSectionCanvas_MouseWheel" LostMouseCapture="LongSectionCanvas_LostMouseCapture"/>
+                                <Canvas Grid.Row="1" x:Name="LongSectionCanvas" MinWidth="200" MinHeight="160" Margin="8" ClipToBounds="True" Background="White" SizeChanged="LongSectionCanvas_SizeChanged" PreviewMouseLeftButtonDown="LongSectionCanvas_MouseLeftButtonDown" MouseLeftButtonUp="LongSectionCanvas_MouseLeftButtonUp" MouseMove="LongSectionCanvas_MouseMove" MouseWheel="LongSectionCanvas_MouseWheel" LostMouseCapture="LongSectionCanvas_LostMouseCapture"/>
                                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Style="{StaticResource FlatButton}" Content="+" Click="LongSectionZoomIn_Click"/>
                                     <Button Style="{StaticResource FlatButton}" Content="−" Click="LongSectionZoomOut_Click"/>
@@ -403,7 +407,7 @@
                                     <Grid Margin="0,2,0,2">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="107"/></Grid.ColumnDefinitions>
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Chờ từ đỉnh cột dưới (mm)"/>
-                                        <TextBox Grid.Column="1" x:Name="MainStarterLengthBox" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/>
+                                        <TextBox Grid.Column="1" x:Name="MainStarterLengthBox" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/>
                                     </Grid>
                                 </StackPanel>
                             </ScrollViewer>
@@ -420,7 +424,7 @@
                             <TextBlock Style="{StaticResource FormLabel}" Text="Chiều cao nút (tham khảo)"/>
                             <TextBox Grid.Column="1" x:Name="BeamHeightBox" Style="{StaticResource EditorText}" IsReadOnly="True"/>
                             <TextBlock Grid.Row="1" Style="{StaticResource FormLabel}" Text="Cover ngoài đai (mm)"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="CoverBox" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="CoverBox" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/>
                         </Grid>
                     </GroupBox>
 
@@ -448,20 +452,20 @@
                     <ComboBox Visibility="Collapsed" x:Name="CrossTieShapeBox" Width="590" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai 135°"/><ComboBox x:Name="TieHook135Box" Width="395" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><TextBlock Width="165" VerticalAlignment="Center" Text="Hook đai phụ 90°"/><ComboBox x:Name="TieHook90Box" Width="425" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed"/></StackPanel>
-                    <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Chiều dài vùng đai đầu cột mỗi đầu (mm)"/><TextBox x:Name="ZoneBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                    <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai hai đầu (mm)"/><TextBox x:Name="EndStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                    <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai giữa (mm)"/><TextBox x:Name="MidStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Chiều dài vùng đai đầu cột mỗi đầu (mm)"/><TextBox x:Name="ZoneBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai hai đầu (mm)"/><TextBox x:Name="EndStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Bước đai giữa (mm)"/><TextBox x:Name="MidStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,8"><TextBlock Width="285" VerticalAlignment="Center" Text="Quy tắc Rebar Set"/>
                         <ComboBox x:Name="TieLayoutBox" Width="230" Style="{StaticResource EditorCombo}" SelectionChanged="Edit_Changed">
                             <ComboBoxItem Content="Maximum Spacing (bước đai tối đa)"/>
                         </ComboBox></StackPanel>
-                    <StackPanel Visibility="Collapsed" Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Số đai vùng đầu (mỗi đầu)"/><TextBox x:Name="EndCountBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                    <StackPanel Visibility="Collapsed" Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Số đai vùng giữa"/><TextBox x:Name="MidCountBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
+                    <StackPanel Visibility="Collapsed" Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Số đai vùng đầu (mỗi đầu)"/><TextBox x:Name="EndCountBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
+                    <StackPanel Visibility="Collapsed" Orientation="Horizontal"><TextBlock Width="285" VerticalAlignment="Center" Text="Số đai vùng giữa"/><TextBox x:Name="MidCountBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
                     <CheckBox x:Name="CrossCheck" Margin="0,15,0,5" Content="Tạo đai phụ giữ các thanh giữa cạnh" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <CheckBox x:Name="CrossAlternateCheck" Margin="20,0,0,8" Content="Luân phiên đảo chiều móc đai phụ (90° - 135°)" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <CheckBox Visibility="Collapsed" x:Name="JointTiesCheck" Margin="0,8,0,5" Content="Đai nút phía trên đỉnh cột (trong đoạn thép chờ)" ToolTip="Chiều cao nút do người dùng nhập; không tự phát hiện dầm/sàn. Cần thép chờ đủ dài." Checked="Edit_Changed" Unchecked="Edit_Changed"/>
-                    <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,4"><TextBlock Width="265" VerticalAlignment="Center" Text="Chiều cao nút dầm sàn (mm)"/><TextBox x:Name="JointHeightBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                    <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,8"><TextBlock Width="265" VerticalAlignment="Center" Text="Bước đai trong nút dầm (mm)"/><TextBox x:Name="JointStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
+                    <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,4"><TextBlock Width="265" VerticalAlignment="Center" Text="Chiều cao nút dầm sàn (mm)"/><TextBox x:Name="JointHeightBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
+                    <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,8"><TextBlock Width="265" VerticalAlignment="Center" Text="Bước đai trong nút dầm (mm)"/><TextBox x:Name="JointStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
                     <Border Style="{StaticResource ReviewNotice}" Margin="0,8,0,0">
                         <StackPanel>
                             <TextBlock Text="CẦN XÁC MINH · SHAPE VÀ HOOK" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
@@ -554,7 +558,7 @@
                                         <ComboBoxItem Content="Tùy chỉnh"/>
                                     </ComboBox>
                                     <TextBox x:Name="FoundationLengthBox" Style="{StaticResource AnchorageDisabledText}"
-                                             Width="90" Margin="8,0,0,0" LostFocus="FoundationAnchor_Changed"
+                                             Width="90" Margin="8,0,0,0" LostFocus="FoundationAnchor_Changed" TextChanged="FoundationText_Changed"
                                              IsEnabled="False" ToolTip="Chiều dài chân neo ngang Lₙ, đơn vị mm"/>
                                 </StackPanel>
                                 <TextBlock x:Name="FoundationLengthHint" Text="Lₙ = 40 × d · Theo thiết kế được duyệt"
@@ -574,7 +578,7 @@
                                 <TextBlock Text="Góc bẻ: 90°" FontWeight="SemiBold" Foreground="#FF173657" Margin="0,6,0,7"/>
                                 <TextBlock Text="Cover móng đáy và bên (mm)" Foreground="#FF173657"/>
                                 <TextBox x:Name="FoundationCoverBox" Style="{StaticResource AnchorageDisabledText}"
-                                         Width="125" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" IsEnabled="False"/>
+                                         Width="125" HorizontalAlignment="Left" LostFocus="FoundationAnchor_Changed" TextChanged="FoundationText_Changed" IsEnabled="False"/>
                                 <CheckBox x:Name="OpenAnchorModelCheck" IsChecked="True" IsEnabled="False"
                                           Margin="0,10,0,4" Content="Mở view 3D kiểm tra sau khi tạo"/>
                             </StackPanel>
@@ -663,7 +667,7 @@
                                     <StackPanel>
                                         <Viewbox Stretch="Uniform"><Canvas x:Name="SpliceDetailCanvas" Width="210" Height="128" Background="White" ClipToBounds="True" SizeChanged="DynamicPreview_SizeChanged"/></Viewbox>
                                         <TextBlock Text="Minh họa nối chồng · chưa phải Rebar 3D"
-                                                   FontSize="10" Foreground="#FF986B48" TextWrapping="Wrap"/>
+                                                   FontSize="12" Foreground="#FF986B48" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -691,18 +695,18 @@
                     <CheckBox x:Name="StarterCheck" Content="Thép chờ lên tầng trên (kể cả khi chưa có cột tầng trên)" Foreground="#FF173657" Margin="0,4,0,8" Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
                         <TextBlock Text="Chiều dài chờ từ đỉnh cột dưới (mm)" Foreground="#FF173657" Width="235" VerticalAlignment="Center"/>
-                        <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"/>
+                        <TextBox x:Name="StarterLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
                         <TextBlock Text="Neo thẳng thanh bổ sung trong dầm (mm)" Foreground="#FF173657" Width="235" VerticalAlignment="Center"
                                    ToolTip="Chỉ dùng khi thép tầng trên nhiều hơn; nhập chiều dài neo theo chi tiết được duyệt. Để trống nếu không dùng."/>
-                        <TextBox x:Name="SupplementalAnchorLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"
+                        <TextBox x:Name="SupplementalAnchorLengthBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"
                                  ToolTip="Chỉ dùng khi thép tầng trên nhiều hơn; nhập chiều dài neo theo chi tiết được duyệt. Để trống nếu không dùng."/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
                         <TextBlock Text="Lớp bảo vệ phía trên dầm (mm)" Foreground="#FF173657" Width="235" VerticalAlignment="Center"
                                    ToolTip="Chỉ dùng để xác định đầu thanh dư; nhập lớp bảo vệ trên dầm theo bản vẽ."/>
-                        <TextBox x:Name="BeamTopCoverBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus"
+                        <TextBox x:Name="BeamTopCoverBox" Style="{StaticResource EditorText}" Width="125" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"
                                  ToolTip="Chỉ dùng để xác định đầu thanh dư; nhập lớp bảo vệ trên dầm theo bản vẽ."/>
                     </StackPanel>
                     <GroupBox Header="Ghép thanh và nhấn cổ chai giữa hai tầng" Padding="10" Margin="0,0,0,12">
@@ -714,8 +718,8 @@
                                       Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                             <TextBlock TextWrapping="Wrap" Foreground="#FF986B48" Margin="22,0,0,8"
                                        Text="Chỉ đánh dấu khi kỹ sư kết cấu đã duyệt bán kính uốn nhỏ hơn ngưỡng kiểm tra. KStruct vẫn kiểm tra hình học; không xác nhận đạt TCVN."/>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Khe hở giữa hai thanh nối (mm)" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckClearanceBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Tỷ lệ xiên dựng hình 1:n" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckSlopeBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" ToolTip="n là chiều cao đoạn nhấn / độ dịch ngang; nhập theo chi tiết được duyệt. Add-in không tự chọn tỷ lệ và không coi đây là giá trị TCVN."/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Khe hở giữa hai thanh nối (mm)" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckClearanceBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed"/></StackPanel>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Tỷ lệ xiên dựng hình 1:n" Width="300" VerticalAlignment="Center"/><TextBox x:Name="BottleneckSlopeBox" Width="100" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus" TextChanged="EditorText_Changed" ToolTip="n là chiều cao đoạn nhấn / độ dịch ngang; nhập theo chi tiết được duyệt. Add-in không tự chọn tỷ lệ và không coi đây là giá trị TCVN."/></StackPanel>
                             <DataGrid x:Name="ConnectionComparisonGrid" Margin="0,8,0,4" MaxHeight="240" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Thông số" Binding="{Binding Parameter}" Width="160"/>
@@ -784,7 +788,7 @@
                                 </ComboBox>
                                 <TextBox x:Name="RoofHookCustomLengthBox" Style="{StaticResource AnchorageDisabledText}"
                                          Width="90" Margin="8,0,0,0" IsEnabled="False"
-                                         LostFocus="RoofHook_Changed" ToolTip="Chiều dài móc neo mái tùy chỉnh, đơn vị mm"/>
+                                         LostFocus="RoofHook_Changed" TextChanged="RoofText_Changed" ToolTip="Chiều dài móc neo mái tùy chỉnh, đơn vị mm"/>
                                 <TextBlock Text="mm" Margin="8,2,0,0" Foreground="#FF986B48"/>
                             </StackPanel>
                             <Border Style="{StaticResource InfoNotice}" Margin="0,4,0,0" Padding="8,6">
@@ -875,7 +879,7 @@
                                                     </Border>
                                                     <TextBlock Text="{Binding SizeText}" TextAlignment="Center" Foreground="#FF173657" FontWeight="SemiBold"/>
                                                     <TextBlock Text="{Binding BarText}" TextAlignment="Center" Foreground="#FF556A80" FontSize="11"/>
-                                                    <TextBlock Text="Preview cấu hình 2D; chưa xác minh va chạm Solid" TextWrapping="Wrap" FontSize="10" Foreground="#FF986B48" Margin="0,4,0,0"/>
+                                                    <TextBlock Text="Preview cấu hình 2D; chưa xác minh va chạm Solid" TextWrapping="Wrap" FontSize="12" Foreground="#FF986B48" Margin="0,4,0,0"/>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
