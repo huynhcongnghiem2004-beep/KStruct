@@ -247,11 +247,15 @@
 
             <DockPanel Margin="0,12,0,0">
                 <Button DockPanel.Dock="Right" Content="Lưu thiết lập triển khai" Padding="14,7" Click="Save_Click"/>
-                <TextBlock x:Name="StatusText"
-                           Text="Chọn loại bản vẽ có sẵn trong project."
-                           TextWrapping="Wrap"
-                           VerticalAlignment="Center"
-                           Margin="0,0,12,0"/>
+                <Border x:Name="StatusBanner" Background="#FFEAF3FB" BorderBrush="#FFB8D1EB"
+                        BorderThickness="1" CornerRadius="5" Padding="9,7" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock x:Name="StatusLabel" Text="THÔNG TIN" FontSize="10" FontWeight="Bold"
+                                   Foreground="#FF24527D" Margin="0,0,0,3"/>
+                        <TextBlock x:Name="StatusText" Text="Chọn loại bản vẽ có sẵn trong project."
+                                   TextWrapping="Wrap" Foreground="#FF294565"/>
+                    </StackPanel>
+                </Border>
             </DockPanel>
         </StackPanel>
     </ScrollViewer>

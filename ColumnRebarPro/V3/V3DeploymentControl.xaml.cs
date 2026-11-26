@@ -33,6 +33,13 @@ namespace ColumnRebarPro.V3
 
     public partial class V3DeploymentControl : UserControl
     {
+        private enum StatusSeverity
+        {
+            Info,
+            Review,
+            Blocker
+        }
+
         private sealed class Choice
         {
             public long Id { get; set; }
@@ -88,6 +95,53 @@ namespace ColumnRebarPro.V3
 
         public V3DeploymentControl() { InitializeComponent(); }
 
+        private void SetStatus(string message, StatusSeverity severity)
+        {
+            StatusText.Text = message;
+            switch (severity)
+            {
+                case StatusSeverity.Blocker:
+                    StatusLabel.Text = "KHÔNG THỂ TIẾP TỤC";
+                    StatusBanner.Background = System.Windows.Media.Brushes.MistyRose;
+                    StatusBanner.BorderBrush = System.Windows.Media.Brushes.IndianRed;
+                    StatusLabel.Foreground = System.Windows.Media.Brushes.DarkRed;
+                    StatusText.Foreground = System.Windows.Media.Brushes.DarkRed;
+                    break;
+                case StatusSeverity.Review:
+                    StatusLabel.Text = "CẦN XÁC MINH";
+                    StatusBanner.Background = System.Windows.Media.Brushes.LemonChiffon;
+                    StatusBanner.BorderBrush = System.Windows.Media.Brushes.Goldenrod;
+                    StatusLabel.Foreground = System.Windows.Media.Brushes.DarkGoldenrod;
+                    StatusText.Foreground = System.Windows.Media.Brushes.SaddleBrown;
+                    break;
+                default:
+                    StatusLabel.Text = "THÔNG TIN";
+                    StatusBanner.Background = System.Windows.Media.Brushes.AliceBlue;
+                    StatusBanner.BorderBrush = System.Windows.Media.Brushes.LightSteelBlue;
+                    StatusLabel.Foreground = System.Windows.Media.Brushes.SteelBlue;
+                    StatusText.Foreground = System.Windows.Media.Brushes.DarkSlateBlue;
+                    break;
+            }
+        }
+
+        private bool UpdateResourceStatus()
+        {
+            var missingResources = new List<string>();
+            if (CrossSectionType.Items.Count == 0 || LongSectionType.Items.Count == 0)
+                missingResources.Add("Project chưa có View Family Type.");
+            if (TitleBlock.Items.Count == 0)
+                missingResources.Add("Project chưa có Title Block.");
+            if (missingResources.Count == 0) return false;
+
+            bool enabled = EnableCheck.IsChecked == true;
+            string prefix = enabled
+                ? "Không thể triển khai bản vẽ. "
+                : "Cần bổ sung trước khi bật triển khai. ";
+            SetStatus(prefix + string.Join(" ", missingResources) + " Nạp loại phù hợp rồi mở lại cửa sổ.",
+                enabled ? StatusSeverity.Blocker : StatusSeverity.Review);
+            return true;
+        }
+
         public void Initialize(Document doc)
         {
             if (_ready) return;
@@ -142,10 +196,7 @@ namespace ColumnRebarPro.V3
 
             SettingsPanel.IsEnabled = EnableCheck.IsChecked == true;
 
-            if (CrossSectionType.Items.Count == 0 || LongSectionType.Items.Count == 0)
-                StatusText.Text = "Project chưa có View Family Type. Nạp loại phù hợp rồi mở lại cửa sổ.";
-            if (TitleBlock.Items.Count == 0 || sections.Count == 0)
-                StatusText.Text = "Project thiếu Title Block hoặc Section View Family Type. Hãy nạp trước khi lưu cấu hình bật triển khai.";
+            UpdateResourceStatus();
         }
 
         public static DeploymentSettingsFile LoadSavedSettings(Document doc)
@@ -286,8 +337,12 @@ namespace ColumnRebarPro.V3
         private void Enable_Changed(object sender, RoutedEventArgs e)
         {
             if (SettingsPanel != null) SettingsPanel.IsEnabled = EnableCheck.IsChecked == true;
-            if (CrossSectionType.Items.Count == 0 || LongSectionType.Items.Count == 0)
-                StatusText.Text = "Project chưa có View Family Type. Nạp loại phù hợp rồi mở lại cửa sổ.";
+            if (UpdateResourceStatus()) return;
+            if (EnableCheck.IsChecked == true)
+                SetStatus("Kiểm tra template, tỷ lệ, Tag và Dimension trước khi triển khai.",
+                    StatusSeverity.Review);
+            else
+                SetStatus("Triển khai bản vẽ đang tắt.", StatusSeverity.Info);
         }
 
         private void LoadSettings()
@@ -320,12 +375,13 @@ namespace ColumnRebarPro.V3
                     }
                 }
 
-                StatusText.Text = missing == 0 ? "Đã nạp thiết lập đã lưu của project." :
-                    "Có " + missing + " loại đã bị xóa/thay đổi trong project. Vui lòng chọn lại.";
+                SetStatus(missing == 0 ? "Đã nạp thiết lập đã lưu của project." :
+                    "Có " + missing + " loại đã bị xóa/thay đổi trong project. Vui lòng chọn lại.",
+                    missing == 0 ? StatusSeverity.Info : StatusSeverity.Review);
             }
             catch (Exception ex)
             {
-                StatusText.Text = "Không đọc được thiết lập đã lưu: " + ex.Message;
+                SetStatus("Không đọc được thiết lập đã lưu: " + ex.Message, StatusSeverity.Review);
             }
         }
 
@@ -408,10 +464,12 @@ namespace ColumnRebarPro.V3
                     if (File.Exists(temporary)) File.Delete(temporary);
                 }
 
-                StatusText.Text = "Đã lưu cấu hình cho project. Chưa tạo hoặc thay đổi sheet/mặt cắt trong mô hình.";
+                SetStatus("Đã lưu cấu hình cho project. Chưa tạo hoặc thay đổi sheet/mặt cắt trong mô hình.",
+                    StatusSeverity.Info);
             }
             catch (Exception ex)
             {
+                SetStatus("Không thể lưu thiết lập: " + ex.Message, StatusSeverity.Blocker);
                 MessageBox.Show(Window.GetWindow(this), ex.Message, "KStruct - Thiết lập triển khai", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }

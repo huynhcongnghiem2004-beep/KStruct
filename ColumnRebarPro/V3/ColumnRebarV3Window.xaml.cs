@@ -445,6 +445,7 @@ namespace ColumnRebarPro.V3
         private bool SaveActive(bool showError)
         {
             if (_loading || !_activeId.HasValue) return true;
+            ClearActionStatus();
             try
             {
                 var main = MainBarBox.SelectedItem as BarSizeChoice;
@@ -623,6 +624,7 @@ namespace ColumnRebarPro.V3
         private void QuickInput_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading || _compactSync || !_activeId.HasValue) return;
+            ClearActionStatus();
             _compactSync = true;
             try
             {
@@ -689,6 +691,7 @@ namespace ColumnRebarPro.V3
         private void QuickText_LostFocus(object sender, RoutedEventArgs e)
         {
             if (_loading || _compactSync || !_activeId.HasValue) return;
+            ClearActionStatus();
             try
             {
                 // Validate *all* visible fields before changing any legacy values.
@@ -758,6 +761,7 @@ namespace ColumnRebarPro.V3
         private void QuickDrawing_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading || _compactSync || _deployment == null) return;
+            ClearActionStatus();
             _deployment.SetDeploymentEnabled(QuickDrawingCheck.IsChecked == true);
             DrawV4DynamicPreviews();
         }
@@ -989,6 +993,7 @@ namespace ColumnRebarPro.V3
         private void Edit_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            ClearActionStatus();
             TieLayoutControlState();
             WithoutEvents(() =>
             {
@@ -1010,6 +1015,7 @@ namespace ColumnRebarPro.V3
         private void TieStyle_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            ClearActionStatus();
             if (SaveActive(false) && ActiveConfig != null)
             {
                 V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
@@ -1023,6 +1029,7 @@ namespace ColumnRebarPro.V3
         private void Text_LostFocus(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            ClearActionStatus();
             if (ReferenceEquals(sender, BeamHeightBox)) JointHeightBox.Text = BeamHeightBox.Text;
             else if (ReferenceEquals(sender, JointHeightBox)) BeamHeightBox.Text = JointHeightBox.Text;
             else if (ReferenceEquals(sender, MainStarterLengthBox)) StarterLengthBox.Text = MainStarterLengthBox.Text;
@@ -1123,15 +1130,34 @@ namespace ColumnRebarPro.V3
                 MessageBoxImage.Information);
         }
 
+        private void SetActionBlocker(string details)
+        {
+            ActionStatusText.Text = details;
+            ActionStatusBanner.Visibility = Visibility.Visible;
+        }
+
+        private void ClearActionStatus()
+        {
+            if (ActionStatusBanner == null || ActionStatusText == null) return;
+            ActionStatusText.Text = string.Empty;
+            ActionStatusBanner.Visibility = Visibility.Collapsed;
+        }
+
         private void Run_Click(object sender, RoutedEventArgs e)
         {
-            if (!SaveActive(true)) return;
+            ClearActionStatus();
+            if (!SaveActive(true))
+            {
+                SetActionBlocker("Sửa lỗi cấu hình trước khi chạy; xem thông báo kiểm tra để biết chi tiết.");
+                return;
+            }
             // One explicit Hook selection on a floor should apply to other floors
             // using the same tie diameter, unless they already have their own IDs.
             V4StackTieSettings.Apply(ActiveConfig, _configs.Values);
             V4FloorHookInheritance.Apply(_configs.Values);
             if (DistributedRadio.IsChecked != true)
             {
+                SetActionBlocker("Kiểu phân bố hiện tại chưa được hỗ trợ.");
                 MessageBox.Show(this, "Chỉ hỗ trợ phân bố đều. Chọn kiểu này sau khi đối chiếu với thiết kế đã duyệt.",
                     "KStruct - Kiểm tra cấu hình", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -1142,6 +1168,7 @@ namespace ColumnRebarPro.V3
             }
             catch(Exception ex)
             {
+                SetActionBlocker("Thiết lập triển khai không hợp lệ; xem thông báo để biết chi tiết.");
                 MessageBox.Show(this,ex.Message,"KStruct - Thiết lập bản vẽ",MessageBoxButton.OK,MessageBoxImage.Warning);
                 return;
             }
@@ -1181,6 +1208,7 @@ namespace ColumnRebarPro.V3
             }
             catch (Exception ex)
             {
+                SetActionBlocker("Tiền kiểm tuyến chưa đạt; xem thông báo để biết chi tiết cần xử lý.");
                 MainTabs.SelectedIndex = ex.Message.IndexOf("móc",StringComparison.OrdinalIgnoreCase)>=0 ||
                     ex.Message.Contains("Hook") || ex.Message.Contains("Shape") ? 1 : 2;
                 // Keep the quick editor active; route to the relevant main tab.
@@ -1275,6 +1303,7 @@ namespace ColumnRebarPro.V3
         {
             if (_loading || RoofHookCheck == null || RoofHookPreset == null ||
                 ActiveConfig == null || _segments == null || _segments.Count == 0) return;
+            ClearActionStatus();
             bool terminal = _activeId.Value == _segments[_segments.Count - 1].Id.Value;
             if (!terminal) return;
             var c = ActiveConfig;
@@ -1397,6 +1426,7 @@ namespace ColumnRebarPro.V3
         {
             if (_loading || SpliceLengthSelector == null || SpliceLengthHint == null ||
                 _segments == null || _segments.Count == 0) return;
+            ClearActionStatus();
             int index = Math.Max(0, SpliceLengthSelector.SelectedIndex);
             double factor = index == 0 ? 50 : index == 1 ? 55 : 60;
             double diameter = _configs[_segments[0].Id.Value].MainDiameter;
@@ -1447,6 +1477,7 @@ namespace ColumnRebarPro.V3
         private void FoundationAnchor_Changed(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
+            ClearActionStatus();
             SetFoundationControlState();
             UpdateFoundationAnchorSummary();
             UpdateStarterConnectionSummary();
@@ -1457,6 +1488,9 @@ namespace ColumnRebarPro.V3
         private void UpdateFoundationAnchorSummary()
         {
             if (FoundationAnchorSummary == null) return;
+            FoundationSummaryPanel.Visibility = FoundationAnchorCheck.IsChecked == true
+                ? Visibility.Visible
+                : Visibility.Collapsed;
             var bottom = _configs[_segments[0].Id.Value];
             FoundationAnchorSummary.Text = "Áp dụng tại " + _segments[0].LevelName + ": " + FormatBars(bottom) +
                 (bottom.GroupLongBars ? " — nhóm Fixed Number theo cạnh (1 thanh dùng Single)." : " — tạo từng thanh.") +

@@ -12,6 +12,32 @@
         <SolidColorBrush x:Key="KStructEarth" Color="#FFE58A21"/>
         <SolidColorBrush x:Key="KStructCream" Color="#FFF0F4FA"/>
         <SolidColorBrush x:Key="KStructSurface" Color="#FFF5F7FA"/>
+        <Style x:Key="InfoNotice" TargetType="Border">
+            <Setter Property="Background" Value="#FFEAF3FB"/>
+            <Setter Property="BorderBrush" Value="#FFB8D1EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="9,7"/>
+        </Style>
+        <Style x:Key="ReviewNotice" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFF7E8"/>
+            <Setter Property="BorderBrush" Value="#FFE9C98E"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="9,7"/>
+        </Style>
+        <Style x:Key="BlockerNotice" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFEEEE"/>
+            <Setter Property="BorderBrush" Value="#FFE7A6A6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="9,7"/>
+        </Style>
+        <Style x:Key="StatusHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+        </Style>
         <!-- Four primary WPF tabs share the navy/orange mockup visual language. -->
         <Style TargetType="TabItem">
             <Setter Property="Foreground" Value="#FF294565"/>
@@ -178,6 +204,13 @@
                 <CheckBox Grid.Column="0" Content="Tạo thép 3D" IsChecked="True" IsEnabled="False" VerticalAlignment="Center" Margin="0,0,22,0" ToolTip="Chế độ KStruct V4 hiện tạo Rebar 3D trước khi triển khai bản vẽ."/>
                 <CheckBox Grid.Column="1" x:Name="QuickDrawingCheck" Content="Tạo bản vẽ triển khai" VerticalAlignment="Center" Margin="0,0,22,0" Checked="QuickDrawing_Changed" Unchecked="QuickDrawing_Changed"/>
                 <CheckBox Grid.Column="2" x:Name="QuickAdvancedCheck" Visibility="Collapsed" Content="Mở thiết lập chi tiết" VerticalAlignment="Center" Checked="QuickAdvanced_Changed" Unchecked="QuickAdvanced_Changed"/>
+                <Border x:Name="ActionStatusBanner" Grid.Column="3" Style="{StaticResource BlockerNotice}"
+                        Margin="8,0" Padding="8,4" Visibility="Collapsed" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="KHÔNG THỂ TẠO" Style="{StaticResource StatusHeading}" Foreground="#FF9B2525"/>
+                        <TextBlock x:Name="ActionStatusText" Foreground="#FF7F1D1D" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
                 <Button Grid.Column="4" Style="{StaticResource FlatButton}" Content="Kiểm tra V5" Width="110" Click="V5Review_Click" Margin="0,0,5,0"/>
                 <Button Grid.Column="5" Style="{StaticResource FlatButton}" Content="Xem trước dữ liệu" Width="155" Click="QuickPreview_Click"/>
                 <Button Grid.Column="6" x:Name="RunButton" Content="⚙  KIỂM TRA &amp; TẠO THÉP" FontWeight="SemiBold" Foreground="White" Background="#FFE58A21" BorderBrush="#FFD97816" Padding="21,9" Margin="8,0,4,0" IsDefault="True" Click="Run_Click"/>
@@ -429,14 +462,35 @@
                     <CheckBox Visibility="Collapsed" x:Name="JointTiesCheck" Margin="0,8,0,5" Content="Đai nút phía trên đỉnh cột (trong đoạn thép chờ)" ToolTip="Chiều cao nút do người dùng nhập; không tự phát hiện dầm/sàn. Cần thép chờ đủ dài." Checked="Edit_Changed" Unchecked="Edit_Changed"/>
                     <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,4"><TextBlock Width="265" VerticalAlignment="Center" Text="Chiều cao nút dầm sàn (mm)"/><TextBox x:Name="JointHeightBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
                     <StackPanel Visibility="Collapsed" Orientation="Horizontal" Margin="20,2,0,8"><TextBlock Width="265" VerticalAlignment="Center" Text="Bước đai trong nút dầm (mm)"/><TextBox x:Name="JointStepBox" Width="120" Style="{StaticResource EditorText}" LostFocus="Text_LostFocus"/></StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#FF986B48" Margin="0,8,0,0" Text="Revit tự khớp Shape có sẵn; nếu project không có hình tương ứng với đường thanh + Hook đã chọn, KStruct sẽ báo lỗi và rollback tuyến, không tạo Shape mới."/>
+                    <Border Style="{StaticResource ReviewNotice}" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="CẦN XÁC MINH · SHAPE VÀ HOOK" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
+                            <TextBlock Text="Trước khi tạo, xác nhận project có RebarShape và Hook phù hợp." TextWrapping="Wrap" Foreground="#FF76552C"/>
+                            <Expander Header="Chi tiết điều kiện" Margin="0,4,0,0" Foreground="#FF76552C">
+                                <TextBlock Text="Revit tự khớp Shape có sẵn; nếu project không có hình tương ứng với đường thanh + Hook đã chọn, KStruct sẽ báo lỗi và rollback tuyến, không tạo Shape mới."
+                                           TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            </Expander>
+                        </StackPanel>
+                    </Border>
                     </StackPanel></Border>
-                    <Border Background="#FFFFF8E7" BorderBrush="#FFE8D8BB" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,12,0,0"><TextBlock Text="Lưu ý: số lượng đai được tính theo Maximum Spacing từ chiều dài phân bố thực; không lấy trực tiếp công thức ước lượng 20 đai/tầng trong tài liệu làm số đai cố định." TextWrapping="Wrap" Foreground="#FF76552C"/></Border>
+                    <Border Style="{StaticResource InfoNotice}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="THÔNG TIN · CÁCH TÍNH ĐAI" Style="{StaticResource StatusHeading}" Foreground="#FF24527D"/>
+                            <TextBlock Text="Số lượng đai được tính theo Maximum Spacing từ chiều dài phân bố thực; không lấy công thức ước lượng 20 đai/tầng làm số đai cố định."
+                                       TextWrapping="Wrap" Foreground="#FF294565"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel></ScrollViewer>
                 <Border Grid.Column="1" Margin="4,12,12,12" Padding="10" Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1" CornerRadius="7">
                     <DockPanel>
                         <Border DockPanel.Dock="Top" Background="#FF162C46" CornerRadius="5" Padding="11" Margin="0,0,0,8"><TextBlock Text="REVIEW ĐỘNG · THÉP ĐAI" Foreground="White" FontWeight="Bold"/></Border>
-                        <TextBlock x:Name="TiePreviewStatus" DockPanel.Dock="Bottom" Margin="4,9,4,0" TextWrapping="Wrap" Foreground="#FF986B48" FontSize="11" Text="Mô phỏng từ cấu hình, chưa tạo Rebar 3D"/>
+                        <Border DockPanel.Dock="Bottom" Style="{StaticResource InfoNotice}" Margin="0,9,0,0" Padding="8,6">
+                            <StackPanel>
+                                <TextBlock Text="THÔNG TIN · MÔ PHỎNG" Style="{StaticResource StatusHeading}" Foreground="#FF24527D"/>
+                                <TextBlock x:Name="TiePreviewStatus" TextWrapping="Wrap" Foreground="#FF294565" FontSize="11"
+                                           Text="Mô phỏng từ cấu hình, chưa tạo Rebar 3D"/>
+                            </StackPanel>
+                        </Border>
                         <Grid><Grid.RowDefinitions><RowDefinition Height="48*"/><RowDefinition Height="52*"/></Grid.RowDefinitions>
                             <Border Grid.Row="0" Background="#FFF9FBFE" BorderBrush="#FFD2DDE9" BorderThickness="1" Margin="0,0,0,7" Padding="5" CornerRadius="4">
                                 <Canvas x:Name="TiePlanPreviewCanvas" Background="White" ClipToBounds="True" SizeChanged="DynamicPreview_SizeChanged" MinHeight="185"/>
@@ -531,7 +585,18 @@
                                 </Border>
                                 <TextBlock Text="Hướng theo trục cột · kiểm tra Solid móng" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
                             </StackPanel>
-                            <TextBlock Grid.Row="2" Grid.ColumnSpan="2" x:Name="FoundationAnchorSummary" Margin="0,10,0,0" TextWrapping="Wrap" Foreground="#FF315889"/>
+                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" x:Name="FoundationSummaryPanel" Margin="0,10,0,0">
+                                <Border Style="{StaticResource ReviewNotice}" Padding="8,6">
+                                    <StackPanel>
+                                        <TextBlock Text="CẦN XÁC MINH · NEO MÓNG" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
+                                        <TextBlock Text="Kiểm tra Solid móng và chi tiết thiết kế trước khi tạo."
+                                                   Foreground="#FF76552C" TextWrapping="Wrap"/>
+                                        <Expander Header="Chi tiết áp dụng neo theo cấu hình" Margin="0,4,0,0" Foreground="#FF76552C">
+                                            <TextBlock x:Name="FoundationAnchorSummary" Margin="0,5,0,0" TextWrapping="Wrap" Foreground="#FF76552C"/>
+                                        </Expander>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -574,8 +639,13 @@
                                             <ComboBoxItem Content="50d"/><ComboBoxItem Content="55d"/><ComboBoxItem Content="60d"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <TextBlock x:Name="SpliceLengthHint" Text="Lₛ = max(50d, 600 mm); cần thiết kế phê duyệt"
-                                               Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,0,0,7"/>
+                                    <Border Style="{StaticResource ReviewNotice}" Margin="0,0,0,7">
+                                        <StackPanel>
+                                            <TextBlock Text="CẦN XÁC MINH · CHIỀU DÀI NỐI" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
+                                            <TextBlock x:Name="SpliceLengthHint" Text="Lₛ = max(50d, 600 mm); cần thiết kế phê duyệt"
+                                                       Foreground="#FF76552C" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
                                         <TextBlock Text="Vị trí nối" Width="90" VerticalAlignment="Center" Foreground="#FF173657"/>
                                         <ComboBox x:Name="SplicePositionSelector" Width="120" SelectedIndex="0" IsEnabled="False" ToolTip="Chưa hỗ trợ bố trí nối tại giữa chiều cao tầng trong Rebar builder" SelectionChanged="SplicePanel_Changed">
@@ -597,10 +667,18 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
-                            <TextBlock Text="Vùng nối" Foreground="#FF52647A" FontWeight="SemiBold"/>
-                            <TextBlock Text="Chỉ xem trước · chưa bật nối giữa tầng / so le" FontSize="11" Foreground="#FF986B48" Margin="0,4,0,0"/>
-                            <TextBlock x:Name="SpliceDesignStatus" Foreground="#FF986B48" TextWrapping="Wrap"
-                                       Text="Chiều dài Lₛ là giá trị tham khảo theo cấu hình thiết kế. Vị trí giữa tầng và so le đang khóa cho đến khi được kiểm thử trong Revit."/>
+                            <Border Style="{StaticResource ReviewNotice}" Margin="0,4,0,0" Padding="8,6">
+                                <StackPanel>
+                                    <TextBlock Text="CẦN XÁC MINH · VỊ TRÍ NỐI" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
+                                    <TextBlock Text="Vị trí giữa tầng và nối so le chưa được áp dụng vào Rebar."
+                                               FontSize="11" Foreground="#FF76552C" TextWrapping="Wrap"/>
+                                    <Expander Header="Chi tiết trạng thái nối" Margin="0,4,0,0" Foreground="#FF76552C">
+                                        <TextBlock x:Name="SpliceDesignStatus" Foreground="#FF76552C" TextWrapping="Wrap"
+                                                   Text="Chiều dài Lₛ là giá trị tham khảo theo cấu hình thiết kế. Vị trí giữa tầng và so le đang khóa cho đến khi được kiểm thử trong Revit."
+                                                   Margin="0,5,0,0"/>
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                     </UniformGrid>
@@ -709,15 +787,34 @@
                                          LostFocus="RoofHook_Changed" ToolTip="Chiều dài móc neo mái tùy chỉnh, đơn vị mm"/>
                                 <TextBlock Text="mm" Margin="8,2,0,0" Foreground="#FF986B48"/>
                             </StackPanel>
-                            <TextBlock x:Name="RoofHookHint" Text="Lₘ = max(12d, 200 mm) · móc 90° vào tâm cột"
-                                       Foreground="#FF986B48" TextWrapping="Wrap"/>
-                            <TextBlock Text="Không đủ khoảng trống: chặn tạo Rebar"
-                                       Foreground="#FF986B48" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            <Border Style="{StaticResource InfoNotice}" Margin="0,4,0,0" Padding="8,6">
+                                <StackPanel>
+                                    <TextBlock Text="THÔNG TIN · CHIỀU DÀI MÓC" Style="{StaticResource StatusHeading}" Foreground="#FF24527D"/>
+                                    <TextBlock x:Name="RoofHookHint" Text="Lₘ = max(12d, 200 mm) · móc 90° vào tâm cột"
+                                               Foreground="#FF294565" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ReviewNotice}" Margin="0,6,0,0" Padding="8,6">
+                                <StackPanel>
+                                    <TextBlock Text="CẦN XÁC MINH · KHOẢNG TRỐNG" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
+                                    <TextBlock Text="Nếu không đủ khoảng trống, thao tác tạo Rebar sẽ bị chặn."
+                                               Foreground="#FF76552C" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                     </UniformGrid>
-                    <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FF986B48"
-                        Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Ghép cổ chai theo vị trí thực khi cùng số thanh; nối so le và tự bổ sung/kết thúc khi đổi số thanh chưa được hỗ trợ. Bản vẽ là DRAFT."/>
+                    <Border Style="{StaticResource ReviewNotice}" Margin="0,4,0,0">
+                        <StackPanel>
+                            <TextBlock Text="CẦN XÁC MINH · GIỚI HẠN KỸ THUẬT" Style="{StaticResource StatusHeading}" Foreground="#FF8A5A12"/>
+                            <TextBlock Text="Dùng thiết kế đã duyệt; kiểm tra Rebar 3D trước khi phát hành bản vẽ."
+                                       TextWrapping="Wrap" Foreground="#FF76552C"/>
+                            <Expander Header="Đọc đầy đủ lưu ý kỹ thuật" Margin="0,4,0,0" Foreground="#FF76552C">
+                                <TextBlock Text="Chỉ dựng theo thiết kế đã duyệt; không tự tính neo/nối. Tổng kích thước nhập không phải chiều dài gia công sau uốn; lấy chiều dài thực từ Revit. Ghép cổ chai theo vị trí thực khi cùng số thanh; nối so le và tự bổ sung/kết thúc khi đổi số thanh chưa được hỗ trợ. Bản vẽ là DRAFT."
+                                           TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            </Expander>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                     </ScrollViewer>
                     <Border Grid.Column="1" Background="White" BorderBrush="#FFD2DDE9" BorderThickness="1,0,1,0" Padding="10">
@@ -806,7 +903,13 @@
                                  <Border DockPanel.Dock="Top" Background="#FF162C46" Padding="11" CornerRadius="5" Margin="0,0,0,9">
                                      <TextBlock Text="REVIEW ĐỘNG · BẢN VẼ" Foreground="White" FontWeight="Bold"/>
                                  </Border>
-                                 <TextBlock x:Name="DrawingPreviewStatus" DockPanel.Dock="Bottom" Margin="3,8,3,0" TextWrapping="Wrap" FontSize="11" Foreground="#FF986B48" Text="Sơ đồ bố cục dự kiến; không phải View/Sheet Revit đã tạo"/>
+                                 <Border DockPanel.Dock="Bottom" Style="{StaticResource InfoNotice}" Margin="3,8,3,0" Padding="8,6">
+                                     <StackPanel>
+                                         <TextBlock Text="THÔNG TIN · XEM TRƯỚC BẢN VẼ" Style="{StaticResource StatusHeading}" Foreground="#FF24527D"/>
+                                         <TextBlock x:Name="DrawingPreviewStatus" TextWrapping="Wrap" FontSize="11" Foreground="#FF294565"
+                                                    Text="Sơ đồ bố cục dự kiến; không phải View/Sheet Revit đã tạo"/>
+                                     </StackPanel>
+                                 </Border>
                                  <Canvas x:Name="DrawingPreviewCanvas" Background="White" ClipToBounds="True" SizeChanged="DynamicPreview_SizeChanged" MinHeight="300"/>
                              </DockPanel>
                          </Border>
