@@ -34,9 +34,11 @@ namespace ColumnRebarPro.V3
             canvas.Children.Add(box);
         }
 
-        private static void PText(Canvas canvas, string text, double x, double y, Brush color, double size = 10)
+        private static void PText(Canvas canvas, string text, double x, double y, Brush color, double size = 12)
         {
-            var label = new TextBlock { Text = text, Foreground = color, FontSize = size };
+            var label = new TextBlock { Text = text, Foreground = color, FontSize = size,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = Math.Max(20, canvas.ActualWidth - Math.Max(2, x) - 4), ToolTip = text };
             Canvas.SetLeft(label, Math.Max(2, x)); Canvas.SetTop(label, Math.Max(0, y));
             canvas.Children.Add(label);
         }

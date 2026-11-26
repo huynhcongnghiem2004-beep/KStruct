@@ -1,0 +1,4 @@
+title: Preview thép cột
+tooltip: Mở giao diện WPF KStruct để thử thông số và preview. Không tạo thép và không lưu cấu hình lần dùng cuối.
+assembly: KStruct.Dev.dll
+command_class: ColumnRebarPro.V3.PreviewColumnRebarCommand

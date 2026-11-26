@@ -1,5 +1,25 @@
 # KStruct
 
+## Preview thép cột và pyRevit
+
+Giao diện cột cập nhật preview sau 300 ms dừng gõ, giữ con trỏ nhập và cấu hình hợp lệ gần nhất khi số đang nhập dở. Cỡ chữ chung là 13 px, nhãn preview tối thiểu 12 px. Preview là hình minh họa; không thay thế kiểm tra Rebar trong mô hình.
+
+Chạy `powershell -NoProfile -File tools/Install-KStructPyRevitDev.ps1` để build DLL phát triển riêng và cài extension vào thư mục người dùng. Có thể truyền `-ExtensionsDirectory` nếu đã cấu hình đường dẫn extension khác trong pyRevit. Trong Revit 2024: **pyRevit → Reload → KStruct Dev → Preview thép cột**, chọn một cột chữ nhật. Cửa sổ này không cho tạo thép và không lưu cấu hình lần dùng cuối; DLL KStruct đang dùng chính thức không bị thay thế. Sau các lần build tiếp theo, có thể cần khởi động lại Revit do WPF giữ assembly đã nạp.
+
+Nếu Reload báo thiếu `System.Runtime, Version=8.0.0.0` trong `pyrevit/framework.py`, chưa thể xác nhận extension hoạt động. Đây là lỗi nạp assembly của phiên pyRevit cần chẩn đoán; không chép DLL .NET 8 vào Revit 2024 để chữa lỗi.
+
+Kiểm tra WPF thật trên máy có Revit 2024 (PowerShell):
+
+```powershell
+dotnet build tests/ColumnRebarUi/ColumnRebarUi.csproj -c Debug
+$env:PATH = 'C:\Program Files\Autodesk\Revit 2024;' + $env:PATH
+& tests/ColumnRebarUi/bin/Debug/net48/ColumnRebarUi.exe
+python tests/check_column_v4_ui.py
+dotnet run --project tests/ColumnRebarLayout/ColumnRebarLayout.csproj -c Release
+```
+
+Bộ thử WPF dùng dữ liệu mẫu, kiểm tra nhập trực tiếp, giữ con trỏ, dữ liệu sai, số thanh, bước đai và xuất ảnh vào `column-ui-previews/`. Cần desktop Windows tương tác cho kiểm tra focus. CI build bộ thử này và kiểm tra XAML; không chạy nó trên hosted runner vì thiếu thư viện native của Revit. Chưa kiểm tra giao dịch tạo thép bằng bộ thử WPF.
+
 Add-in C# cho Revit 2024, .NET Framework 4.8, WPF, x64. Mã nguồn gồm các lệnh mô hình, cốt thép và hồ sơ bản vẽ kết cấu.
 
 ## Quy trình phát triển

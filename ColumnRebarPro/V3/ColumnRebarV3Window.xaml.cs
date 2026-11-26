@@ -94,7 +94,7 @@ namespace ColumnRebarPro.V3
             get { return _configs.ToDictionary(kv => kv.Key, kv => kv.Value.Copy()); }
         }
 
-        public ColumnRebarV3Window(List<ColumnSegment> stack, IList<double> loadedSizes, Autodesk.Revit.DB.Document document = null)
+        public ColumnRebarV3Window(List<ColumnSegment> stack, IList<double> loadedSizes, Autodesk.Revit.DB.Document document = null, bool previewOnly = false)
         {
             if (stack == null || stack.Count == 0)
                 throw new InvalidOperationException("Chưa chọn được tuyến cột hợp lệ.");
@@ -141,10 +141,18 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            InitializeLivePreview();
+            if (previewOnly)
+            {
+                Title += " · pyRevit / chỉ xem trước";
+                RunButton.IsEnabled = false;
+                RunButton.ToolTip = "Chế độ phát triển chỉ xem trước, không tạo thép.";
+            }
             // Read-only mockup review panels use the same ordered column segments as the editor.
             // They must not claim beam joints or bar positions that have not been verified.
             Closing += (sender, args) =>
             {
+                if (previewOnly) return;
                 // Store the most recently edited floor profile for the next session.
                 // This is user AppData only; it does not modify the RVT on Cancel.
                 try
@@ -316,7 +324,7 @@ namespace ColumnRebarPro.V3
 
         private void RefreshTypeChoices(V3RebarConfig config)
         {
-            if (config == null) return;
+            if (config == null || _document == null) return;
             // Replacing ComboBox.ItemsSource raises SelectionChanged. Suppress those
             // intermediate events so they cannot overwrite a saved Hook ID with "".
             bool wasLoading = _loading;
@@ -538,6 +546,10 @@ namespace ColumnRebarPro.V3
                 if (LoopRadio.IsChecked != true && HookRadio.IsChecked != true)
                     throw new InvalidOperationException("Chọn hình dạng đai theo chi tiết thiết kế đã duyệt.");
                 c.TieStyle = LoopRadio.IsChecked == true ? V3TieStyle.ClosedLoop : V3TieStyle.Hook135;
+                var section = ActiveRow.Segment;
+                double barInset = c.Cover + c.TieDiameter + c.MainDiameter / 2;
+                if (section.WidthMm <= 2 * barInset || section.DepthMm <= 2 * barInset)
+                    throw new InvalidOperationException("Lớp bảo vệ và đường kính thép không còn chỗ trong tiết diện cột.");
                 _configs[_activeId.Value] = c;
                 var row = ActiveRow;
                 if (row != null) RefreshFloorPreview(row, c);
@@ -545,10 +557,12 @@ namespace ColumnRebarPro.V3
                 TieLayoutControlState();
                 UpdateSummary();
                 DrawV4DynamicPreviews();
+                SetLivePreviewStatus(null);
                 return true;
             }
             catch (Exception ex)
             {
+                SetLivePreviewStatus(ex.Message);
                 if (showError) MessageBox.Show(this, ex.Message, "KStruct - Kiểm tra dữ liệu", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
@@ -665,12 +679,12 @@ namespace ColumnRebarPro.V3
             RefreshLivePreviews();
         }
 
-        private static string QuickNumber(string value, string caption)
+        private static string QuickNumber(string value, string caption, bool allowZero = false)
         {
             string clean = (value ?? "").Replace("mm", "").Trim();
             if (!double.TryParse(clean, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
-                || double.IsNaN(parsed) || double.IsInfinity(parsed) || parsed <= 0)
-                throw new InvalidOperationException(caption + " phải là số mm dương.");
+                || double.IsNaN(parsed) || double.IsInfinity(parsed) || (allowZero ? parsed < 0 : parsed <= 0))
+                throw new InvalidOperationException(caption + (allowZero ? " phải là số mm không âm." : " phải là số mm dương."));
             return parsed.ToString("0.##", CultureInfo.InvariantCulture);
         }
 
@@ -696,10 +710,10 @@ namespace ColumnRebarPro.V3
             {
                 // Validate *all* visible fields before changing any legacy values.
                 string cover = QuickNumber(QuickCoverBox.Text, "Lớp bảo vệ");
-                string zone = QuickNumber(QuickZoneBox.Text, "Chiều dài vùng đầu");
+                string zone = QuickNumber(QuickZoneBox.Text, "Chiều dài vùng đầu", true);
                 string end = QuickNumber(QuickEndBox.Text, "Bước đai dày");
                 string mid = QuickNumber(QuickMidBox.Text, "Bước đai thưa");
-                string beam = QuickNumber(QuickBeamHeightBox.Text, "Cao dầm sàn");
+                string beam = QuickNumber(string.IsNullOrWhiteSpace(QuickBeamHeightBox.Text) ? "0" : QuickBeamHeightBox.Text, "Cao dầm sàn", true);
                 _compactSync = true;
                 try
                 {
@@ -715,11 +729,12 @@ namespace ColumnRebarPro.V3
                 {
                     return;
                 }
-                SyncCompactFromLegacy();
+                if (!_applyingLivePreview) SyncCompactFromLegacy();
+                RefreshLivePreviews();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Incomplete live input is reported only when the user creates steel.
+                SetLivePreviewStatus(ex.Message);
             }
         }
 
@@ -810,7 +825,7 @@ namespace ColumnRebarPro.V3
             Func<double, double> yy = z => h - 40 - (z - bottom) * scale;
             Action<double, double, string, Brush> label = (x, y, value, brush) =>
             {
-                var t = new TextBlock { Text = value, FontSize = 10, Foreground = brush,
+                var t = new TextBlock { Text = value, FontSize = 12, Foreground = brush,
                     TextWrapping = TextWrapping.Wrap, MaxWidth = Math.Max(60, w * .42) };
                 // Clamp labels to the visible drawing area at narrow window widths.
                 Canvas.SetLeft(t, Math.Max(3, Math.Min(x, w - t.MaxWidth - 3)));
@@ -1034,8 +1049,8 @@ namespace ColumnRebarPro.V3
             else if (ReferenceEquals(sender, JointHeightBox)) BeamHeightBox.Text = JointHeightBox.Text;
             else if (ReferenceEquals(sender, MainStarterLengthBox)) StarterLengthBox.Text = MainStarterLengthBox.Text;
             else if (ReferenceEquals(sender, StarterLengthBox)) MainStarterLengthBox.Text = StarterLengthBox.Text;
-            SaveActive(false);
-            SyncCompactFromLegacy();
+            if (!SaveActive(false)) return;
+            if (!_applyingLivePreview) SyncCompactFromLegacy();
             RefreshLivePreviews();
         }
         private void RefreshLivePreviews()
@@ -1906,10 +1921,11 @@ namespace ColumnRebarPro.V3
             var sizeLabel = new TextBlock {
                 Text = Math.Round(widthMm) + " × " + Math.Round(depthMm) + " mm  ·  " +
                     c.BarCount + " thanh  ·  " + mainTypeLabel,
-                FontSize = 11, Foreground = Brushes.DimGray
+                FontSize = 13, Foreground = Brushes.DarkSlateGray,
+                TextWrapping = TextWrapping.Wrap, MaxWidth = Math.Max(80, canvasW - 16)
             };
-            Canvas.SetLeft(sizeLabel, Math.Max(4, left));
-            Canvas.SetTop(sizeLabel, Math.Max(4, top - 23));
+            Canvas.SetLeft(sizeLabel, 8);
+            Canvas.SetTop(sizeLabel, 4);
             SectionCanvas.Children.Add(sizeLabel);
             RefreshAllFloorSections();
         }
@@ -1925,6 +1941,7 @@ namespace ColumnRebarPro.V3
                 V3RebarConfig cfg;
                 if (!_configs.TryGetValue(segment.Id.Value, out cfg)) continue;
                 var title = new TextBlock {
+                    FontSize = 13, TextWrapping = TextWrapping.Wrap,
                     Text = "LEVEL " + segment.LevelName + "  ·  " +
                         Math.Round(segment.WidthMm) + " × " + Math.Round(segment.DepthMm) +
                         " mm  ·  " + cfg.BarCount + " thanh",
@@ -2027,7 +2044,7 @@ namespace ColumnRebarPro.V3
             Func<double,double> y = z => h - 35 - (z-z0)*scale;
             Action<double,double,string,Brush> label = (px,py,value,color) =>
             {
-                var text = new TextBlock { Text=value, FontSize=10, Foreground=color };
+                var text = new TextBlock { Text=value, FontSize=12, Foreground=color };
                 Canvas.SetLeft(text,px); Canvas.SetTop(text,py);
                 canvas.Children.Add(text);
             };
@@ -2118,7 +2135,7 @@ namespace ColumnRebarPro.V3
             double totalDrawH = heightMm + Math.Max(beamH, Math.Max(starterMm, hasUpper ? upperGapMm + upperHeightMm * 0.4 : 0));
             double totalDrawW = Math.Max(widthMm, upperWidthMm + 2*Math.Abs(upperCenterX)) + 120;
 
-            double pad = 18;
+            double pad = 40;
             double scale = Math.Min((cW - pad * 2) / totalDrawW, (cH - pad * 2) / totalDrawH);
             if (scale <= 0) return;
 
@@ -2132,8 +2149,10 @@ namespace ColumnRebarPro.V3
             };
             Action<double, double, string, Brush, double> addTxt = (x, y, text, brush, size) =>
             {
-                var tb = new TextBlock { Text = text, FontSize = size, Foreground = brush };
-                Canvas.SetLeft(tb, x); Canvas.SetTop(tb, y);
+                var tb = new TextBlock { Text = text, FontSize = Math.Max(12, size), Foreground = brush,
+                    MaxWidth = Math.Max(30, cW - Math.Max(4, x) - 4),
+                    TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = text };
+                Canvas.SetLeft(tb, Math.Max(4, x)); Canvas.SetTop(tb, Math.Max(4, Math.Min(y, cH - 20)));
                 LongSectionCanvas.Children.Add(tb);
             };
             Func<double, double> mmToY = mm => baseY - mm * scale;

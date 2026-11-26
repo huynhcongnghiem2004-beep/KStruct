@@ -19,7 +19,7 @@ def main():
     tree = ET.parse(XAML)
     root = tree.getroot()
     text = XAML.read_text(encoding="utf-8")
-    code = CS.read_text(encoding="utf-8")
+    code = CS.read_text(encoding="utf-8") + (ROOT / "ColumnRebarPro/V3/ColumnRebarV3Window.LivePreview.cs").read_text(encoding="utf-8")
     main = next(t for t in root.iter(f"{{{ns['w']}}}TabControl") if t.get(xns) == "MainTabs")
     tabs = [t.attrib.get("Header", "") for t in main.findall("w:TabItem", ns)]
     expected = [
@@ -67,7 +67,7 @@ def main():
     assert 'SizeChanged="DynamicPreview_SizeChanged"' in text
     assert "Preview-only WPF drawings" in dynamic
     handlers = set(re.findall(
-        r'\b(?:Click|Checked|Unchecked|SelectionChanged|LostFocus|SizeChanged)="([A-Za-z_]\w*)"',
+        r'\b(?:Click|Checked|Unchecked|SelectionChanged|TextChanged|LostFocus|SizeChanged)="([A-Za-z_]\w*)"',
         text))
     missing = sorted(h for h in handlers if not re.search(r'\b' + re.escape(h) + r'\s*\(', code))
     assert not missing, f"XAML handlers missing from code-behind: {missing}"

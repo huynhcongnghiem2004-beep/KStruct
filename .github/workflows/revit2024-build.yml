@@ -113,6 +113,15 @@ jobs:
           name: KStruct-Beam-UI
           path: beam-ui-previews/
           if-no-files-found: warn
+      - name: Check column XAML handlers and compile WPF interaction harness
+        shell: pwsh
+        run: |
+          python tests/check_column_v4_ui.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build tests/ColumnRebarUi/ColumnRebarUi.csproj --configuration Release "-p:RevitInstallDir=$env:REVIT_REFERENCE_DIR"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Executing this harness requires installed Revit native runtime DLLs.
+          # Hosted CI only has compile references; run interactions locally.
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
