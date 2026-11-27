@@ -1861,10 +1861,10 @@ namespace ColumnRebarPro.V3
             if (canvasW < 120 || canvasH < 100) return;
             double widthMm = row.Segment.WidthMm, depthMm = row.Segment.DepthMm;
             if (widthMm <= 0 || depthMm <= 0 || c.Cx < 2 || c.Cy < 2) return;
-            double factor = Math.Min((canvasW - 82) / widthMm, (canvasH - 78) / depthMm);
+            double factor = Math.Min((canvasW - 150) / widthMm, (canvasH - 78) / depthMm);
             if (factor <= 0) return;
             double w = widthMm * factor, h = depthMm * factor;
-            double left = (canvasW - w) / 2, top = (canvasH - h) / 2;
+            double left = 34 + (canvasW - 150 - w) / 2, top = (canvasH - h) / 2;
             AddOutline(left, top, w, h, Color.FromRgb(47, 143, 86), 5, 0);
             double inset = (c.Cover + c.TieDiameter / 2) * factor;
             double tieLeft = left + inset, tieTop = top + inset;
@@ -1911,6 +1911,8 @@ namespace ColumnRebarPro.V3
             Canvas.SetLeft(sizeLabel, Math.Max(4, left));
             Canvas.SetTop(sizeLabel, Math.Max(4, top - 23));
             SectionCanvas.Children.Add(sizeLabel);
+            DrawSectionAnnotations(SectionCanvas, left, top, w, h, bx2, by1,
+                tieLeft + tieW, tieTop, widthMm, depthMm, c);
             RefreshAllFloorSections();
         }
 
@@ -1931,9 +1933,9 @@ namespace ColumnRebarPro.V3
                     FontWeight = FontWeights.SemiBold, Margin = new Thickness(8,12,8,4),
                     Foreground = Brushes.DarkSlateBlue };
                 FloorSectionPreviewStack.Children.Add(title);
-                var diagram = new Canvas { Height=155, Margin=new Thickness(8),
+                var diagram = new Canvas { Height=190, MinWidth=300, Margin=new Thickness(8),
                     Background=Brushes.White };
-                double size = 125, cx = 75, cy = 75;
+                double size = 105, cx = 85, cy = 85;
                 double factor = size / Math.Max(segment.WidthMm,segment.DepthMm);
                 double ww = segment.WidthMm*factor, hh=segment.DepthMm*factor;
                 var concrete = new Rectangle { Width=ww,Height=hh,
@@ -1958,6 +1960,8 @@ namespace ColumnRebarPro.V3
                 double y0=cy-hh/2+barInset,y1=cy+hh/2-barInset;
                 for(int i=0;i<nx;i++) {double xx=x0+(x1-x0)*i/(nx-1);dot(xx,y0);dot(xx,y1);}
                 for(int j=1;j<ny-1;j++) {double yy=y0+(y1-y0)*j/(ny-1);dot(x0,yy);dot(x1,yy);}
+                DrawSectionAnnotations(diagram, cx-ww/2, cy-hh/2, ww, hh, x1, y0,
+                    cx+ww/2-tieInset, cy-hh/2+tieInset, segment.WidthMm, segment.DepthMm, cfg);
                 FloorSectionPreviewStack.Children.Add(diagram);
             }
             // The live interactive section remains accessible after the floor cards.
@@ -2013,6 +2017,32 @@ namespace ColumnRebarPro.V3
         // ========== MẶT CẮT DỌC MINH HỌA ==========
         // Whole-stack preview uses actual segment elevations. Junction markers are
         // shown only when the adjacent columns physically meet or leave a joint gap.
+        private static void DrawSectionAnnotations(Canvas canvas, double left, double top, double width,
+            double height, double barX, double barY, double tieX, double tieY,
+            double widthMm, double depthMm, V3RebarConfig config)
+        {
+            var ink = Brushes.DimGray;
+            double dx = left - 18, dy = top + height + 18;
+            PLine(canvas, left, dy, left + width, dy, ink, 0.8);
+            PLine(canvas, left, top + height, left, dy + 4, ink, 0.8);
+            PLine(canvas, left + width, top + height, left + width, dy + 4, ink, 0.8);
+            PText(canvas, Math.Round(widthMm) + " mm", left + width / 2 - 17, dy + 1, ink, 9);
+            PLine(canvas, dx, top, dx, top + height, ink, 0.8);
+            PLine(canvas, dx - 4, top, left, top, ink, 0.8);
+            PLine(canvas, dx - 4, top + height, left, top + height, ink, 0.8);
+            var vertical = new TextBlock { Text = Math.Round(depthMm) + " mm", FontSize = 9,
+                Foreground = ink, RenderTransform = new RotateTransform(-90) };
+            Canvas.SetLeft(vertical, Math.Max(1, dx - 14)); Canvas.SetTop(vertical, top + height / 2 + 15);
+            canvas.Children.Add(vertical);
+            double labelX = left + width + 18;
+            DrawPreviewLeader(canvas, tieX, tieY, labelX, Math.Max(2, top - 12),
+                "Ø" + config.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" +
+                config.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
+                config.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Teal);
+            DrawPreviewLeader(canvas, barX, barY, labelX, top + 14,
+                config.BarCount + "Ø" + config.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Firebrick);
+        }
+
         private static void DrawPreviewLeader(Canvas canvas, double targetX, double targetY,
             double textX, double textY, string text, Brush brush)
         {
@@ -2028,6 +2058,26 @@ namespace ColumnRebarPro.V3
                 Background = Brushes.White };
             Canvas.SetLeft(label, textX); Canvas.SetTop(label, textY);
             canvas.Children.Add(label);
+        }
+
+        private static void DrawElevationAnnotations(Canvas canvas, double left, double right,
+            double top, double bottom, double bottomMm, double topMm)
+        {
+            double dimX = Math.Max(24, left - 28);
+            var ink = Brushes.DimGray;
+            PLine(canvas, dimX, top, dimX, bottom, ink, 0.8);
+            PLine(canvas, dimX - 4, top, left, top, ink, 0.8);
+            PLine(canvas, dimX - 4, bottom, left, bottom, ink, 0.8);
+            var height = new TextBlock { Text = Math.Round(topMm - bottomMm) + " mm",
+                Foreground = ink, FontSize = 9, RenderTransform = new RotateTransform(-90) };
+            Canvas.SetLeft(height, dimX - 12); Canvas.SetTop(height, (top + bottom) / 2 + 20);
+            canvas.Children.Add(height);
+            PText(canvas, (topMm / 1000).ToString("+0.000;-0.000;0.000", CultureInfo.InvariantCulture) + " m", 2, Math.Max(0, top - 15), ink, 9);
+            PText(canvas, (bottomMm / 1000).ToString("+0.000;-0.000;0.000", CultureInfo.InvariantCulture) + " m", 2, Math.Max(0, bottom - 15), ink, 9);
+            double mid = (top + bottom) / 2;
+            PLine(canvas, left - 8, mid, right + 8, mid, ink, 0.7);
+            PText(canvas, "1", Math.Max(2, left - 15), mid - 13, ink, 9);
+            PText(canvas, "1", right + 3, mid - 13, ink, 9);
         }
 
         private void DrawWholeRouteOverview()
@@ -2064,6 +2114,8 @@ namespace ColumnRebarPro.V3
                 label(14,baseY-15,"LEVEL " + seg.LevelName + "  (" + Math.Round(seg.BottomMm) + " mm)",Brushes.DarkSlateGray);
                 label(x+half+6,(y(seg.TopMm)+baseY)/2,
                     Math.Round(seg.WidthMm) + "×" + Math.Round(seg.DepthMm),Brushes.DimGray);
+                DrawElevationAnnotations(canvas, x-half, x+half, y(seg.TopMm), baseY,
+                    seg.BottomMm, seg.TopMm);
                 if (_configs.TryGetValue(seg.Id.Value, out var config))
                 {
                     double top = y(seg.TopMm), mid = (top + baseY) / 2;
@@ -2191,6 +2243,8 @@ namespace ColumnRebarPro.V3
             };
             Canvas.SetLeft(colRect, cLeft); Canvas.SetTop(colRect, cTop);
             LongSectionCanvas.Children.Add(colRect);
+            DrawElevationAnnotations(LongSectionCanvas, cLeft, cRight, cTop, cBot,
+                row.Segment.BottomMm, row.Segment.TopMm);
 
             // === Vùng dầm sàn ===
             double jointDrawHeight = hasUpper ? Math.Max(0, upperGapMm) : (c.JointTies ? beamH : 0);
