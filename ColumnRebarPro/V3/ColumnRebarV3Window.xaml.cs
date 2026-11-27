@@ -1912,7 +1912,7 @@ namespace ColumnRebarPro.V3
             Canvas.SetLeft(sizeLabel, Math.Max(4, left));
             Canvas.SetTop(sizeLabel, Math.Max(4, top - 23));
             SectionCanvas.Children.Add(sizeLabel);
-            DrawSectionAnnotations(SectionCanvas, left, top, w, h, bx2, by1,
+            DrawSectionAnnotations(SectionCanvas, left, top, w, h, bx2, by2,
                 tieLeft + tieW, tieTop, widthMm, depthMm, c);
             RefreshAllFloorSections();
         }
@@ -1961,7 +1961,7 @@ namespace ColumnRebarPro.V3
                 double y0=cy-hh/2+barInset,y1=cy+hh/2-barInset;
                 for(int i=0;i<nx;i++) {double xx=x0+(x1-x0)*i/(nx-1);dot(xx,y0);dot(xx,y1);}
                 for(int j=1;j<ny-1;j++) {double yy=y0+(y1-y0)*j/(ny-1);dot(x0,yy);dot(x1,yy);}
-                DrawSectionAnnotations(diagram, cx-ww/2, cy-hh/2, ww, hh, x1, y0,
+                DrawSectionAnnotations(diagram, cx-ww/2, cy-hh/2, ww, hh, x1, y1,
                     cx+ww/2-tieInset, cy-hh/2+tieInset, segment.WidthMm, segment.DepthMm, cfg);
                 FloorSectionPreviewStack.Children.Add(diagram);
             }
@@ -2036,28 +2036,26 @@ namespace ColumnRebarPro.V3
             Canvas.SetLeft(vertical, Math.Max(1, dx - 14)); Canvas.SetTop(vertical, top + height / 2 + 15);
             canvas.Children.Add(vertical);
             double labelX = left + width + 18;
-            DrawPreviewLeader(canvas, tieX, tieY, labelX, Math.Max(2, top - 12),
+            DrawPreviewLeader(canvas, tieX, tieY, labelX,
                 "Ø" + config.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" +
                 config.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
                 config.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Teal);
-            DrawPreviewLeader(canvas, barX, barY, labelX, top + 14,
+            DrawPreviewLeader(canvas, barX, barY, labelX,
                 config.BarCount + "Ø" + config.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Firebrick);
         }
 
         private static void DrawPreviewLeader(Canvas canvas, double targetX, double targetY,
-            double textX, double textY, string text, Brush brush)
+            double textX, string text, Brush brush)
         {
-            double elbowX = textX - 5, lineY = textY + 11;
-            canvas.Children.Add(new Line { X1 = targetX, Y1 = targetY, X2 = elbowX,
-                Y2 = lineY, Stroke = brush, StrokeThickness = 1 });
-            canvas.Children.Add(new Line { X1 = elbowX, Y1 = lineY, X2 = textX + 12,
-                Y2 = lineY, Stroke = brush, StrokeThickness = 1 });
+            double lineEndX = Math.Max(targetX + 4, textX - 5);
+            canvas.Children.Add(new Line { X1 = targetX, Y1 = targetY, X2 = lineEndX,
+                Y2 = targetY, Stroke = brush, StrokeThickness = 1 });
             var dot = new Ellipse { Width = 4, Height = 4, Fill = brush };
             Canvas.SetLeft(dot, targetX - 2); Canvas.SetTop(dot, targetY - 2);
             canvas.Children.Add(dot);
             var label = new TextBlock { Text = text, FontSize = 9, Foreground = brush,
                 Background = Brushes.White };
-            Canvas.SetLeft(label, textX); Canvas.SetTop(label, textY);
+            Canvas.SetLeft(label, textX); Canvas.SetTop(label, targetY - 6);
             canvas.Children.Add(label);
         }
 
@@ -2126,9 +2124,9 @@ namespace ColumnRebarPro.V3
                     canvas.Children.Add(new Line { X1 = x - half + 3, X2 = steelX, Y1 = mid, Y2 = mid,
                         Stroke = Brushes.Teal, StrokeThickness = 1 });
                     double tagX = Math.Max(2, Math.Min(w - 110, x + half + 18));
-                    DrawPreviewLeader(canvas, steelX, mid - 2, tagX, mid - 24,
+                    DrawPreviewLeader(canvas, steelX, top + (baseY - top) * 0.3, tagX,
                         config.BarCount + "Ø" + config.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Firebrick);
-                    DrawPreviewLeader(canvas, steelX, mid, tagX, mid + 3,
+                    DrawPreviewLeader(canvas, steelX, mid, tagX,
                         "Ø" + config.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" +
                         config.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
                         config.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture) + " (đầu/giữa)", Brushes.Teal);
@@ -2361,8 +2359,8 @@ namespace ColumnRebarPro.V3
                     for (int i = 0; i < band.Count; i++)
                     {
                         double z = band.Position(i);
-                        if (!tieTagY.HasValue || Math.Abs(z - colH / 2) <
-                            Math.Abs((baseY - tieTagY.Value) / scale - colH / 2))
+                        if (!tieTagY.HasValue || Math.Abs(z - colH * 0.3) <
+                            Math.Abs((baseY - tieTagY.Value) / scale - colH * 0.3))
                             tieTagY = mmToY(z);
                         addLn(mmToX(-colHalfW + c.Cover), mmToY(z),
                             mmToX(colHalfW - c.Cover), mmToY(z), tieBrush, 0.8);
@@ -2374,13 +2372,13 @@ namespace ColumnRebarPro.V3
             }
 
             double tagX = Math.Max(2, Math.Min(cW - 110, cRight + 20));
-            double mainTagY = mmToY((barBot + barTop) / 2);
+            double mainTagY = mmToY(heightMm * 0.7);
             DrawPreviewLeader(LongSectionCanvas, mmToX(barXR), mainTagY, tagX,
-                Math.Max(20, mainTagY - 35), c.BarCount + "Ø" +
+                c.BarCount + "Ø" +
                 c.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Firebrick);
             if (tieTagY.HasValue)
                 DrawPreviewLeader(LongSectionCanvas, mmToX(colHalfW - c.Cover), tieTagY.Value,
-                    tagX, Math.Min(cH - 20, tieTagY.Value + 12), "Ø" +
+                    tagX, "Ø" +
                     c.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" +
                     c.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
                     c.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture) + " (đầu/giữa)", tieBrush);
