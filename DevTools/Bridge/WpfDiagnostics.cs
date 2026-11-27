@@ -84,7 +84,15 @@ namespace SDK_HD.KStruct.DevTools
             if (node is FrameworkElement element && !string.IsNullOrEmpty(element.Name)) snapshot.NamedCount++;
             if (node is Control) snapshot.ControlCount++;
             var values = node.GetLocalValueEnumerator();
-            while (values.MoveNext()) if (BindingOperations.IsDataBound(node, values.Current.Property)) snapshot.BindingCount++;
+            while (values.MoveNext())
+            {
+                var expression = BindingOperations.GetBindingExpressionBase(node, values.Current.Property);
+                if (expression == null) continue;
+                snapshot.BindingCount++;
+                if (expression.HasError || expression.Status == BindingStatus.PathError ||
+                    expression.Status == BindingStatus.UpdateSourceError || expression.Status == BindingStatus.UpdateTargetError)
+                    snapshot.BindingErrorCount++;
+            }
             if (node is Canvas canvas) { snapshot.CanvasCount++; snapshot.CanvasChildren += canvas.Children.Count; }
             if (node is Viewport3D viewport) { snapshot.Viewport3DCount++; snapshot.Viewport3DChildren += viewport.Children.Count; }
             if (Validation.GetHasError(node)) snapshot.ValidationErrorCount++;
@@ -105,6 +113,7 @@ namespace SDK_HD.KStruct.DevTools
         public int NamedCount { get; set; }
         public int ControlCount { get; set; }
         public int BindingCount { get; set; }
+        public int BindingErrorCount { get; set; }
         public int CanvasCount { get; set; }
         public int CanvasChildren { get; set; }
         public int Viewport3DCount { get; set; }

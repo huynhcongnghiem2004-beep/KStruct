@@ -38,7 +38,7 @@ def snapshot():
         return None
     result = {}
     for name in ("Kind", "CapturedUtc", "WidthDip", "HeightDip", "DpiX", "DpiY",
-                 "VisualCount", "NamedCount", "ControlCount", "BindingCount", "CanvasCount", "CanvasChildren",
+                 "VisualCount", "NamedCount", "ControlCount", "BindingCount", "BindingErrorCount", "CanvasCount", "CanvasChildren",
                  "Viewport3DCount", "Viewport3DChildren", "ValidationErrorCount"):
         value = getattr(item, name)
         result[name] = str(value) if name in ("Kind", "CapturedUtc") else float(value) if name in ("WidthDip", "HeightDip", "DpiX", "DpiY") else int(value)

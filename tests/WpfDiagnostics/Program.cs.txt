@@ -24,11 +24,13 @@ internal static class Program
             var panel = new StackPanel();
             var box = new TextBox();
             box.SetBinding(TextBox.TextProperty, new Binding("Tag") { Source = window, Mode = BindingMode.OneWay });
+            var broken = new TextBox();
+            broken.SetBinding(TextBox.TextProperty, new Binding("NoSuchProperty") { Source = window });
             var button = new Button { Content = "Test" };
             var canvas = new Canvas { Width = 80, Height = 80 }; canvas.Children.Add(new Border());
             var viewport = new Viewport3D { Width = 80, Height = 80 };
             viewport.Children.Add(new ModelVisual3D());
-            panel.Children.Add(box); panel.Children.Add(button); panel.Children.Add(canvas); panel.Children.Add(viewport);
+            panel.Children.Add(box); panel.Children.Add(broken); panel.Children.Add(button); panel.Children.Add(canvas); panel.Children.Add(viewport);
             window.Content = panel;
             WpfDiagnostics.Attach(window, "fixture");
             WpfDiagnostics.Attach(window, "duplicate");
@@ -39,6 +41,7 @@ internal static class Program
             Assert(capture != null && capture.Kind == "fixture", "Missing capture or duplicate attach.");
             Assert(capture.Events.ContainsKey("click") && capture.Events["click"] == 1, "Click event counted incorrectly.");
             Assert(capture.BindingCount > 0 && capture.ControlCount > 0, "Missing binding or controls.");
+            Assert(capture.BindingErrorCount > 0, "Broken binding was not reported.");
             Assert(capture.CanvasCount > 0 && capture.CanvasChildren > 0, "Missing 2D canvas.");
             Assert(capture.Viewport3DCount > 0 && capture.Viewport3DChildren > 0, "Missing 3D viewport.");
             Assert(capture.DpiX > 0 && capture.DpiY > 0, "Missing monitor DPI.");

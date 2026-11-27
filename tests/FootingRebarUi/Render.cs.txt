@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Ellipse = System.Windows.Shapes.Ellipse;
 using System.Windows.Threading;
 using SDK_HD.KStruct.FootingRebar;
 
@@ -124,15 +125,26 @@ internal static class Render
         diameter.IsDropDownOpen=true; window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{}));
         if (!diameter.IsDropDownOpen || diameter.Items.Count==0) throw new InvalidOperationException("Diameter dropdown is unavailable");
         diameter.IsDropDownOpen=false;
+        var preview=(Canvas)window.FindName("PreviewCanvas");
+        var spacingY=(TextBox)window.FindName("TxtSpacingY");
+        string originalY=spacingY.Text;
+        int dense=preview.Children.OfType<Ellipse>().Count(shape => shape.Fill == Brushes.Crimson);
+        spacingY.Text="300";
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
+        int sparse=preview.Children.OfType<Ellipse>().Count(shape => shape.Fill == Brushes.Crimson);
+        if (dense <= sparse || sparse == 0)
+            throw new InvalidOperationException("Increasing Y spacing must reduce the bottom-Y preview bar count");
+        spacingY.Text=originalY;
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
         var spacing=(TextBox)window.FindName("TxtSpacingX");
         string original=spacing.Text;
         spacing.Text="không hợp lệ";
         window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
-        if(accept.IsEnabled || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Visible)
+        if(accept.IsEnabled || preview.Children.Count != 0 || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Visible)
             throw new InvalidOperationException("Invalid input must show an inline explanation and block submission");
         spacing.Text=original;
         window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
-        if(!accept.IsEnabled || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Collapsed ||
+        if(!accept.IsEnabled || preview.Children.Count == 0 || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Collapsed ||
             !((TextBlock)window.FindName("TxtConfigurationSummary")).Text.Contains("Đáy X"))
             throw new InvalidOperationException("Corrected input must restore preview summary and submission");
         window.Close();
