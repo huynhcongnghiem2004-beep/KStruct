@@ -214,20 +214,26 @@ namespace ColumnRebarPro.V3
             // projects created from templates. The standalone command itself enables drawing.
             var control = new V3DeploymentControl();
             control.Initialize(doc);
-            control.SetDeploymentEnabled(true);
+            control.PrepareForExistingRebar();
+            return control.Capture();
+        }
+
+        internal void PrepareForExistingRebar()
+        {
+            SetDeploymentEnabled(true);
+            EnableCheck.IsEnabled = false;
             foreach (string prefix in new[] { "Cross", "Long" })
             {
                 foreach (string suffix in new[] { "Dimension", "TextType", "StirrupTag", "MainTag" })
                 {
-                    var picker = (ComboBox)control.FindName(prefix + suffix);
+                    var picker = (ComboBox)FindName(prefix + suffix);
                     bool needed = suffix == "Dimension" || suffix == "TextType"
-                        ? ((CheckBox)control.FindName(prefix + "ShowValue")).IsChecked == true
-                        : ((CheckBox)control.FindName(prefix + "ShowTag")).IsChecked == true;
+                        ? ((CheckBox)FindName(prefix + "ShowValue")).IsChecked == true
+                        : ((CheckBox)FindName(prefix + "ShowTag")).IsChecked == true;
                     if (needed && (!(picker.SelectedItem is Choice selected) || selected.Id < 0))
                         picker.SelectedItem = picker.Items.Cast<Choice>().FirstOrDefault(c => c.Id >= 0);
                 }
             }
-            return control.Capture();
         }
 
         public static void PersistSettings(Document doc, DeploymentSettingsFile file)
@@ -433,46 +439,37 @@ namespace ColumnRebarPro.V3
             return file;
         }
 
+        internal DeploymentSettingsFile CaptureValidated()
+        {
+            ValidateSettings();
+            return Capture();
+        }
+
+        private void ValidateSettings()
+        {
+            if (!_ready) throw new InvalidOperationException("Chưa nạp dữ liệu project Revit.");
+            if (EnableCheck.IsChecked != true) return;
+
+            if (string.IsNullOrWhiteSpace(SheetName.Text) || string.IsNullOrWhiteSpace(SheetNumber.Text))
+                throw new InvalidOperationException("Nhập tên và số sheet.");
+
+            foreach (var name in new[] { "TitleBlock", "CrossSectionType", "LongSectionType" })
+                if (((ComboBox)FindName(name)).SelectedItem == null)
+                    throw new InvalidOperationException("Chưa chọn Title Block hoặc View Family Type mặt cắt.");
+
+            foreach (var name in new[] { "CrossScale", "LongScale" })
+            {
+                int scale;
+                if (!int.TryParse(((TextBox)FindName(name)).Text.Trim(), out scale) || scale < 1 || scale > 24000)
+                    throw new InvalidOperationException("Tỷ lệ mặt cắt phải là số nguyên từ 1 đến 24000.");
+            }
+        }
+
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (!_ready) throw new InvalidOperationException("Chưa nạp dữ liệu project Revit.");
-
-                if (EnableCheck.IsChecked == true)
-                {
-                    if (string.IsNullOrWhiteSpace(SheetName.Text) || string.IsNullOrWhiteSpace(SheetNumber.Text))
-                        throw new InvalidOperationException("Nhập tên và số sheet.");
-
-                    foreach (var name in new[] { "TitleBlock", "CrossSectionType", "LongSectionType" })
-                        if (((ComboBox)FindName(name)).SelectedItem == null)
-                            throw new InvalidOperationException("Chưa chọn Title Block hoặc View Family Type mặt cắt.");
-
-                    foreach (var name in new[] { "CrossScale", "LongScale" })
-                    {
-                        int scale;
-                        if (!int.TryParse(((TextBox)FindName(name)).Text.Trim(), out scale) || scale < 1 || scale > 24000)
-                            throw new InvalidOperationException("Tỷ lệ mặt cắt phải là số nguyên từ 1 đến 24000.");
-                    }
-                }
-
-                var file = new DeploymentSettingsFile();
-
-                foreach (var name in _textNames)
-                    file.Entries.Add(new DeploymentSettingEntry { Name = name, Value = ((TextBox)FindName(name)).Text.Trim() });
-
-                foreach (var name in _checkNames)
-                    file.Entries.Add(new DeploymentSettingEntry
-                    {
-                        Name = name,
-                        Value = ((CheckBox)FindName(name)).IsChecked == true ? "true" : "false"
-                    });
-
-                foreach (var name in _comboNames)
-                {
-                    var choice = ((ComboBox)FindName(name)).SelectedItem as Choice;
-                    file.Entries.Add(Entry(name, choice));
-                }
+                var file = CaptureValidated();
 
                 Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath));
                 string temporary = _settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";

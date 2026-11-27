@@ -21,6 +21,77 @@ namespace ColumnRebarPro.V3
             IndependentColumnDrawingService.ExecuteV3(data, ref message, false);
     }
 
+    internal sealed class ColumnDrawingSettingsWindow : Window
+    {
+        private readonly Document _document;
+        private readonly V3DeploymentControl _settingsControl;
+
+        internal DeploymentSettingsFile Settings { get; private set; }
+
+        internal ColumnDrawingSettingsWindow(Document document)
+        {
+            _document = document ?? throw new ArgumentNullException(nameof(document));
+            Title = "KStruct - Thông số triển khai hồ sơ cột";
+            Width = 1120;
+            Height = 820;
+            MinWidth = 820;
+            MinHeight = 620;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
+            var layout = new System.Windows.Controls.Grid();
+            layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            _settingsControl = new V3DeploymentControl();
+            _settingsControl.Initialize(document);
+            _settingsControl.PrepareForExistingRebar();
+            layout.Children.Add(_settingsControl);
+
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(12)
+            };
+            var cancel = new Button
+            {
+                Content = "Hủy",
+                MinWidth = 90,
+                Padding = new Thickness(14, 7, 14, 7),
+                Margin = new Thickness(0, 0, 8, 0),
+                IsCancel = true
+            };
+            var accept = new Button
+            {
+                Content = "Tiếp tục tạo bản vẽ",
+                MinWidth = 170,
+                Padding = new Thickness(14, 7, 14, 7),
+                IsDefault = true
+            };
+            accept.Click += Accept_Click;
+            actions.Children.Add(cancel);
+            actions.Children.Add(accept);
+            System.Windows.Controls.Grid.SetRow(actions, 1);
+            layout.Children.Add(actions);
+            Content = layout;
+        }
+
+        private void Accept_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Settings = _settingsControl.CaptureValidated();
+                V3DeploymentControl.PersistSettings(_document, Settings);
+                DialogResult = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "KStruct - Thông số triển khai",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
     internal static class IndependentColumnDrawingService
     {
         private static readonly Guid SchemaId = new Guid("B411042C-5B2A-4C1B-AF4C-762628B7CC1E");
@@ -41,6 +112,11 @@ namespace ColumnRebarPro.V3
             Document doc = ui.Document;
             try
             {
+                var settingsWindow = new ColumnDrawingSettingsWindow(doc);
+                new WindowInteropHelper(settingsWindow).Owner = data.Application.MainWindowHandle;
+                if (settingsWindow.ShowDialog() != true) return Result.Cancelled;
+                DeploymentSettingsFile settings = settingsWindow.Settings;
+
                 List<FamilyInstance> picked = ui.Selection.GetElementIds().Select(doc.GetElement)
                     .OfType<FamilyInstance>().Where(c => new ColumnFilter().AllowElement(c)).Distinct().ToList();
                 if (picked.Count == 0)
@@ -48,8 +124,6 @@ namespace ColumnRebarPro.V3
                             "Chọn cột KStruct cần " + (update ? "cập nhật" : "triển khai") + " bản vẽ")
                         .Select(r => doc.GetElement(r)).OfType<FamilyInstance>().Distinct().ToList();
                 if (picked.Count == 0) return Result.Cancelled;
-
-                DeploymentSettingsFile settings = V3DeploymentControl.ForExistingRebar(doc);
 
                 var seen = new HashSet<ElementId>();
                 var jobs = new List<List<V3SegmentWork>>();
