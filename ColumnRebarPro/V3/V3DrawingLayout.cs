@@ -50,20 +50,7 @@ namespace ColumnRebarPro.V3
             foreach(var w in works) { Annotate(doc,w,longitudinal,"Long"); ZoneDetail(doc,w,longitudinal); StarterDim(doc,w,longitudinal); }
             BreakLines(doc,works,longitudinal);
             DrawBarShapes(doc,works,longitudinal,aggregate);
-            // Reference all BASE/MID/NODE views on the longitudinal section.
             var ordered=works.OrderBy(w=>w.Geometry.Bottom).ToList();
-            for(int i=0;i<ordered.Count;i++)
-            {
-                var w=ordered[i];
-                double inset=Math.Min(V3Units.Ft(100),w.Geometry.Height*0.12);
-                double[] elevations={
-                    w.Geometry.Bottom+inset,
-                    w.Geometry.Bottom+w.Geometry.Height/2,
-                    w.Geometry.Top-inset
-                };
-                for(int j=0;j<elevations.Length;j++)
-                    SectionMarks(doc,longitudinal,w,i*3+j+2,elevations[j]);
-            }
             FitCrop(doc,longitudinal);
             var sections=new List<View>();int index=2;
             foreach(var w in ordered)
@@ -274,36 +261,6 @@ namespace ColumnRebarPro.V3
             XYZ p=Project(view,g.At(0,0,0))-view.RightDirection*(g.Width/2+V3DrawStyle.P(view,offsetPaper+V3DrawStyle.CropMargin));
             var box=view.CropBox;XYZ q=box.Transform.Inverse.OfPoint(p);
             box.Min=new XYZ(Math.Min(box.Min.X,q.X),box.Min.Y,box.Min.Z);view.CropBox=box;
-        }
-
-        // Vạch cắt đỏ nét đứt ngang cột, hai đầu có tam giác đặc (mũi xuống) và số hiệu đỏ: "2 ▼----▼ 2".
-        private void SectionMarks(Document doc,View view,V3SegmentWork w,int index,double cutElevation)
-        {
-            var g=w.Geometry;
-            XYZ center=Project(view,g.At(0,0,0))+XYZ.BasisZ*cutElevation;
-            XYZ left=center-view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkLeft));
-            XYZ right=center+view.RightDirection*(g.Width/2+V3DrawStyle.P(view,V3DrawStyle.MarkRight));
-            var dash=V3DrawStyle.Line(doc,"KSTR Vạch cắt",new Color(255,0,0),2,"Dash");
-            doc.Create.NewDetailCurve(view,Line.CreateBound(left,right)).LineStyle=dash;
-            double halfW=V3DrawStyle.P(view,V3DrawStyle.MarkTriW)/2,h=V3DrawStyle.P(view,V3DrawStyle.MarkTriH);
-            var fill=V3DrawStyle.SolidRegion(doc);
-            foreach(XYZ end in new[]{left,right})
-            {
-                XYZ a=end-view.RightDirection*halfW,b=end+view.RightDirection*halfW,tip=end-view.UpDirection*h;
-                var loop=new CurveLoop();
-                loop.Append(Line.CreateBound(a,b));loop.Append(Line.CreateBound(b,tip));loop.Append(Line.CreateBound(tip,a));
-                if(fill!=ElementId.InvalidElementId)FilledRegion.Create(doc,fill,view.Id,new List<CurveLoop>{loop});
-                else foreach(Curve edge in loop)doc.Create.NewDetailCurve(view,edge).LineStyle=dash;
-            }
-            var text=V3DrawStyle.RedText(doc,Id("LongTextType"));
-            foreach(int side in new[]{-1,1})
-            {
-                XYZ at=(side<0?left:right)+view.RightDirection*(side*(halfW+V3DrawStyle.P(view,V3DrawStyle.MarkTextGap)));
-                var options=new TextNoteOptions(text){
-                    HorizontalAlignment=side<0?HorizontalTextAlignment.Right:HorizontalTextAlignment.Left,
-                    VerticalAlignment=VerticalTextAlignment.Bottom};
-                TextNote.Create(doc,view.Id,at,index.ToString(),options);
-            }
         }
 
         // Bảng thép dưới mặt cắt: canh mép trái theo mặt cắt, khung đỏ, 3 dòng như bản vẽ mẫu.
