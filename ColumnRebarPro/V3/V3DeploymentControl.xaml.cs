@@ -452,6 +452,14 @@ namespace ColumnRebarPro.V3
             return option != null && option.IsChecked == true;
         }
 
+        internal V3TagHorizontalSide SelectedTagSide(string name, V3TagHorizontalSide fallback)
+        {
+            var box = FindName(name) as ComboBox;
+            var choice = box == null ? null : box.SelectedItem as Choice;
+            return choice == null ? fallback :
+                V3TagPlacement.Resolve(choice.FamilyName, choice.TypeName, fallback);
+        }
+
         internal DeploymentSettingsFile CaptureValidated()
         {
             ValidateSettings();

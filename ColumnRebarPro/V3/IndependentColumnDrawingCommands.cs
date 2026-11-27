@@ -193,18 +193,23 @@ namespace ColumnRebarPro.V3
 
             if (crossShowTag)
             {
-                // Đai: builder thật đặt phía trên-phải, leader hướng vào đai.
-                double stirrupTagX = Math.Min(width - 105, boxX + boxW + 38);
-                AddReviewLine(boxX + boxW - 8, boxY + 8, stirrupTagX - 7, boxY + 8, steel, 1);
-                AddReviewLine(stirrupTagX - 7, boxY + 8, stirrupTagX, boxY, steel, 1);
+                V3TagHorizontalSide stirrupSide = _settingsControl.SelectedTagSide("CrossStirrupTag",
+                    V3TagHorizontalSide.Right);
+                bool stirrupRight = stirrupSide == V3TagHorizontalSide.Right;
+                double stirrupTargetX = stirrupRight ? boxX + boxW - 8 : boxX + 8;
+                double stirrupTagX = stirrupRight ? Math.Min(width - 105, boxX + boxW + 38) : 5;
+                double stirrupLineX = stirrupRight ? stirrupTagX - 7 : stirrupTagX + 58;
+                AddReviewLine(stirrupTargetX, boxY + 8, stirrupLineX, boxY + 8, steel, 1);
                 AddReviewText("Ø8a100", stirrupTagX, boxY - 7, steel, 9, true);
 
-                // Thép dọc: Multi-Rebar Annotation nằm phía dưới với dãy ngang,
-                // hoặc bên trái với dãy đứng; tag đơn đi ra ngoài theo hướng thanh.
+                // MRA giữ đường kích thước theo dãy thanh; đầu tag dịch trái/phải theo token T/P.
+                V3TagHorizontalSide mainSide = _settingsControl.SelectedTagSide("CrossMainTag",
+                    V3TagHorizontalSide.Left);
                 double mraY = boxY + boxH + 18;
                 AddReviewLine(boxX + 8, mraY, boxX + boxW - 8, mraY, steel, 1);
-                AddReviewText("4D20 · MRA", boxX + 16, mraY + 2, steel, 9, true);
-                AddReviewText("MRA", Math.Max(2, boxX - 37), boxY + boxH / 2 - 6, steel, 8, true);
+                double mainTagX = mainSide == V3TagHorizontalSide.Right
+                    ? Math.Min(width - 82, boxX + boxW + 20) : Math.Max(2, boxX - 58);
+                AddReviewText("4D20 · MRA", mainTagX, mraY - 8, steel, 8, true);
             }
 
             double longTop = split + 12;
@@ -224,13 +229,16 @@ namespace ColumnRebarPro.V3
             bool longShowValue = _settingsControl.IsOptionChecked("LongShowValue");
             if (longShowTag)
             {
-                // Tag đai của builder thật luôn ở bên trái cột, đứng dọc và không leader.
+                V3TagHorizontalSide stirrupSide = _settingsControl.SelectedTagSide("LongStirrupTag",
+                    V3TagHorizontalSide.Left);
+                bool stirrupRight = stirrupSide == V3TagHorizontalSide.Right;
                 var stirrupLabel = new TextBlock
                 {
                     Text = "Ø8a200", Foreground = steel, FontSize = 9, FontWeight = FontWeights.SemiBold,
                     RenderTransform = new System.Windows.Media.RotateTransform(-90)
                 };
-                Canvas.SetLeft(stirrupLabel, Math.Max(3, columnX - 39));
+                Canvas.SetLeft(stirrupLabel, stirrupRight
+                    ? Math.Min(width - 22, columnX + columnW + 19) : Math.Max(3, columnX - 39));
                 Canvas.SetTop(stirrupLabel, columnY + columnH / 2 + 25);
                 _reviewCanvas.Children.Add(stirrupLabel);
             }
@@ -244,7 +252,10 @@ namespace ColumnRebarPro.V3
                 AddReviewLine(shapeX, shapeTop, shapeX + 14, shapeTop, steel, 1.2);
                 AddReviewLine(shapeX - 10, shapeTop, shapeX - 10, shapeBottom, blue, .9);
                 AddReviewText("L", shapeX - 23, (shapeTop + shapeBottom) / 2 - 6, blue, 9, false);
-                AddReviewText("4D20", shapeX + 18, (shapeTop + shapeBottom) / 2 - 7, steel, 9, true);
+                V3TagHorizontalSide mainSide = _settingsControl.SelectedTagSide("LongMainTag",
+                    V3TagHorizontalSide.Right);
+                double mainTagX = mainSide == V3TagHorizontalSide.Right ? shapeX + 18 : shapeX - 54;
+                AddReviewText("4D20", mainTagX, (shapeTop + shapeBottom) / 2 - 7, steel, 9, true);
             }
 
             string crossDim = crossShowValue ? ShortChoice("CrossDimension") : "Tắt";
@@ -256,8 +267,8 @@ namespace ColumnRebarPro.V3
             _reviewStatus.Text =
                 "MCN · Dim: " + crossDim + "\nTag đai: " + crossTie + " · Tag dọc: " + crossMain +
                 "\nMCD · Dim: " + longDim + "\nTag đai: " + longTie + " · Tag dọc: " + longMain +
-                "\nQuy tắc thật: đai dọc bên trái; hình khai triển và tag thép dọc bên phải; " +
-                "đai ngang phía trên-phải; thép dọc ngang dùng MRA phía trái/dưới.";
+                "\nQuy tắc hướng: token P trong tên loại đặt tag bên phải; token T đặt bên trái. " +
+                "Tên không có P/T giữ hướng mặc định của từng loại ghi chú.";
         }
 
         private string ShortChoice(string name)

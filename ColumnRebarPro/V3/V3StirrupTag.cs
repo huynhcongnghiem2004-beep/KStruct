@@ -10,9 +10,9 @@ namespace ColumnRebarPro.V3
     {
         private const double StirrupTagGapMm = 200;   // khoảng cách từ mép cột đến mép gần nhất của tag
 
-        // Mặt cắt dọc: tag thép đai luôn nằm bên trái cột, không leader, xoay 90° theo chiều dọc cột,
-        // mép tag cách mép trái cột 200 mm, tâm tag nằm giữa đoạn đai (giữa vị trí đai đầu và đai cuối của set).
-        private void TagStirrupLeft(Document doc, V3SegmentWork work, ViewSection view, Rebar bar,
+        // Mặt cắt dọc: token P/T trong tên loại Tag chọn bên phải/trái. Tag không leader,
+        // xoay 90° theo chiều dọc cột và cách mép cột 200 mm.
+        private void TagStirrupByName(Document doc, V3SegmentWork work, ViewSection view, Rebar bar,
                                      FamilySymbol tagSymbol, HashSet<string> spans)
         {
             IList<Curve> first, last;
@@ -34,9 +34,12 @@ namespace ColumnRebarPro.V3
 
             var g = work.Geometry;
             XYZ right = view.RightDirection;
-            XYZ faceLeft = Project(view, g.At(0, 0, 0)) - right * (g.Width / 2);   // mép trái cột
-            double targetRight = faceLeft.DotProduct(right) - V3Units.Ft(StirrupTagGapMm);
-            XYZ head = faceLeft - right * V3Units.Ft(StirrupTagGapMm) + XYZ.BasisZ * midZ;
+            V3TagHorizontalSide side = V3TagPlacement.Resolve(tagSymbol.FamilyName, tagSymbol.Name,
+                V3TagHorizontalSide.Left);
+            double sign = side == V3TagHorizontalSide.Right ? 1 : -1;
+            XYZ face = Project(view, g.At(0, 0, 0)) + right * (sign * g.Width / 2);
+            double targetEdge = face.DotProduct(right) + sign * V3Units.Ft(StirrupTagGapMm);
+            XYZ head = face + right * (sign * V3Units.Ft(StirrupTagGapMm)) + XYZ.BasisZ * midZ;
 
             var sub = bar.GetSubelements().FirstOrDefault();
             var reference = sub == null ? new Reference(bar) : sub.GetReference();
@@ -46,16 +49,18 @@ namespace ColumnRebarPro.V3
             // Căn lại theo khung bao thật của tag: mép phải của tag cách cột 200 mm, tâm đứng đúng giữa đoạn đai.
             BoundingBoxXYZ bb = tag.get_BoundingBox(view);
             if (bb == null) return;
-            double maxR = double.MinValue, minZ = double.MaxValue, maxZ = double.MinValue;
+            double minR = double.MaxValue, maxR = double.MinValue, minZ = double.MaxValue, maxZ = double.MinValue;
             foreach (double x in new[] { bb.Min.X, bb.Max.X })
                 foreach (double y in new[] { bb.Min.Y, bb.Max.Y })
                     foreach (double z in new[] { bb.Min.Z, bb.Max.Z })
                     {
                         XYZ w = bb.Transform.OfPoint(new XYZ(x, y, z));
-                        maxR = Math.Max(maxR, w.DotProduct(right));
+                        minR = Math.Min(minR, w.DotProduct(right)); maxR = Math.Max(maxR, w.DotProduct(right));
                         minZ = Math.Min(minZ, w.Z); maxZ = Math.Max(maxZ, w.Z);
                     }
-            tag.TagHeadPosition = tag.TagHeadPosition + right * (targetRight - maxR) + XYZ.BasisZ * (midZ - (minZ + maxZ) / 2);
+            double currentEdge = side == V3TagHorizontalSide.Right ? minR : maxR;
+            tag.TagHeadPosition = tag.TagHeadPosition + right * (targetEdge - currentEdge) +
+                XYZ.BasisZ * (midZ - (minZ + maxZ) / 2);
         }
     }
 }

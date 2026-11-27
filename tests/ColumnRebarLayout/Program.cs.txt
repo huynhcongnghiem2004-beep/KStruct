@@ -58,6 +58,16 @@ static class Program
         Reject(() => V3TableParameterNames.Find(new[] { "Bar Diameter_Stirrup Top&Bot", "BarDiameter_StirrupTop&Bot" },
             "Bar Diameter_StirrupTop&Bot"));
         Reject(() => V3TableParameterNames.Find(new[] { "Quantity", "Quantity" }, "Quantity"));
+        Check(V3TagPlacement.Resolve("@BSA3-RT_MID", "A3_P_RT_DK&KC_MID", V3TagHorizontalSide.Left) ==
+            V3TagHorizontalSide.Right, "P tag token places the tag on the right");
+        Check(V3TagPlacement.Resolve("@BSA3-RT_MID", "A3_T_RT_DK&KC_MID", V3TagHorizontalSide.Right) ==
+            V3TagHorizontalSide.Left, "T tag token places the tag on the left");
+        Check(V3TagPlacement.Resolve("Family_P", "Type_T", V3TagHorizontalSide.Right) ==
+            V3TagHorizontalSide.Left, "Type token takes priority over family token");
+        Check(V3TagPlacement.Resolve("Plain family", "TOP", V3TagHorizontalSide.Right) ==
+            V3TagHorizontalSide.Right, "Letters inside words are not placement tokens");
+        Check(V3TagPlacement.Resolve("Plain family", "Plain type", V3TagHorizontalSide.Left) ==
+            V3TagHorizontalSide.Left, "Tags without P/T preserve the caller fallback");
         // Dimensionless ratios also work in Revit internal feet.
         Check(V3CapGeometryPolicy.IsSeparateCap(6, 6, 4.8, .8), "Separate 2x3 cap works without named thickness");
         Check(!V3CapGeometryPolicy.IsSeparateCap(.16, .16, 1.6, 10), "Deep nested pile is not a cap");

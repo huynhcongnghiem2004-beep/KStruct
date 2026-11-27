@@ -161,7 +161,7 @@ namespace ColumnRebarPro.V3
                     }
                 }
 
-                // 3) Rebar Tag (loại đã chọn cho mặt cắt dọc) đặt cạnh hình, không leader.
+                // 3) Rebar Tag đặt bên P/T theo token trong tên loại đã chọn, không leader.
                 //    Mác, số lượng, đường kính, chiều dài do family tag quyết định.
                 double bestLen = 0, midZ = (sh.MinZ + sh.MaxZ) / 2;
                 for (int i = 0; i + 1 < sh.Pts.Count; i++)
@@ -169,16 +169,22 @@ namespace ColumnRebarPro.V3
                     double len = Math.Abs(sh.Pts[i + 1].Z - sh.Pts[i].Z);
                     if (len > bestLen && Math.Abs(sh.Pts[i + 1].X - sh.Pts[i].X) < 1e-6) { bestLen = len; midZ = (sh.Pts[i].Z + sh.Pts[i + 1].Z) / 2; }
                 }
-                XYZ head = P(xs + sh.LateralMax + V3Units.Ft(8 * s), midZ);
                 var tagSymbol = doc.GetElement(tagType) as FamilySymbol;
                 if (tagSymbol != null)
                 {
                     if (!tagSymbol.IsActive) { tagSymbol.Activate(); doc.Regenerate(); }
+                    V3TagHorizontalSide side = V3TagPlacement.Resolve(tagSymbol.FamilyName, tagSymbol.Name,
+                        V3TagHorizontalSide.Right);
+                    double headX = side == V3TagHorizontalSide.Right
+                        ? xs + sh.LateralMax + V3Units.Ft(8 * s)
+                        : xs + sh.LateralMin - V3Units.Ft(8 * s);
+                    XYZ head = P(headX, midZ);
                     var sub = sh.Bar.GetSubelements().FirstOrDefault();
                     var reference = sub == null ? new Reference(sh.Bar) : sub.GetReference();
                     IndependentTag.Create(doc, tagType, view.Id, reference, false, TagOrientation.Horizontal, head);
+                    touched.Add(head); touched.Add(head + right *
+                        (side == V3TagHorizontalSide.Right ? V3Units.Ft(14 * s) : -V3Units.Ft(14 * s)));
                 }
-                touched.Add(head); touched.Add(head + right * V3Units.Ft(14 * s));
 
                 cursor = xs + sh.LateralMax + V3Units.Ft(22 * s);
             }

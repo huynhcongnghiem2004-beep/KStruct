@@ -45,6 +45,7 @@ namespace ColumnRebarPro.V3
         {
             var covered = new HashSet<ElementId>();
             var type = FindMultiRebarType(doc);
+            var configuredMainTag = ActiveTagSymbol(doc, Id("CrossMainTag"));
 
             var geometry = work.Geometry;
             double scale = view.Scale;
@@ -91,11 +92,12 @@ namespace ColumnRebarPro.V3
                 {
                     ElementId tagId = Id("CrossMainTag");
                     if (tagId == ElementId.InvalidElementId && type != null) tagId = type.TagTypeId;
-                    var tag = ActiveTagSymbol(doc, tagId);
+                    var tag = configuredMainTag ?? ActiveTagSymbol(doc, tagId);
                     string error = "Chưa chọn Tag thép dọc cho mặt cắt ngang.";
-                    XYZ outward = a - columnCenter;
-                    if (outward.GetLength() < tolerance) outward = right;
-                    XYZ head = a + outward.Normalize() * V3Units.Ft(10 * scale);
+                    V3TagHorizontalSide side = tag == null ? V3TagHorizontalSide.Right :
+                        V3TagPlacement.Resolve(tag.FamilyName, tag.Name, V3TagHorizontalSide.Right);
+                    XYZ head = a + right * (side == V3TagHorizontalSide.Right ? 1 : -1) *
+                        V3Units.Ft(10 * scale);
                     if (tag == null || !TryTag(doc, view, tag, bar, head, out error))
                         throw new InvalidOperationException("Không gắn được tag cho Rebar " + bar.Id.Value + ": " + error);
                     covered.Add(bar.Id);
@@ -105,11 +107,15 @@ namespace ColumnRebarPro.V3
                 XYZ midpoint = (a + b) / 2;
                 bool alongUp = Math.Abs(direction.DotProduct(up)) > Math.Abs(direction.DotProduct(right));
 
+                FamilySymbol multiTag = configuredMainTag ?? ActiveTagSymbol(doc, type.TagTypeId);
+                V3TagHorizontalSide multiSide = multiTag == null ? V3TagHorizontalSide.Left :
+                    V3TagPlacement.Resolve(multiTag.FamilyName, multiTag.Name, V3TagHorizontalSide.Left);
+                XYZ sideDirection = right * (multiSide == V3TagHorizontalSide.Right ? 1 : -1);
                 XYZ normal, origin;
                 double along = (midpoint - columnCenter).DotProduct(alongUp ? up : right);
                 if (alongUp)
                 {
-                    normal = -right;
+                    normal = sideDirection;
                     origin = columnCenter + up * along + normal *
                         (geometry.Width / 2 + V3Units.Ft(8 * scale));
                 }
@@ -127,7 +133,7 @@ namespace ColumnRebarPro.V3
                     options.DimensionLineOrigin = origin;
                     options.DimensionLineDirection = direction;
                     options.DimensionPlaneNormal = view.ViewDirection;
-                    options.TagHeadPosition = origin + normal * V3Units.Ft(10 * scale);
+                    options.TagHeadPosition = origin + sideDirection * V3Units.Ft(10 * scale);
                     options.TagHasLeader = false;
                     MultiReferenceAnnotation.Create(doc, view.Id, options);
                     covered.Add(bar.Id);

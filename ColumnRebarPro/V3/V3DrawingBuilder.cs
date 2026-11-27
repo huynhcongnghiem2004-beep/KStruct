@@ -341,7 +341,7 @@ namespace ColumnRebarPro.V3
                 int tagged = 0, failed = 0;
                 foreach (Rebar bar in stirrups.OrderBy(b => b.Id.Value))
                 {
-                    try { TagStirrupLeft(doc, work, view, bar, stirrupTag, spans); tagged++; }
+                    try { TagStirrupByName(doc, work, view, bar, stirrupTag, spans); tagged++; }
                     catch (Autodesk.Revit.Exceptions.ArgumentException) { failed++; }
                     catch (Autodesk.Revit.Exceptions.InvalidOperationException) { failed++; }
                 }
@@ -391,7 +391,10 @@ namespace ColumnRebarPro.V3
                     if (SpanZ(bar, out lo, out hi) && cutZ >= lo - tol && cutZ <= hi + tol) { chosen = bar; break; }
                 }
                 if (chosen == null) chosen = stirrups.OrderBy(b => b.Id.Value).First();
-                XYZ head = center + right * (g.Width / 2 + V3Units.Ft(12 * s)) + up * (g.Depth / 2);
+                V3TagHorizontalSide side = V3TagPlacement.Resolve(stirrupTag.FamilyName, stirrupTag.Name,
+                    V3TagHorizontalSide.Right);
+                double sign = side == V3TagHorizontalSide.Right ? 1 : -1;
+                XYZ head = center + right * (sign * (g.Width / 2 + V3Units.Ft(12 * s))) + up * (g.Depth / 2);
                 string tagError;
                 if (!TryTag(doc, view, stirrupTag, chosen, head, out tagError))
                     throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name + ": " + tagError);
