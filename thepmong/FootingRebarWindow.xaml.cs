@@ -138,8 +138,8 @@ namespace SDK_HD.KStruct.FootingRebar
             var summary = new List<string>();
             if (full.Bottom.AlongX.Enabled) summary.Add($"Đáy X: Ø{full.Bottom.AlongX.Diameter:0.#} a{full.Bottom.AlongX.Spacing:0.#}");
             if (full.Bottom.AlongY.Enabled) summary.Add($"Đáy Y: Ø{full.Bottom.AlongY.Diameter:0.#} a{full.Bottom.AlongY.Spacing:0.#}");
-            if (ChkEnableTop.IsChecked == true) summary.Add($"Trên: Ø{CboDiameterTop.SelectedItem} a{TxtSpacingTop.Text}");
-            if (ChkEnableSideTies.IsChecked == true) summary.Add($"Đai hông: Ø{CboDiameterTie.SelectedItem} a{TxtSpacingTie.Text}");
+            if (ChkEnableTop.IsChecked == true) summary.Add($"Trên: Ø{full.Top.AlongX.Diameter:0.###} a{TxtSpacingTop.Text}");
+            if (ChkEnableSideTies.IsChecked == true) summary.Add($"Đai hông: Ø{full.SideTies.Diameter:0.###} a{TxtSpacingTie.Text}");
             TxtConfigurationSummary.Text = string.Join("   ·   ", summary);
 
             try

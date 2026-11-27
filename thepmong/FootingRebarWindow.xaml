@@ -100,7 +100,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="2">
                             <TextBlock Text="Đường kính (mm)" FontSize="12" />
-                            <ComboBox x:Name="CboDiameterX" SelectionChanged="OnParameterChanged" />
+                            <ComboBox x:Name="CboDiameterX" ItemStringFormat="{}{0:0.###}" SelectionChanged="OnParameterChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
                             <TextBlock Text="Khoảng cách a (mm)" FontSize="12" />
@@ -136,7 +136,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="2">
                             <TextBlock Text="Đường kính (mm)" FontSize="12" />
-                            <ComboBox x:Name="CboDiameterY" SelectionChanged="OnParameterChanged" />
+                            <ComboBox x:Name="CboDiameterY" ItemStringFormat="{}{0:0.###}" SelectionChanged="OnParameterChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="2">
                             <TextBlock Text="Khoảng cách a (mm)" FontSize="12" />
@@ -173,7 +173,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="2">
                                     <TextBlock Text="Đường kính (mm)" FontSize="12" />
-                                    <ComboBox x:Name="CboDiameterTop" SelectionChanged="OnParameterChanged" />
+                                    <ComboBox x:Name="CboDiameterTop" ItemStringFormat="{}{0:0.###}" SelectionChanged="OnParameterChanged" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="2">
                                     <TextBlock Text="Khoảng cách a (mm)" FontSize="12" />
@@ -211,7 +211,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="2">
                                     <TextBlock Text="Đường kính đai (mm)" FontSize="12" />
-                                    <ComboBox x:Name="CboDiameterTie" SelectionChanged="OnParameterChanged" />
+                                    <ComboBox x:Name="CboDiameterTie" ItemStringFormat="{}{0:0.###}" SelectionChanged="OnParameterChanged" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="2">
                                     <TextBlock Text="Khoảng cách đai (mm)" FontSize="12" />
