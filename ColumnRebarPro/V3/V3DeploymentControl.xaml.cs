@@ -192,6 +192,7 @@ namespace ColumnRebarPro.V3
             _settingsPath = SettingsPathFor(doc);
 
             _ready = true;
+            ApplyDrawingDefaults();
             LoadSettings();
 
             SettingsPanel.IsEnabled = EnableCheck.IsChecked == true;
@@ -281,6 +282,30 @@ namespace ColumnRebarPro.V3
         {
             return string.IsNullOrWhiteSpace(left) ||
                 string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ApplyDrawingDefaults()
+        {
+            var defaults = new Dictionary<string, string>
+            {
+                { "LongSectionType", "BS-04-MCD-CT-Column" },
+                { "LongTemplate", "BS-19-MCD-CT-Cột" },
+                { "CrossTemplate", "BS-20-MCN-CT-Cột" },
+                { "LongStirrupTag", "A3_T_RT_DK&KC_MID" },
+                { "CrossStirrupTag", "A3_P_RT_DK&KC_MID" },
+                { "CrossMainTag", "A3_P_RT_NhomThepBS_MID" },
+                { "CrossDimension", "@BS-Dim A3" },
+                { "LongDimension", "@BS-Dim A3" }
+            };
+
+            foreach (var setting in defaults)
+            {
+                var box = (ComboBox)FindName(setting.Key);
+                var matches = box.Items.Cast<Choice>().Where(c => c.Id >= 0 &&
+                    (string.Equals(c.TypeName, setting.Value, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(c.FamilyName, setting.Value, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (matches.Count == 1) box.SelectedItem = matches[0];
+            }
         }
 
         private static bool MatchesIdentity(Choice choice, DeploymentSettingEntry entry)
