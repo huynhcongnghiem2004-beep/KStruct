@@ -2013,6 +2013,23 @@ namespace ColumnRebarPro.V3
         // ========== MẶT CẮT DỌC MINH HỌA ==========
         // Whole-stack preview uses actual segment elevations. Junction markers are
         // shown only when the adjacent columns physically meet or leave a joint gap.
+        private static void DrawPreviewLeader(Canvas canvas, double targetX, double targetY,
+            double textX, double textY, string text, Brush brush)
+        {
+            double elbowX = textX - 5, lineY = textY + 11;
+            canvas.Children.Add(new Line { X1 = targetX, Y1 = targetY, X2 = elbowX,
+                Y2 = lineY, Stroke = brush, StrokeThickness = 1 });
+            canvas.Children.Add(new Line { X1 = elbowX, Y1 = lineY, X2 = textX + 12,
+                Y2 = lineY, Stroke = brush, StrokeThickness = 1 });
+            var dot = new Ellipse { Width = 4, Height = 4, Fill = brush };
+            Canvas.SetLeft(dot, targetX - 2); Canvas.SetTop(dot, targetY - 2);
+            canvas.Children.Add(dot);
+            var label = new TextBlock { Text = text, FontSize = 9, Foreground = brush,
+                Background = Brushes.White };
+            Canvas.SetLeft(label, textX); Canvas.SetTop(label, textY);
+            canvas.Children.Add(label);
+        }
+
         private void DrawWholeRouteOverview()
         {
             var canvas = LongSectionCanvas;
@@ -2047,6 +2064,22 @@ namespace ColumnRebarPro.V3
                 label(14,baseY-15,"LEVEL " + seg.LevelName + "  (" + Math.Round(seg.BottomMm) + " mm)",Brushes.DarkSlateGray);
                 label(x+half+6,(y(seg.TopMm)+baseY)/2,
                     Math.Round(seg.WidthMm) + "×" + Math.Round(seg.DepthMm),Brushes.DimGray);
+                if (_configs.TryGetValue(seg.Id.Value, out var config))
+                {
+                    double top = y(seg.TopMm), mid = (top + baseY) / 2;
+                    double steelX = x + half - 4;
+                    canvas.Children.Add(new Line { X1 = steelX, X2 = steelX, Y1 = top, Y2 = baseY,
+                        Stroke = Brushes.Firebrick, StrokeThickness = 1 });
+                    canvas.Children.Add(new Line { X1 = x - half + 3, X2 = steelX, Y1 = mid, Y2 = mid,
+                        Stroke = Brushes.Teal, StrokeThickness = 1 });
+                    double tagX = Math.Max(2, Math.Min(w - 110, x + half + 18));
+                    DrawPreviewLeader(canvas, steelX, mid - 2, tagX, mid - 24,
+                        config.BarCount + "Ø" + config.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Firebrick);
+                    DrawPreviewLeader(canvas, steelX, mid, tagX, mid + 3,
+                        "Ø" + config.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" +
+                        config.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
+                        config.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture) + " (đầu/giữa)", Brushes.Teal);
+                }
             }
             for (int i=0;i<_segments.Count-1;i++)
             {
@@ -2248,6 +2281,7 @@ namespace ColumnRebarPro.V3
 
             // === Thép đai ===
             Brush tieBrush = new SolidColorBrush(Color.FromRgb(0, 153, 157));
+            double? tieTagY = null;
             try
             {
                 var bands = V3TieLayoutPlan.Create(heightMm, c.Cover, c.TieDiameter,
@@ -2272,6 +2306,9 @@ namespace ColumnRebarPro.V3
                     for (int i = 0; i < band.Count; i++)
                     {
                         double z = band.Position(i);
+                        if (!tieTagY.HasValue || Math.Abs(z - colH / 2) <
+                            Math.Abs((baseY - tieTagY.Value) / scale - colH / 2))
+                            tieTagY = mmToY(z);
                         addLn(mmToX(-colHalfW + c.Cover), mmToY(z),
                             mmToX(colHalfW - c.Cover), mmToY(z), tieBrush, 0.8);
                     }
@@ -2280,6 +2317,18 @@ namespace ColumnRebarPro.V3
             {
                 addTxt(4, 4, ex.Message, Brushes.Firebrick, 9);
             }
+
+            double tagX = Math.Max(2, Math.Min(cW - 110, cRight + 20));
+            double mainTagY = mmToY((barBot + barTop) / 2);
+            DrawPreviewLeader(LongSectionCanvas, mmToX(barXR), mainTagY, tagX,
+                Math.Max(20, mainTagY - 35), c.BarCount + "Ø" +
+                c.MainDiameter.ToString("0.##", CultureInfo.InvariantCulture), Brushes.Firebrick);
+            if (tieTagY.HasValue)
+                DrawPreviewLeader(LongSectionCanvas, mmToX(colHalfW - c.Cover), tieTagY.Value,
+                    tagX, Math.Min(cH - 20, tieTagY.Value + 12), "Ø" +
+                    c.TieDiameter.ToString("0.##", CultureInfo.InvariantCulture) + " a" +
+                    c.EndSpacing.ToString("0.##", CultureInfo.InvariantCulture) + "/" +
+                    c.MidSpacing.ToString("0.##", CultureInfo.InvariantCulture) + " (đầu/giữa)", tieBrush);
 
             addTxt(cLeft + 3, cBot + 2, row.Segment.LevelName, Brushes.DarkGreen, 9.5);
             addTxt(cLeft + 3, cTop - 15, Math.Round(widthMm) + "×" + Math.Round(row.Segment.DepthMm) + " | H=" + Math.Round(heightMm) + "mm", Brushes.DimGray, 8.5);
