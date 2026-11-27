@@ -439,6 +439,19 @@ namespace ColumnRebarPro.V3
             return file;
         }
 
+        internal string SelectedChoiceLabel(string name)
+        {
+            var box = FindName(name) as ComboBox;
+            var choice = box == null ? null : box.SelectedItem as Choice;
+            return choice == null || choice.Id < 0 ? "— Không sử dụng —" : choice.Label;
+        }
+
+        internal bool IsOptionChecked(string name)
+        {
+            var option = FindName(name) as CheckBox;
+            return option != null && option.IsChecked == true;
+        }
+
         internal DeploymentSettingsFile CaptureValidated()
         {
             ValidateSettings();

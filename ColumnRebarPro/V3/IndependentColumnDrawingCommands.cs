@@ -25,6 +25,8 @@ namespace ColumnRebarPro.V3
     {
         private readonly Document _document;
         private readonly V3DeploymentControl _settingsControl;
+        private readonly Canvas _reviewCanvas;
+        private readonly TextBlock _reviewStatus;
 
         internal DeploymentSettingsFile Settings { get; private set; }
 
@@ -32,10 +34,10 @@ namespace ColumnRebarPro.V3
         {
             _document = document ?? throw new ArgumentNullException(nameof(document));
             Title = "KStruct - Thông số triển khai hồ sơ cột";
-            Width = 1120;
-            Height = 820;
-            MinWidth = 820;
-            MinHeight = 620;
+            Width = Math.Min(1400, SystemParameters.WorkArea.Width);
+            Height = Math.Min(820, SystemParameters.WorkArea.Height);
+            MinWidth = Math.Min(1040, Width);
+            MinHeight = Math.Min(620, Height);
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
             var layout = new System.Windows.Controls.Grid();
@@ -45,7 +47,75 @@ namespace ColumnRebarPro.V3
             _settingsControl = new V3DeploymentControl();
             _settingsControl.Initialize(document);
             _settingsControl.PrepareForExistingRebar();
-            layout.Children.Add(_settingsControl);
+
+            var content = new System.Windows.Controls.Grid();
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72, GridUnitType.Star) });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28, GridUnitType.Star) });
+            content.Children.Add(_settingsControl);
+
+            var review = new Border
+            {
+                Background = System.Windows.Media.Brushes.WhiteSmoke,
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(210, 221, 233)),
+                BorderThickness = new Thickness(1, 0, 0, 0),
+                Padding = new Thickness(12)
+            };
+            var reviewLayout = new DockPanel();
+            var reviewHeader = new Border
+            {
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 44, 70)),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(11),
+                Margin = new Thickness(0, 0, 0, 9),
+                Child = new TextBlock
+                {
+                    Text = "REVIEW · TAG & DIM",
+                    Foreground = System.Windows.Media.Brushes.White,
+                    FontWeight = FontWeights.Bold
+                }
+            };
+            DockPanel.SetDock(reviewHeader, Dock.Top);
+            reviewLayout.Children.Add(reviewHeader);
+
+            var reviewFooter = new Border
+            {
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(234, 243, 251)),
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(184, 209, 235)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(9, 7, 9, 7),
+                Margin = new Thickness(0, 9, 0, 0)
+            };
+            _reviewStatus = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 11,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(41, 69, 101))
+            };
+            reviewFooter.Child = _reviewStatus;
+            DockPanel.SetDock(reviewFooter, Dock.Bottom);
+            reviewLayout.Children.Add(reviewFooter);
+
+            _reviewCanvas = new Canvas
+            {
+                Background = System.Windows.Media.Brushes.White,
+                ClipToBounds = true,
+                MinHeight = 440
+            };
+            _reviewCanvas.SizeChanged += (sender, args) => DrawTagDimensionReview();
+            reviewLayout.Children.Add(_reviewCanvas);
+            review.Child = reviewLayout;
+            System.Windows.Controls.Grid.SetColumn(review, 1);
+            content.Children.Add(review);
+            layout.Children.Add(content);
+
+            _settingsControl.AddHandler(System.Windows.Controls.Primitives.Selector.SelectionChangedEvent,
+                new SelectionChangedEventHandler((sender, args) => DrawTagDimensionReview()), true);
+            _settingsControl.AddHandler(System.Windows.Controls.Primitives.ToggleButton.CheckedEvent,
+                new RoutedEventHandler((sender, args) => DrawTagDimensionReview()), true);
+            _settingsControl.AddHandler(System.Windows.Controls.Primitives.ToggleButton.UncheckedEvent,
+                new RoutedEventHandler((sender, args) => DrawTagDimensionReview()), true);
+            Loaded += (sender, args) => DrawTagDimensionReview();
 
             var actions = new StackPanel
             {
@@ -74,6 +144,169 @@ namespace ColumnRebarPro.V3
             System.Windows.Controls.Grid.SetRow(actions, 1);
             layout.Children.Add(actions);
             Content = layout;
+        }
+
+        private void DrawTagDimensionReview()
+        {
+            if (_reviewCanvas == null || _reviewStatus == null) return;
+            _reviewCanvas.Children.Clear();
+            double width = _reviewCanvas.ActualWidth;
+            double height = _reviewCanvas.ActualHeight;
+            if (width < 220 || height < 360) return;
+
+            var navy = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 44, 70));
+            var blue = System.Windows.Media.Brushes.SteelBlue;
+            var steel = System.Windows.Media.Brushes.Firebrick;
+            var concrete = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(231, 237, 244));
+            double split = Math.Min(height * .44, 270);
+
+            AddReviewText("MẶT CẮT NGANG", 8, 7, navy, 11, true);
+            double boxW = Math.Min(112, width * .33);
+            double boxH = Math.Min(94, split - 88);
+            double boxX = Math.Max(54, width * .25 - boxW / 2);
+            double boxY = 40;
+            AddReviewRectangle(boxX, boxY, boxW, boxH, concrete, navy, 1.1);
+            AddReviewRectangle(boxX + 9, boxY + 9, boxW - 18, boxH - 18,
+                System.Windows.Media.Brushes.Transparent, steel, 1.4);
+            foreach (var point in new[]
+            {
+                new[] { boxX + 12, boxY + 12 }, new[] { boxX + boxW - 12, boxY + 12 },
+                new[] { boxX + 12, boxY + boxH - 12 }, new[] { boxX + boxW - 12, boxY + boxH - 12 }
+            }) AddReviewDot(point[0], point[1], steel);
+
+            bool crossShowTag = _settingsControl.IsOptionChecked("CrossShowTag");
+            bool crossShowValue = _settingsControl.IsOptionChecked("CrossShowValue");
+            if (crossShowValue)
+            {
+                // Builder thật đặt kích thước bề rộng ở phía trên và chiều sâu ở bên trái.
+                double topDimY = boxY - 17;
+                AddReviewLine(boxX, boxY, boxX, topDimY - 3, blue, .8);
+                AddReviewLine(boxX + boxW, boxY, boxX + boxW, topDimY - 3, blue, .8);
+                AddReviewLine(boxX, topDimY, boxX + boxW, topDimY, blue, 1.1);
+                AddReviewText("400", boxX + boxW / 2 - 13, topDimY - 16, blue, 9, false);
+                double leftDimX = boxX - 18;
+                AddReviewLine(leftDimX, boxY, leftDimX, boxY + boxH, blue, 1.1);
+                AddReviewLine(leftDimX, boxY, boxX, boxY, blue, .8);
+                AddReviewLine(leftDimX, boxY + boxH, boxX, boxY + boxH, blue, .8);
+                AddReviewText("500", Math.Max(2, leftDimX - 23), boxY + boxH / 2 - 6, blue, 9, false);
+            }
+
+            if (crossShowTag)
+            {
+                // Đai: builder thật đặt phía trên-phải, leader hướng vào đai.
+                double stirrupTagX = Math.Min(width - 105, boxX + boxW + 38);
+                AddReviewLine(boxX + boxW - 8, boxY + 8, stirrupTagX - 7, boxY + 8, steel, 1);
+                AddReviewLine(stirrupTagX - 7, boxY + 8, stirrupTagX, boxY, steel, 1);
+                AddReviewText("Ø8a100", stirrupTagX, boxY - 7, steel, 9, true);
+
+                // Thép dọc: Multi-Rebar Annotation nằm phía dưới với dãy ngang,
+                // hoặc bên trái với dãy đứng; tag đơn đi ra ngoài theo hướng thanh.
+                double mraY = boxY + boxH + 18;
+                AddReviewLine(boxX + 8, mraY, boxX + boxW - 8, mraY, steel, 1);
+                AddReviewText("4D20 · MRA", boxX + 16, mraY + 2, steel, 9, true);
+                AddReviewText("MRA", Math.Max(2, boxX - 37), boxY + boxH / 2 - 6, steel, 8, true);
+            }
+
+            double longTop = split + 12;
+            AddReviewLine(8, longTop, width - 8, longTop, System.Windows.Media.Brushes.LightGray, .8);
+            AddReviewText("MẶT CẮT ĐỨNG (DỌC)", 8, longTop + 10, navy, 11, true);
+            double columnX = Math.Max(62, width * .28);
+            double columnY = longTop + 43;
+            double columnW = Math.Min(76, width * .23);
+            double columnH = Math.Max(120, height - columnY - 38);
+            AddReviewRectangle(columnX, columnY, columnW, columnH, concrete, navy, 1.1);
+            AddReviewLine(columnX + 13, columnY + 5, columnX + 13, columnY + columnH - 5, steel, 2);
+            AddReviewLine(columnX + columnW - 13, columnY + 5, columnX + columnW - 13, columnY + columnH - 5, steel, 2);
+            for (double y = columnY + 15; y < columnY + columnH - 5; y += 23)
+                AddReviewLine(columnX + 8, y, columnX + columnW - 8, y, steel, .9);
+
+            bool longShowTag = _settingsControl.IsOptionChecked("LongShowTag");
+            bool longShowValue = _settingsControl.IsOptionChecked("LongShowValue");
+            if (longShowTag)
+            {
+                // Tag đai của builder thật luôn ở bên trái cột, đứng dọc và không leader.
+                var stirrupLabel = new TextBlock
+                {
+                    Text = "Ø8a200", Foreground = steel, FontSize = 9, FontWeight = FontWeights.SemiBold,
+                    RenderTransform = new System.Windows.Media.RotateTransform(-90)
+                };
+                Canvas.SetLeft(stirrupLabel, Math.Max(3, columnX - 39));
+                Canvas.SetTop(stirrupLabel, columnY + columnH / 2 + 25);
+                _reviewCanvas.Children.Add(stirrupLabel);
+            }
+            if (longShowValue)
+            {
+                // Thép dọc được triển khai bên phải; dim ở trái hình thanh và tag ở phải, không leader.
+                double shapeX = Math.Min(width - 58, columnX + columnW + 42);
+                double shapeTop = columnY + 15;
+                double shapeBottom = columnY + columnH - 15;
+                AddReviewLine(shapeX, shapeTop, shapeX, shapeBottom, steel, 1.2);
+                AddReviewLine(shapeX, shapeTop, shapeX + 14, shapeTop, steel, 1.2);
+                AddReviewLine(shapeX - 10, shapeTop, shapeX - 10, shapeBottom, blue, .9);
+                AddReviewText("L", shapeX - 23, (shapeTop + shapeBottom) / 2 - 6, blue, 9, false);
+                AddReviewText("4D20", shapeX + 18, (shapeTop + shapeBottom) / 2 - 7, steel, 9, true);
+            }
+
+            string crossDim = crossShowValue ? ShortChoice("CrossDimension") : "Tắt";
+            string crossTie = crossShowTag ? ShortChoice("CrossStirrupTag") : "Tắt";
+            string crossMain = crossShowTag ? ShortChoice("CrossMainTag") : "Tắt";
+            string longDim = longShowValue ? ShortChoice("LongDimension") : "Tắt";
+            string longTie = longShowTag ? ShortChoice("LongStirrupTag") : "Tắt";
+            string longMain = longShowValue ? ShortChoice("LongMainTag") : "Tắt";
+            _reviewStatus.Text =
+                "MCN · Dim: " + crossDim + "\nTag đai: " + crossTie + " · Tag dọc: " + crossMain +
+                "\nMCD · Dim: " + longDim + "\nTag đai: " + longTie + " · Tag dọc: " + longMain +
+                "\nQuy tắc thật: đai dọc bên trái; hình khai triển và tag thép dọc bên phải; " +
+                "đai ngang phía trên-phải; thép dọc ngang dùng MRA phía trái/dưới.";
+        }
+
+        private string ShortChoice(string name)
+        {
+            string label = _settingsControl.SelectedChoiceLabel(name);
+            int separator = label.LastIndexOf(" : ", StringComparison.Ordinal);
+            if (separator >= 0) label = label.Substring(separator + 3);
+            int viewType = label.LastIndexOf(" [", StringComparison.Ordinal);
+            if (viewType > 0) label = label.Substring(0, viewType);
+            return label;
+        }
+
+        private void AddReviewRectangle(double x, double y, double width, double height,
+            System.Windows.Media.Brush fill, System.Windows.Media.Brush stroke, double thickness)
+        {
+            var shape = new System.Windows.Shapes.Rectangle
+            {
+                Width = Math.Max(1, width), Height = Math.Max(1, height), Fill = fill,
+                Stroke = stroke, StrokeThickness = thickness
+            };
+            Canvas.SetLeft(shape, x); Canvas.SetTop(shape, y); _reviewCanvas.Children.Add(shape);
+        }
+
+        private void AddReviewLine(double x1, double y1, double x2, double y2,
+            System.Windows.Media.Brush stroke, double thickness)
+        {
+            _reviewCanvas.Children.Add(new System.Windows.Shapes.Line
+            {
+                X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = stroke, StrokeThickness = thickness
+            });
+        }
+
+        private void AddReviewDot(double x, double y, System.Windows.Media.Brush fill)
+        {
+            var dot = new System.Windows.Shapes.Ellipse { Width = 7, Height = 7, Fill = fill };
+            Canvas.SetLeft(dot, x - 3.5); Canvas.SetTop(dot, y - 3.5); _reviewCanvas.Children.Add(dot);
+        }
+
+        private void AddReviewText(string text, double x, double y, System.Windows.Media.Brush color,
+            double size, bool bold)
+        {
+            var label = new TextBlock
+            {
+                Text = text, Foreground = color, FontSize = size,
+                FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = Math.Max(70, _reviewCanvas.ActualWidth - x - 5)
+            };
+            Canvas.SetLeft(label, x); Canvas.SetTop(label, y); _reviewCanvas.Children.Add(label);
         }
 
         private void Accept_Click(object sender, RoutedEventArgs e)
