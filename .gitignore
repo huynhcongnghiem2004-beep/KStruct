@@ -12,3 +12,7 @@ KStruct.addin
 BimSpeedStructureColumnDesignPort/
 BimSpeedStructureBeamDesign/
 Resources/SlabModules/
+__pycache__/
+*.pyc
+column-tag-preview.png
+ui-previews/

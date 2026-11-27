@@ -40,7 +40,10 @@
     <Compile Remove="BimSpeedStructureColumnDesignPort\**\*.cs" />
     <Compile Remove="thepmong\BottomLayerTests.cs" />
     <Compile Remove="tests\**\*.cs" />
+    <Compile Remove="DevTools\pyRevit-local\**\*.cs" />
+    <Compile Remove="DevTools\KStructDev.extension\**\*.cs" />
     <Page Remove="tests\**\*.xaml" />
+    <Page Remove="DevTools\**\*.xaml" />
     <Compile Remove="BimSpeedStructureBeamDesign\**\*.cs" />
     <Page Remove="BimSpeedStructureBeamDesign\**\*.xaml" />
     <EmbeddedResource Remove="BimSpeedStructureBeamDesign\**\*.resx" />
