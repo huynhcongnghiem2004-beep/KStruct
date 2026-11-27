@@ -125,7 +125,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 SetPlanCrop(view, box, p.CropMarginMm);
             }
             string layer = topLayer ? "Top" : "Bot";
-            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer, p), names);
+            view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing, "Plan-" + layer), names);
             FootingDrawingVisibility.ApplyTemplate(view, config.PlanTemplate, p.ApplyViewTemplatesOnce);
             if (view.Scale != p.PlanScale) view.Scale = p.PlanScale;
             if (p.UseDetailedLayout) FootingDrawingGeometry.SetPlanCrop(view, footing, p.CropMarginMm);
@@ -207,7 +207,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                 };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
                 view.Name = UniqueName(FormatViewName(p.ViewNamePattern, footing,
-                    i == 0 ? "Detail-X" : "Detail-Y", p), names);
+                    i == 0 ? "Detail-X" : "Detail-Y"), names);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
                 view.Scale = p.SectionScale;
                 view.CropBoxActive = true;
@@ -275,7 +275,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
                     Min = new XYZ(vertices.Min(v => (v-origin).DotProduct(right))-margin, vertices.Min(v => v.Z-origin.Z)-bottomMargin, 0),
                     Max = new XYZ(vertices.Max(v => (v-origin).DotProduct(right))+margin, vertices.Max(v => v.Z-origin.Z)+margin, depth) };
                 ViewSection view = ViewSection.CreateDetail(doc, config.DetailType.Id, crop);
-                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y", p), names);
+                view.Name = UniqueName(FormatViewName(p.ViewNamePattern, host, i == 0 ? "Detail-X" : "Detail-Y"), names);
                 names.Add(view.Name);
                 FootingDrawingVisibility.ApplyTemplate(view, config.SectionTemplate, p.ApplyViewTemplatesOnce);
                 if (view.Scale != p.SectionScale) view.Scale = p.SectionScale;
@@ -623,14 +623,13 @@ namespace SDK_HD.KStruct.NativeDocumentation
             return actualPattern.Replace("{Mark}", string.IsNullOrWhiteSpace(mark) ? footing.Id.Value.ToString() : mark.Trim())
                 .Replace("{Id}", footing.Id.Value.ToString()).Replace("{Type}", type).Replace("{Level}", level);
         }
-        private static string FormatViewName(string pattern, FamilyInstance footing, string role, FootingDrawingProfile profile)
+        private static string FormatViewName(string pattern, FamilyInstance footing, string role)
         {
-            bool isPile = IsPileCap(footing);
-            string defaultPattern = isPile ? "KStruct - ĐC {Id} - {Role}" : "KStruct - MĐ {Id} - {Role}";
-            string actualPattern = string.IsNullOrWhiteSpace(pattern) ? defaultPattern : pattern;
-            return actualPattern
-                .Replace("{Mark}", (footing.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString() ?? "").Trim())
-                .Replace("{Id}", footing.Id.Value.ToString()).Replace("{Role}", role);
+            return FootingDrawingViewNameFormatter.Format(
+                pattern,
+                role,
+                footing.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString(),
+                footing.Id.Value.ToString());
         }
         private static string UniqueName(string value, HashSet<string> names)
         {

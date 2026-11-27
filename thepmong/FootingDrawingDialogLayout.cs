@@ -169,6 +169,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             var sheet = new StackPanel(); sheet.Children.Add(_newSheet);
             Field(sheet, "Sheet có sẵn", _existingSheet); Field(sheet, "Title Block", _titleBlock);
             Field(sheet, "Tiền tố số sheet", _sheetPrefix); Field(sheet, "Tên sheet", _sheetName); Field(sheet, "Tên view", _viewName);
+            sheet.Children.Add(Note("{Role}: MẶT BẰNG THÉP LỚP TRÊN/DƯỚI hoặc MẶT CẮT A-A/B-B. {Mark} dùng Mark; nếu trống sẽ dùng ElementId."));
             Field(sheet, "Lề sheet (mm giấy)", _sheetMargin); Field(sheet, "Chừa bên phải (mm)", _reserveRight); Field(sheet, "Chừa phía dưới (mm)", _reserveBottom);
             sheet.Children.Add(Note("Giữ tỷ lệ đã chọn. Vùng phải/dưới dành cho khung tên và ghi chú; chỉnh theo title block thực tế. Không vừa hoặc chồng nội dung cũ: bỏ qua móng và báo lỗi."));
             AddTab(tabs, "Sheet", sheet);

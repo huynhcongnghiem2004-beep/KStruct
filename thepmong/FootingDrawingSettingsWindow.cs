@@ -90,7 +90,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         private readonly TextBox _cropBottomMargin = new TextBox { Text = "500", MinWidth = 90 };
         private readonly TextBox _sheetPrefix = new TextBox { Text = "KSMD-", MinWidth = 240 };
         private readonly TextBox _sheetName = new TextBox { Text = "Móng đơn - {Mark}", MinWidth = 240 };
-        private readonly TextBox _viewName = new TextBox { Text = "KStruct - MĐ {Id} - {Role}", MinWidth = 240 };
+        private readonly TextBox _viewName = new TextBox { Text = FootingDrawingViewNameFormatter.DefaultPattern, MinWidth = 240 };
         private readonly TextBox _profileName = new TextBox { MinWidth = 180 };
 
         internal FootingDrawingConfiguration Configuration { get; private set; }
@@ -487,7 +487,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
             SelectBy(_dimension, p.DimensionTypeName);
             _topLayer.IsChecked = p.OutputLayers == "Top" || p.OutputLayers == "Both";
             _bottomLayer.IsChecked = p.OutputLayers == "Bot" || p.OutputLayers == "Both";
-            _sheetPrefix.Text = p.SheetPrefix ?? "KSMD-"; _sheetName.Text = p.SheetNamePattern ?? "Móng đơn - {Mark}"; _viewName.Text = p.ViewNamePattern ?? "KStruct - MĐ {Id} - {Role}";
+            _sheetPrefix.Text = p.SheetPrefix ?? "KSMD-"; _sheetName.Text = p.SheetNamePattern ?? "Móng đơn - {Mark}"; _viewName.Text = FootingDrawingViewNameFormatter.PatternForEditing(p.ViewNamePattern);
             _planScale.Text = p.PlanScale.ToString(); _sectionScale.Text = p.SectionScale.ToString(); _cropMargin.Text = p.CropMarginMm.ToString("0.##");
             _cropBottomMargin.Text = (p.CropBottomMarginMm > 0 ? p.CropBottomMarginMm : 500).ToString("0.##");
             _callouts.IsChecked = p.CreateCallouts; _detailA.IsChecked = p.WantsDetailA; _detailB.IsChecked = p.WantsDetailB; _dimensions.IsChecked = p.CreateDimensions; _tags.IsChecked = p.CreateTags;

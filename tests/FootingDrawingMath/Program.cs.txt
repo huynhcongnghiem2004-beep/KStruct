@@ -10,6 +10,16 @@ internal static class Program
     private static DrawingPoint2 P(double x,double y)=>new DrawingPoint2(x,y);
     private static void Main()
     {
+        Check(FootingDrawingViewNameFormatter.Format(null, "Plan-Top", "T-01", "42") == "MẶT BẰNG THÉP LỚP TRÊN - T-01",
+            "Top plan view must use the localized role and footing Mark");
+        Check(FootingDrawingViewNameFormatter.Format(null, "Plan-Bot", "", "42") == "MẶT BẰNG THÉP LỚP DƯỚI - 42",
+            "Bottom plan view must use ElementId when Mark is empty");
+        Check(FootingDrawingViewNameFormatter.Format(null, "Detail-X", " D-03 ", "42") == "MẶT CẮT A-A - D-03" &&
+              FootingDrawingViewNameFormatter.Format(null, "Detail-Y", "D-03", "42") == "MẶT CẮT B-B - D-03",
+            "A-A and B-B detail names must use the localized role and trimmed Mark");
+        Check(FootingDrawingViewNameFormatter.PatternForEditing("KStruct - MĐ {Id} - {Role}") == FootingDrawingViewNameFormatter.DefaultPattern &&
+              FootingDrawingViewNameFormatter.PatternForEditing("Custom {Role} / {Mark}") == "Custom {Role} / {Mark}",
+            "Update the legacy default pattern while preserving custom patterns");
         foreach(int turn in new[]{-1,0,1})
         {
             var offset=FootingDrawingMath.TitleOffsetShift(12.5,turn);double angle=turn*Math.PI/2;

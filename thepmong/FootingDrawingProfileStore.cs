@@ -90,7 +90,7 @@ namespace SDK_HD.KStruct.NativeDocumentation
         public string OutputLayers { get; set; } = "Both";
         public string SheetPrefix { get; set; } = "KSMD-";
         public string SheetNamePattern { get; set; } = "Móng đơn - {Mark}";
-        public string ViewNamePattern { get; set; } = "KStruct - MĐ {Id} - {Role}";
+        public string ViewNamePattern { get; set; } = FootingDrawingViewNameFormatter.DefaultPattern;
         public int PlanScale { get; set; } = 20;
         public int SectionScale { get; set; } = 20;
         public double CropMarginMm { get; set; } = 6;

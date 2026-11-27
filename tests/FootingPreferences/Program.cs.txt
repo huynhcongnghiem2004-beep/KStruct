@@ -30,6 +30,8 @@ internal static class Program
         {
             Check(FootingDrawingSessionStore.Load("project-A", directory) == null, "First run must not invent settings");
             Check(new FootingDrawingProfile().CropMarginMm == 6, "New configuration must default to six model millimeters");
+            Check(new FootingDrawingProfile().ViewNamePattern == FootingDrawingViewNameFormatter.DefaultPattern,
+                "New configuration must use the localized role and Mark view-name pattern");
             Check(new FootingDrawingProfile().WantsDetailA && new FootingDrawingProfile().WantsDetailB, "Default settings keep both Detail views enabled");
             Check(!new FootingDrawingProfile {CreateSections=false}.HasDetails, "Legacy disabled switch must disable both axes");
             foreach(bool a in new[]{false,true}) foreach(bool b in new[]{false,true})

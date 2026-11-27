@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="../../Core/Storage/SafeXmlReader.cs" Link="SafeXmlReader.cs" />
     <Compile Include="../../thepmong/FootingDrawingProfileStore.cs" Link="FootingDrawingProfileStore.cs" />
+    <Compile Include="../../thepmong/FootingDrawingViewNameFormatter.cs" Link="FootingDrawingViewNameFormatter.cs" />
     <Compile Include="../../thepmong/FootingDrawingSessionStore.cs" Link="FootingDrawingSessionStore.cs" />
     <Compile Include="Program.cs.txt" />
   </ItemGroup>
