@@ -38,3 +38,5 @@ Shape/Hook compatibility, anchorage and model creation still require Revit.
 The new layout retains the advanced editor for secondary layers, hooks and TCVN
 settings. The undo history is local to the quick editor (maximum 100 states);
 it does not undo model creation or previously saved defaults.
+
+The harness captures WPF data-binding errors during the exercised interactions and fails with the diagnostic text in render-error.txt. It does not simulate a different monitor DPI or verify every binding state.

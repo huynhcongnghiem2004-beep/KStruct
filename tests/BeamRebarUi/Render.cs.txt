@@ -21,6 +21,7 @@ internal static class Render
         Directory.CreateDirectory(output);
         try
         {
+            var diagnostics = BindingErrorListener.Start();
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             Capture(output, 1648, 928, "beam-wide", true);
             Capture(output, 1280, 760, "beam-medium", false);
@@ -30,6 +31,7 @@ internal static class Render
                 "Actual production WPF editor compiled with sample Revit data fixtures. " +
                 "Layout, accordion, count editing, preset/delete undo, zoom preservation and basic validation tested. " +
                 "This is NOT a Revit model or engineering validation.");
+            diagnostics.AssertNoErrors();
             app.Shutdown();
             return 0;
         }
