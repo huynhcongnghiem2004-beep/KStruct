@@ -32,6 +32,9 @@ def snapshot():
     bridge = _bridge()
     item = bridge.GetProperty("LastSnapshot").GetValue(None, None)
     if item is None:
+        error = bridge.GetProperty("LastError").GetValue(None, None)
+        if error:
+            raise RuntimeError(str(error))
         return None
     result = {}
     for name in ("Kind", "CapturedUtc", "WidthDip", "HeightDip", "DpiX", "DpiY",

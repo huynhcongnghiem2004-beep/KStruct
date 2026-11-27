@@ -14,14 +14,24 @@ namespace SDK_HD.KStruct.DevTools
     public static class WpfDiagnostics
     {
         private static bool enabled;
-        public static bool Enabled { get { return enabled; } set { enabled = value; if (value) LastSnapshot = null; } }
+        private static int generation;
+        private static readonly DependencyProperty AttachedProperty = DependencyProperty.RegisterAttached(
+            "Attached", typeof(bool), typeof(WpfDiagnostics), new PropertyMetadata(false));
+        public static bool Enabled
+        {
+            get { return enabled; }
+            set { enabled = value; generation++; if (value) { LastSnapshot = null; LastError = null; } }
+        }
         public static WpfSnapshot LastSnapshot { get; private set; }
+        public static string LastError { get; private set; }
 
         public static void Attach(Window window, string kind)
         {
-            if (!Enabled || window == null) return;
+            if (!Enabled || window == null || (bool)window.GetValue(AttachedProperty)) return;
             try
             {
+                window.SetValue(AttachedProperty, true);
+                int captureGeneration = generation;
                 var counts = new Dictionary<string, int>();
                 RoutedEventHandler click = (s, e) => Increment(counts, "click");
                 TextChangedEventHandler text = (s, e) => Increment(counts, "text_changed");
@@ -30,9 +40,18 @@ namespace SDK_HD.KStruct.DevTools
                 window.AddHandler(TextBoxBase.TextChangedEvent, text, true);
                 window.AddHandler(Selector.SelectionChangedEvent, selection, true);
                 window.Closed += (s, e) => {
-                    try { LastSnapshot = Capture(window, kind, counts); }
+                    try
+                    {
+                        if (Enabled && captureGeneration == generation)
+                        {
+                            LastSnapshot = null; LastError = null;
+                            try { LastSnapshot = Capture(window, kind, counts); }
+                            catch (Exception error) { LastError = "Capture failed: " + error.GetType().Name; }
+                        }
+                    }
                     catch { /* Diagnostics must never affect the product. */ }
                     finally {
+                        window.ClearValue(AttachedProperty);
                         window.RemoveHandler(ButtonBase.ClickEvent, click);
                         window.RemoveHandler(TextBoxBase.TextChangedEvent, text);
                         window.RemoveHandler(Selector.SelectionChangedEvent, selection);
