@@ -18,4 +18,10 @@ Status: development scaffold, not released.
 - Export only user-selected diagnostic data locally; review before sharing externally.
 
 ## Installation
-Pending implementation and runtime validation. Do not treat this branch as a production release.
+The installer copies the extension to pyRevit's default third-party extension directory for the current user. Revit/pyRevit runtime validation remains pending; do not treat this branch as a production release.
+
+## WPF diagnostic capture (development)
+
+Install the extension with `Install.bat` and reload pyRevit. On the locally installed pyRevit 7.1, `%APPDATA%\pyRevit\Extensions` is its default third-party extension directory; other versions or custom configurations should be checked in pyRevit settings. The installer refuses to overwrite an existing extension. It does not install or replace KStruct.dll or pyRevit; build and deploy the matching KStruct add-in separately. `Uninstall.bat` removes only the extension after confirmation. These scripts have not yet been validated in a Revit session.
+
+In Revit, choose **WPF Capture > Enable capture**, open and close a column, beam, or footing editor, then choose **Show last capture**. Disable capture after use. The most recent snapshot is held only in memory and reset on enabling or restarting Revit. A window from an earlier capture session cannot overwrite a later session. Capture failures report only the exception type, not potentially sensitive error text. The snapshot reports DPI and window size in WPF units, visual/control/binding counts, active binding and validation errors, canvas/viewport child counts and aggregate click/text/selection event counts. It does not record entered values or write to the model. It does not verify geometry, event correctness, transient binding errors, inactive tabs, or preview/model correspondence; counts are not a substitute for a visual or model check. WPF binding error tracing is separately exercised by the automated beam and footing harnesses.

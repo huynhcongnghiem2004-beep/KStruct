@@ -9,11 +9,21 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Ellipse = System.Windows.Shapes.Ellipse;
 using System.Windows.Threading;
 using SDK_HD.KStruct.FootingRebar;
 
 internal static class Render
 {
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T item) yield return item;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
     [STAThread]
     private static int Main(string[] args)
     {
@@ -21,6 +31,8 @@ internal static class Render
         Directory.CreateDirectory(output);
         try
         {
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Enabled = true;
+            var diagnostics = BindingErrorListener.Start();
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             Capture(output, false, 1380,900,"footing-create");
             Capture(output, true, 1380,900,"footing-update");
@@ -29,6 +41,10 @@ internal static class Render
             File.WriteAllText(Path.Combine(output,"README.txt"),
                 "Rendered from the actual compiled FootingRebarWindow XAML/code with sample data, outside Revit.\r\n" +
                 "This validates WPF layout and control rendering, not Revit API/model operations.\r\n");
+            diagnostics.AssertNoErrors();
+            var capture = SDK_HD.KStruct.DevTools.WpfDiagnostics.LastSnapshot;
+            if (capture == null || capture.ControlCount == 0 || capture.DpiX <= 0 || capture.Events.Count == 0)
+                throw new InvalidOperationException("WPF diagnostic capture is missing controls, DPI, or interaction events.");
             app.Shutdown(); return 0;
         }
         catch (Exception ex) { File.WriteAllText(Path.Combine(output,"render-error.txt"),ex.ToString()); return 1; }
@@ -87,7 +103,7 @@ internal static class Render
     private static void Capture(string output, bool update, int width, int height, string name)
     {
         var model = new FootingModel(2400,1800,900,FootingType.PileCap,"Đài DC-01 · 2400 × 1800 × 900 mm");
-        var window = new FootingRebarWindow(model,new List<double>{10,12,14,16,18,20,22,25},true,null,
+        var window = new FootingRebarWindow(model,new List<double>{6.000000000000001,10,12,14,16,18,20,22,25},true,null,
             "Dữ liệu mẫu để kiểm tra giao diện WPF. Kích thước và cấu hình có thể chỉnh trong mô hình Revit.",true,update?4:0,0,false);
         if (update) window.ConfigureForUpdate();
         window.Width=width; window.Height=height; window.Left=0; window.Top=0; window.ShowActivated=true;
@@ -114,19 +130,39 @@ internal static class Render
         ((TabControl)window.FindName("InputTabs")).SelectedIndex=0;
         window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
         var diameter=(ComboBox)window.FindName("CboDiameterX");
+        var selectedDiameter=diameter.SelectedItem;
+        diameter.SelectedIndex=0;
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
+        if (!Descendants<TextBlock>(diameter).Any(item => item.Text == "6"))
+            throw new InvalidOperationException("Diameter must display without floating-point noise");
+        if ((double)diameter.SelectedItem != 6.000000000000001)
+            throw new InvalidOperationException("Formatting must retain the selected diameter value");
+        diameter.SelectedItem=selectedDiameter;
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
         window.Activate(); diameter.Focus();
         diameter.IsDropDownOpen=true; window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{}));
         if (!diameter.IsDropDownOpen || diameter.Items.Count==0) throw new InvalidOperationException("Diameter dropdown is unavailable");
         diameter.IsDropDownOpen=false;
+        var preview=(Canvas)window.FindName("PreviewCanvas");
+        var spacingY=(TextBox)window.FindName("TxtSpacingY");
+        string originalY=spacingY.Text;
+        int dense=preview.Children.OfType<Ellipse>().Count(shape => shape.Fill == Brushes.Crimson);
+        spacingY.Text="300";
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
+        int sparse=preview.Children.OfType<Ellipse>().Count(shape => shape.Fill == Brushes.Crimson);
+        if (dense <= sparse || sparse == 0)
+            throw new InvalidOperationException("Increasing Y spacing must reduce the bottom-Y preview bar count");
+        spacingY.Text=originalY;
+        window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
         var spacing=(TextBox)window.FindName("TxtSpacingX");
         string original=spacing.Text;
         spacing.Text="không hợp lệ";
         window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
-        if(accept.IsEnabled || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Visible)
+        if(accept.IsEnabled || preview.Children.Count != 0 || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Visible)
             throw new InvalidOperationException("Invalid input must show an inline explanation and block submission");
         spacing.Text=original;
         window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle,new Action(()=>{})); window.UpdateLayout();
-        if(!accept.IsEnabled || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Collapsed ||
+        if(!accept.IsEnabled || preview.Children.Count == 0 || ((Border)window.FindName("InputStatusBanner")).Visibility!=Visibility.Collapsed ||
             !((TextBlock)window.FindName("TxtConfigurationSummary")).Text.Contains("Đáy X"))
             throw new InvalidOperationException("Corrected input must restore preview summary and submission");
         window.Close();

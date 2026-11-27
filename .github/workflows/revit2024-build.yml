@@ -17,6 +17,37 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Check DevTools Python syntax (CPython only)
+        shell: pwsh
+        run: python -c "import pathlib; files=list(pathlib.Path('DevTools').rglob('*.py')); [compile(p.read_bytes(), str(p), 'exec') for p in files]; print('Checked', len(files), 'files')"
+      - name: Test isolated DevTools installation
+        shell: pwsh
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'kstruct-installer-test'
+          & .\DevTools\Install.bat
+          if ($LASTEXITCODE -ne 0) { throw "Install failed: $LASTEXITCODE" }
+          $target = Join-Path $env:APPDATA 'pyRevit\Extensions\KStructDev.extension'
+          if (-not (Test-Path (Join-Path $target 'lib\kstruct_bridge.py'))) { throw 'Missing bridge' }
+          if (Get-ChildItem $target -Recurse -Filter '*.pyc') { throw 'Installer copied Python cache' }
+          & .\DevTools\Install.bat
+          if ($LASTEXITCODE -ne 2) { throw "Expected overwrite refusal: $LASTEXITCODE" }
+          $other = Join-Path $env:APPDATA 'pyRevit\Extensions\other.extension'
+          New-Item -ItemType Directory -Force $other | Out-Null
+          cmd /c 'echo N| call DevTools\Uninstall.bat'
+          if ($LASTEXITCODE -ne 1 -or -not (Test-Path $target)) { throw 'Cancel must preserve the extension' }
+          cmd /c 'echo Y| call DevTools\Uninstall.bat'
+          if ($LASTEXITCODE -ne 0 -or (Test-Path $target) -or -not (Test-Path $other)) { throw 'Uninstall removed the wrong files or failed' }
+          $global:LASTEXITCODE = 0
+      - name: Exercise WPF diagnostic capture lifecycle
+        shell: pwsh
+        run: |
+          dotnet build tests/WpfDiagnostics/WpfDiagnostics.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $process = Start-Process -FilePath (Join-Path $PWD 'tests/WpfDiagnostics/bin/Release/net48/WpfDiagnostics.exe') -ArgumentList 'wpf-diagnostics-error.txt' -WorkingDirectory $PWD.Path -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path wpf-diagnostics-error.txt) { Get-Content wpf-diagnostics-error.txt }
+            exit $process.ExitCode
+          }
       - name: Check Ribbon command registration (96 commands / 7 panels)
         run: dotnet run --project tests/RibbonRegistration/RibbonRegistration.csproj --configuration Release
       - name: Check Column V4 four-tab WPF structure and event wiring
@@ -49,6 +80,12 @@ jobs:
         run: |
           dotnet build KStruct.csproj --configuration Release "/p:RevitInstallDir=$env:REVIT_REFERENCE_DIR" -bl:revit2024-build.binlog 2>&1 | Tee-Object -FilePath revit2024-build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile column WPF fixture
+        shell: pwsh
+        run: |
+          dotnet build tests/ColumnRebarUi/ColumnRebarUi.csproj --configuration Release "/p:RevitInstallDir=$env:REVIT_REFERENCE_DIR"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host 'Runtime requires a complete local Revit installation and is not exercised on this runner.'
       - name: Verify Release DLL metadata and checksum
         shell: pwsh
         run: |

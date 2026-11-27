@@ -1,0 +1,57 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+using Autodesk.Revit.DB;
+using ColumnRebarPro.V3;
+
+internal static class Program
+{
+    sealed class Errors : TraceListener {
+        public readonly StringBuilder Text = new StringBuilder();
+        public override void Write(string value) { Text.Append(value); }
+        public override void WriteLine(string value) { Text.AppendLine(value); }
+    }
+    static void Require(bool value, string text) { if (!value) throw new InvalidOperationException(text); }
+    static void Pump(Window window) { window.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle, new Action(() => {})); window.UpdateLayout(); }
+    [STAThread]
+    static void Main(string[] args)
+    {
+        var report = args.Length > 0 ? Path.GetFullPath(args[0]) : Path.GetFullPath("column-ui-result.txt");
+        int exitCode = 1;
+        try
+        {
+            var listener = new Errors();
+            PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
+            PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            var segment = new ColumnSegment { Id = new ElementId(1L), LevelName = "Fixture", BottomMm = 0,
+                TopMm = 3000, WidthMm = 400, DepthMm = 450 };
+            var window = new ColumnRebarV3Window(new List<ColumnSegment> { segment }, new List<double> { 8, 12, 16, 20 }, null);
+            window.Show(); Pump(window);
+            var tabs = (TabControl)window.FindName("MainTabs");
+            Require(tabs.Items.Count == 4, "Missing column tabs.");
+            var quick = (ComboBox)window.FindName("QuickCxBox");
+            var detail = (ComboBox)window.FindName("CxBox");
+            quick.SelectedItem = 4; Pump(window);
+            Require(Equals(detail.SelectedItem, 4), "Quick input did not update the underlying column control.");
+            quick.SelectedItem = 5; Pump(window);
+            Require(Equals(detail.SelectedItem, 5), "Quick selection event did not propagate.");
+            for (int i = 0; i < tabs.Items.Count; i++) { tabs.SelectedIndex = i; Pump(window); }
+            tabs.SelectedIndex = 1; Pump(window);
+            var preview = (Canvas)window.FindName("TiePlanPreviewCanvas");
+            Require(preview.Children.Count > 0, "Tie plan preview did not render.");
+            Require(listener.Text.Length == 0, "WPF binding errors: " + listener.Text);
+            File.WriteAllText(report, "PASS: actual column WPF, null document fixture, tab navigation, selection event, tie-plan preview and binding trace. No Revit document or model operations were tested.");
+            exitCode = 0;
+        }
+        catch (Exception error) { File.WriteAllText(report, error.ToString()); }
+        // The production window saves last-used settings on close. Terminating this
+        // dedicated fixture process avoids writing any user preferences.
+        Environment.Exit(exitCode);
+    }
+}

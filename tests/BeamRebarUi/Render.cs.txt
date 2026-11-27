@@ -21,6 +21,8 @@ internal static class Render
         Directory.CreateDirectory(output);
         try
         {
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Enabled = true;
+            var diagnostics = BindingErrorListener.Start();
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             Capture(output, 1648, 928, "beam-wide", true);
             Capture(output, 1280, 760, "beam-medium", false);
@@ -30,6 +32,10 @@ internal static class Render
                 "Actual production WPF editor compiled with sample Revit data fixtures. " +
                 "Layout, accordion, count editing, preset/delete undo, zoom preservation and basic validation tested. " +
                 "This is NOT a Revit model or engineering validation.");
+            diagnostics.AssertNoErrors();
+            var capture = SDK_HD.KStruct.DevTools.WpfDiagnostics.LastSnapshot;
+            if (capture == null || capture.ControlCount == 0 || capture.DpiX <= 0 || capture.Events.Count == 0)
+                throw new InvalidOperationException("WPF diagnostic capture is missing controls, DPI, or interaction events.");
             app.Shutdown();
             return 0;
         }

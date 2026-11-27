@@ -7,3 +7,4 @@ if errorlevel 2 exit /b 1
 rmdir /s /q "%DST%"
 if exist "%DST%\" exit /b 2
 echo Reload pyRevit.
+exit /b 0

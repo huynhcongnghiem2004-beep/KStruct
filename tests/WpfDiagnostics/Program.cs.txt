@@ -1,0 +1,60 @@
+﻿using System;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Media.Media3D;
+using System.Windows.Threading;
+using SDK_HD.KStruct.DevTools;
+
+internal static class Program
+{
+    static void Assert(bool condition, string message) { if (!condition) throw new Exception(message); }
+    static void Pump(Window w) { w.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle, new Action(() => {})); w.UpdateLayout(); }
+    [STAThread]
+    static int Main(string[] args)
+    {
+        string errorFile = args.Length == 0 ? "wpf-diagnostics-error.txt" : args[0];
+        try
+        {
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            WpfDiagnostics.Enabled = true;
+            var window = new Window { Width = 600, Height = 400 };
+            var panel = new StackPanel();
+            var box = new TextBox();
+            box.SetBinding(TextBox.TextProperty, new Binding("Tag") { Source = window, Mode = BindingMode.OneWay });
+            var broken = new TextBox();
+            broken.SetBinding(TextBox.TextProperty, new Binding("NoSuchProperty") { Source = window });
+            var button = new Button { Content = "Test" };
+            var canvas = new Canvas { Width = 80, Height = 80 }; canvas.Children.Add(new Border());
+            var viewport = new Viewport3D { Width = 80, Height = 80 };
+            viewport.Children.Add(new ModelVisual3D());
+            panel.Children.Add(box); panel.Children.Add(broken); panel.Children.Add(button); panel.Children.Add(canvas); panel.Children.Add(viewport);
+            window.Content = panel;
+            WpfDiagnostics.Attach(window, "fixture");
+            WpfDiagnostics.Attach(window, "duplicate");
+            window.Show(); Pump(window);
+            button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            window.Close();
+            var capture = WpfDiagnostics.LastSnapshot;
+            Assert(capture != null && capture.Kind == "fixture", "Missing capture or duplicate attach.");
+            Assert(capture.Events.ContainsKey("click") && capture.Events["click"] == 1, "Click event counted incorrectly.");
+            Assert(capture.BindingCount > 0 && capture.ControlCount > 0, "Missing binding or controls.");
+            Assert(capture.BindingErrorCount > 0, "Broken binding was not reported.");
+            Assert(capture.CanvasCount > 0 && capture.CanvasChildren > 0, "Missing 2D canvas.");
+            Assert(capture.Viewport3DCount > 0 && capture.Viewport3DChildren > 0, "Missing 3D viewport.");
+            Assert(capture.DpiX > 0 && capture.DpiY > 0, "Missing monitor DPI.");
+            WpfDiagnostics.Enabled = true;
+            var stale = new Window(); WpfDiagnostics.Attach(stale, "stale"); stale.Show(); Pump(stale);
+            WpfDiagnostics.Enabled = false; WpfDiagnostics.Enabled = true;
+            stale.Close();
+            Assert(WpfDiagnostics.LastSnapshot == null, "An old session overwrote the new session.");
+            var disabled = new Window(); WpfDiagnostics.Enabled = false;
+            WpfDiagnostics.Attach(disabled, "disabled"); disabled.Show(); Pump(disabled); disabled.Close();
+            Assert(WpfDiagnostics.LastSnapshot == null, "Disabled capture retained a window.");
+            app.Shutdown(); return 0;
+        }
+        catch (Exception ex) { File.WriteAllText(errorFile, ex.ToString()); return 1; }
+    }
+}
