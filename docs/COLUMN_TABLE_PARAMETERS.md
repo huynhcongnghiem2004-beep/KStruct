@@ -11,8 +11,11 @@ ambiguous matches are rejected rather than selecting an arbitrary parameter.
 
 Both instance and type parameters are supported. Tables requiring type data get
 a private duplicated type before writing, leaving existing instances unchanged.
-Number values stay in millimetres as numeric labels; Length values are converted
-to internal Revit units. Integer and numeric Text parameters are supported.
+Number values stay in millimetres as numeric labels; parameters whose data type
+supports millimetres are converted to internal Revit units. This also supports
+Revit's specialized length specs, such as reinforcement dimensions. Integer and
+numeric Text parameters are supported. Incompatible numeric specs report their
+Revit data type ID for diagnosis.
 Read-only values are accepted only when they already match after regeneration;
 otherwise the message identifies a formula/read-only problem. Missing fields
 report relevant available family parameter names.

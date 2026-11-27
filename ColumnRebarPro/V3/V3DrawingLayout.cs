@@ -389,11 +389,16 @@ namespace ColumnRebarPro.V3
             if (parameter.StorageType != StorageType.Double)
                 throw new InvalidOperationException("Property bảng không phải Number/Length: " + name);
             var dataType = parameter.Definition.GetDataType();
-            if (dataType != SpecTypeId.Number && dataType != SpecTypeId.Length)
-                throw new InvalidOperationException("Tham số bảng không phải Number/Length: " + name);
-            if (!isLength && dataType == SpecTypeId.Length)
-                throw new InvalidOperationException("Tham số số lượng đang khai báo Length: " + name);
-            double stored = dataType == SpecTypeId.Length
+            bool usesMillimeters = dataType != SpecTypeId.Number &&
+                UnitUtils.IsMeasurableSpec(dataType) &&
+                UnitUtils.IsValidUnit(dataType, UnitTypeId.Millimeters);
+            if (!isLength && dataType != SpecTypeId.Number)
+                throw new InvalidOperationException("Tham số số lượng không phải Number: " + name +
+                    " (data type: " + dataType.TypeId + ")");
+            if (isLength && dataType != SpecTypeId.Number && !usesMillimeters)
+                throw new InvalidOperationException("Tham số bảng không hỗ trợ đơn vị mm: " + name +
+                    " (data type: " + dataType.TypeId + ")");
+            double stored = usesMillimeters
                 ? UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters) : value;
             if (parameter.HasValue && Math.Abs(parameter.AsDouble() - stored) < 1e-8) return;
             RequireWritableTableParameter(table, parameter, name);
