@@ -17,6 +17,20 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Check DevTools Python syntax (CPython only)
+        shell: pwsh
+        run: python -c "import pathlib; files=list(pathlib.Path('DevTools').rglob('*.py')); [compile(p.read_bytes(), str(p), 'exec') for p in files]; print('Checked', len(files), 'files')"
+      - name: Test isolated DevTools installation
+        shell: pwsh
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'kstruct-installer-test'
+          & .\DevTools\Install.bat
+          if ($LASTEXITCODE -ne 0) { throw "Install failed: $LASTEXITCODE" }
+          $target = Join-Path $env:APPDATA 'pyRevit\Extensions\KStructDev.extension'
+          if (-not (Test-Path (Join-Path $target 'lib\kstruct_bridge.py'))) { throw 'Missing bridge' }
+          if (Get-ChildItem $target -Recurse -Filter '*.pyc') { throw 'Installer copied Python cache' }
+          & .\DevTools\Install.bat
+          if ($LASTEXITCODE -ne 2) { throw "Expected overwrite refusal: $LASTEXITCODE" }
       - name: Check Ribbon command registration (96 commands / 7 panels)
         run: dotnet run --project tests/RibbonRegistration/RibbonRegistration.csproj --configuration Release
       - name: Check Column V4 four-tab WPF structure and event wiring

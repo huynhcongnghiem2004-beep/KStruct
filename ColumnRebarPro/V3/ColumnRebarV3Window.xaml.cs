@@ -141,6 +141,7 @@ namespace ColumnRebarPro.V3
             }
 
             InitializeComponent();
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Attach(this, "column");
             // Read-only mockup review panels use the same ordered column segments as the editor.
             // They must not claim beam joints or bar positions that have not been verified.
             Closing += (sender, args) =>

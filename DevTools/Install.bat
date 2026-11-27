@@ -7,7 +7,7 @@ if exist "%DST%\" (
  echo Existing extension found. Remove or back it up before installing.
  exit /b 2
 )
-robocopy "%SRC%" "%DST%" /E
+robocopy "%SRC%" "%DST%" /E /XD __pycache__ /XF *.pyc *.pyo
 if errorlevel 8 exit /b 3
 echo Installed. Ensure the parent folder is configured in pyRevit extension paths, then reload pyRevit.
 exit /b 0

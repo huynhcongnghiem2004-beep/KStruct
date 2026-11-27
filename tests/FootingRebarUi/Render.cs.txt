@@ -21,6 +21,7 @@ internal static class Render
         Directory.CreateDirectory(output);
         try
         {
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Enabled = true;
             var diagnostics = BindingErrorListener.Start();
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             Capture(output, false, 1380,900,"footing-create");
@@ -31,6 +32,9 @@ internal static class Render
                 "Rendered from the actual compiled FootingRebarWindow XAML/code with sample data, outside Revit.\r\n" +
                 "This validates WPF layout and control rendering, not Revit API/model operations.\r\n");
             diagnostics.AssertNoErrors();
+            var capture = SDK_HD.KStruct.DevTools.WpfDiagnostics.LastSnapshot;
+            if (capture == null || capture.ControlCount == 0 || capture.DpiX <= 0 || capture.Events.Count == 0)
+                throw new InvalidOperationException("WPF diagnostic capture is missing controls, DPI, or interaction events.");
             app.Shutdown(); return 0;
         }
         catch (Exception ex) { File.WriteAllText(Path.Combine(output,"render-error.txt"),ex.ToString()); return 1; }

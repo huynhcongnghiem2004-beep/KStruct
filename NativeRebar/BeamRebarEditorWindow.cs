@@ -673,6 +673,7 @@ namespace SDK_HD.KStruct.NativeRebar
                 window.DialogResult = true;
             };
 
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Attach(window, "beam");
             if (window.ShowDialog() != true) return null;
             BarRow top = rows.First(r => r.Key == "top"), bottom = rows.First(r => r.Key == "bottom");
             BarRow top1 = rows.First(r => r.Key == "top1"), top2 = rows.First(r => r.Key == "top2");
@@ -1765,6 +1766,7 @@ namespace SDK_HD.KStruct.NativeRebar
             validationStep.Expanded += (sender, args) => {
                 if (ReferenceEquals(args.OriginalSource, validationStep)) CheckInputs();
             };
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Attach(window, "beam-advanced");
             window.ShowDialog();
             return quickResult;
         }

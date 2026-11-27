@@ -24,6 +24,7 @@ namespace SDK_HD.KStruct.FootingRebar
             int ownedCount = 0, int otherCount = 0, bool restoreSavedLean = false)
         {
             InitializeComponent();
+            SDK_HD.KStruct.DevTools.WpfDiagnostics.Attach(this, "footing");
             _model = model;
             Rect workArea = SystemParameters.WorkArea;
             Width = workArea.Width > 320 ? Math.Min(1380, workArea.Width - 32) : 1380;
