@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="../../NativeRebar/BeamRebarEditorWindow.cs" Link="BeamRebarEditorWindow.cs" />
     <Compile Include="Fixtures.cs.txt" />
+    <Compile Include="../BindingErrorListener.cs" Link="BindingErrorListener.cs" />
     <Compile Include="Render.cs.txt" />
   </ItemGroup>
 </Project>
