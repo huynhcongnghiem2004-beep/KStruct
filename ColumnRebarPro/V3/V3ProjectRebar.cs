@@ -9,6 +9,7 @@ namespace ColumnRebarPro.V3
     internal static class V3ProjectRebar
     {
         internal static List<V3HookChoice> Hooks(Document doc,RebarBarType type=null) =>
+            doc == null ? new List<V3HookChoice>() :
             new FilteredElementCollector(doc).OfClass(typeof(RebarHookType)).Cast<RebarHookType>()
             .Select(h=>new V3HookChoice {Id=h.UniqueId,Label=h.Name+" ["+h.Id.Value+"]",
                 Angle=h.HookAngle,TieStyle=h.Style==RebarStyle.StirrupTie,
