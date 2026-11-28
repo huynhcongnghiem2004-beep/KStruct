@@ -18,7 +18,7 @@ namespace ColumnRebarPro.V3
     public sealed class CreateColumnDrawingsCommand : IExternalCommand
     {
         public Result Execute(ExternalCommandData data, ref string message, ElementSet elements) =>
-            IndependentColumnDrawingService.ExecuteV3(data, ref message, false);
+            IndependentColumnDrawingService.ExecuteV3(data, ref message, false, true);
     }
 
     internal sealed class ColumnDrawingSettingsWindow : Window
