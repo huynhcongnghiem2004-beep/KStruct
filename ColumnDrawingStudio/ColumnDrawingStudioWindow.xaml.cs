@@ -74,7 +74,7 @@ namespace ColumnRebarPro.V3
                 var column = _columns[Math.Max(0, ColumnPicker.SelectedIndex)];
                 var g = V3GeometryReader.Read(column);
                 var bars = new FilteredElementCollector(_document).OfClass(typeof(Rebar)).Cast<Rebar>()
-                    .Where(b => b.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == V3RebarBuilder.Partition(column.Id)).ToList();
+                    .Where(b => b.GetHostId() == column.Id && b.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == V3RebarBuilder.Partition(column.Id)).ToList();
                 double height = g.Top - g.Bottom;
                 if (height <= 0 || g.Width <= 0 || g.Depth <= 0) throw new InvalidOperationException("Hình học cột không hợp lệ.");
                 double ls = Math.Min(230 / g.Width, 340 / height);
@@ -92,7 +92,8 @@ namespace ColumnRebarPro.V3
                         for (int i = 0; i < n; i++)
                         {
                             if (!bar.DoesBarExistAtPosition(i)) continue;
-                            var curves = bar.GetCenterlineCurves(false, false, false, MultiplanarOption.IncludeAllMultiplanarCurves, i);
+                            var curves = bar.GetTransformedCenterlineCurves(false, false, false, MultiplanarOption.IncludeAllMultiplanarCurves, i);
+                            bool stirrup = (_document.GetElement(bar.GetShapeId()) as RebarShape)?.RebarStyle == RebarStyle.StirrupTie;
                             foreach (var curve in curves)
                             {
                                 var points = curve.Tessellate();
@@ -100,9 +101,9 @@ namespace ColumnRebarPro.V3
                                 {
                                     XYZ a = points[j-1], b = points[j];
                                     double ax = (a-g.Center).DotProduct(g.X), bx = (b-g.Center).DotProduct(g.X);
-                                    DrawLine(LongCanvas, 155+ax*ls, 30+(g.Top-a.Z)*ls, 155+bx*ls, 30+(g.Top-b.Z)*ls);
+                                    DrawLine(LongCanvas, 155+ax*ls, 30+(g.Top-a.Z)*ls, 155+bx*ls, 30+(g.Top-b.Z)*ls, stirrup);
                                     if (Math.Abs(a.Z-b.Z) < 1e-7 && Math.Abs(a.Z-cut) < 0.5/304.8)
-                                        DrawLine(CrossCanvas,122.5+ax*cs,160-(a-g.Center).DotProduct(y)*cs,122.5+bx*cs,160-(b-g.Center).DotProduct(y)*cs);
+                                        DrawLine(CrossCanvas,122.5+ax*cs,160-(a-g.Center).DotProduct(y)*cs,122.5+bx*cs,160-(b-g.Center).DotProduct(y)*cs, stirrup);
                                     if ((a.Z <= cut && b.Z > cut) || (b.Z <= cut && a.Z > cut))
                                     {
                                         XYZ q = a + (b-a)*((cut-a.Z)/(b.Z-a.Z));
@@ -129,9 +130,9 @@ namespace ColumnRebarPro.V3
             Canvas.SetLeft(rect,x); Canvas.SetTop(rect,y); canvas.Children.Add(rect);
         }
 
-        private static void DrawLine(Canvas canvas, double x1, double y1, double x2, double y2)
+        private static void DrawLine(Canvas canvas, double x1, double y1, double x2, double y2, bool stirrup = false)
         {
-            canvas.Children.Add(new System.Windows.Shapes.Line { X1=x1,Y1=y1,X2=x2,Y2=y2,Stroke=Brushes.IndianRed,StrokeThickness=1 });
+            canvas.Children.Add(new System.Windows.Shapes.Line { X1=x1,Y1=y1,X2=x2,Y2=y2,Stroke=stirrup ? Brushes.SteelBlue : Brushes.IndianRed,StrokeThickness=1 });
         }
 
         private void Export_Click(object sender, RoutedEventArgs e)
@@ -142,7 +143,7 @@ namespace ColumnRebarPro.V3
                 if (dialog.ShowDialog(this) != true) return;
                 var serializer = new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof(StudioDiagnostic));
                 using (var stream = File.Create(dialog.FileName))
-                    serializer.WriteObject(stream, new StudioDiagnostic { Version="2.0", ColumnIds=_columns.Select(c=>c.Id.Value).ToArray(), PreviewStatus=ModelSummary.Text });
+                    serializer.WriteObject(stream, new StudioDiagnostic { Version="2.0.3", ColumnIds=_columns.Select(c=>c.Id.Value).ToArray(), PreviewStatus=ModelSummary.Text });
                 StatusText.Text = "Đã xuất chẩn đoán.";
             }
             catch (Exception ex) { StatusText.Text = ex.Message; }
