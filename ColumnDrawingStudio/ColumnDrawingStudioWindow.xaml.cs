@@ -50,7 +50,7 @@ namespace ColumnRebarPro.V3
         {
             Action<StackPanel,string,string,string> row = (panel,label,check,field) =>
             {
-                var grid = new Grid { Margin = new Thickness(0,2,0,2) };
+                var grid = new System.Windows.Controls.Grid { Margin = new Thickness(0,2,0,2) };
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition());
                 var sourceCheck = string.IsNullOrEmpty(check) ? null : _settings.FindName(check) as CheckBox;
@@ -62,7 +62,7 @@ namespace ColumnRebarPro.V3
                     grid.Children.Add(toggle);
                 }
                 else grid.Children.Add(new TextBlock { Text=label, VerticalAlignment=VerticalAlignment.Center });
-                var source = _settings.FindName(field);
+                var source = string.IsNullOrEmpty(field) ? null : _settings.FindName(field);
                 FrameworkElement editor = null;
                 if (source is ComboBox combo)
                 {
@@ -77,7 +77,7 @@ namespace ColumnRebarPro.V3
                     copy.SetBinding(TextBox.TextProperty,new System.Windows.Data.Binding("Text") { Source=box, Mode=System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger=System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                     editor=copy;
                 }
-                if(editor!=null){Grid.SetColumn(editor,1);grid.Children.Add(editor);}
+                if(editor!=null){System.Windows.Controls.Grid.SetColumn(editor,1);grid.Children.Add(editor);}
                 panel.Children.Add(grid);
             };
             row(LongOptions,"① Dimension","LongDimensionEnabled","LongDimension");
@@ -85,7 +85,9 @@ namespace ColumnRebarPro.V3
             row(LongOptions,"③ Bending Detail","LongBendingEnabled","");
             row(LongOptions,"④ Bending Detail Tag","LongBendingTagEnabled","LongMainTag");
             row(CrossOptions,"① Dimension","CrossDimensionEnabled","CrossDimension");
-            row(CrossOptions,"② Bending Detail","PullBars","");
+            row(CrossOptions,"② Main Rebar Tag","CrossMainTagEnabled","CrossMainTag");
+            row(CrossOptions,"③ Stirrup Tag","CrossShowTag","CrossStirrupTag");
+            row(CrossOptions,"④ Bending Detail","PullBars","");
             row(OtherOptions,"Break Line","","LongBreakLine");
             row(OtherOptions,"Longitudinal Type","","LongSectionType");
             row(OtherOptions,"Longitudinal Template","","LongTemplate");
