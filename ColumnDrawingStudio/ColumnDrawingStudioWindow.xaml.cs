@@ -66,7 +66,7 @@ namespace ColumnRebarPro.V3
                 FrameworkElement editor = null;
                 if (source is ComboBox combo)
                 {
-                    var copy = new ComboBox { ItemsSource=combo.ItemsSource, DisplayMemberPath=combo.DisplayMemberPath, MinHeight=24 };
+                    var copy = new ComboBox { ItemsSource=combo.Items, DisplayMemberPath=combo.DisplayMemberPath, MinHeight=24 };
                     copy.SetBinding(System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
                         new System.Windows.Data.Binding("SelectedItem") { Source=combo, Mode=System.Windows.Data.BindingMode.TwoWay });
                     editor=copy;
