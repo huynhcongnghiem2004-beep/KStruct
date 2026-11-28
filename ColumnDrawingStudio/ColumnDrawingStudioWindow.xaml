@@ -1,7 +1,7 @@
 <Window x:Class="ColumnRebarPro.V3.ColumnDrawingStudioWindow" x:ClassModifier="internal"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KStruct | Column Drawing Studio V1.0" Height="800" Width="1280"
+        Title="KStruct | Column Drawing Studio V2.0" Height="800" Width="1280"
         MinWidth="1050" MinHeight="640" WindowStartupLocation="CenterOwner"
         Background="#F2F6FA" FontFamily="Segoe UI">
   <Window.Resources>
@@ -40,7 +40,7 @@
     </Border>
     <Grid Margin="14">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="58*" MinWidth="540"/>
+        <ColumnDefinition Width="48*" MinWidth="480"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <Border Grid.Column="0" Background="White" BorderBrush="#DCE5ED" BorderThickness="1" CornerRadius="5" Margin="0,0,12,0">
@@ -60,7 +60,7 @@
                   <TextBlock Text="2. Chọn View Type, View Template, Tag, Dimension và Title Block có trong project." TextWrapping="Wrap" Margin="0,0,0,10"/>
                   <TextBlock Text="3. Nhập số và tên Sheet, thiết lập tỷ lệ mặt cắt dọc/ngang." TextWrapping="Wrap" Margin="0,0,0,10"/>
                   <TextBlock Text="4. Chạy để tạo hồ sơ bằng engine bản vẽ KStruct hiện có." TextWrapping="Wrap" Margin="0,0,0,10"/>
-                  <TextBlock Text="Đây là bản V1.0: xem trước là sơ đồ minh họa, không phải bản vẽ Revit thực tế."
+                  <TextBlock Text="Chọn cột trước khi mở Studio để xem hình chiếu đường tâm thép từ mô hình."
                              TextWrapping="Wrap" Foreground="#A05C28" FontWeight="SemiBold"/>
                 </StackPanel>
               </ScrollViewer>
@@ -86,48 +86,7 @@
               </Grid.RowDefinitions>
               <TextBlock x:Name="LongSummary" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11"/>
               <Viewbox Grid.Row="1" Stretch="Uniform">
-                <Canvas Width="310" Height="400">
-                  <Rectangle Canvas.Left="66" Canvas.Top="14" Width="120" Height="34" Fill="#C8CDD2" Stroke="#667788"/>
-                  <Rectangle Canvas.Left="99" Canvas.Top="48" Width="54" Height="291" Fill="#E2E6EA" Stroke="#667788"/>
-                  <Rectangle Canvas.Left="66" Canvas.Top="339" Width="120" Height="38" Fill="#C8CDD2" Stroke="#667788"/>
-                  <Path Data="M 76,22 L 106,22 L 106,370 L 78,370 M 176,22 L 145,22 L 145,370 L 176,370" Stroke="#B94B4E" StrokeThickness="2" Fill="Transparent"/>
-                  <Line X1="115" X2="115" Y1="48" Y2="339" Stroke="#B94B4E" StrokeThickness="2"/>
-                  <Line X1="137" X2="137" Y1="48" Y2="339" Stroke="#B94B4E" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="55" Y2="55" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="62" Y2="62" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="69" Y2="69" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="76" Y2="76" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="83" Y2="83" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="90" Y2="90" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="97" Y2="97" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="112" Y2="112" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="132" Y2="132" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="152" Y2="152" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="172" Y2="172" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="192" Y2="192" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="212" Y2="212" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="232" Y2="232" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="252" Y2="252" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="272" Y2="272" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="282" Y2="282" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="290" Y2="290" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="298" Y2="298" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="306" Y2="306" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="314" Y2="314" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="322" Y2="322" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="107" X2="145" Y1="330" Y2="330" Stroke="#3998B7" StrokeThickness="2"/>
-                  <Line X1="42" X2="42" Y1="16" Y2="376" Stroke="#42586C"/>
-                  <Line X1="37" X2="47" Y1="16" Y2="16" Stroke="#42586C"/>
-                  <Line X1="37" X2="47" Y1="376" Y2="376" Stroke="#42586C"/>
-                  <TextBlock Canvas.Left="6" Canvas.Top="135" Text="Ø8a100 / Ø8a200" FontSize="11" Foreground="#37647D">
-                    <TextBlock.LayoutTransform><RotateTransform Angle="-90"/></TextBlock.LayoutTransform>
-                  </TextBlock>
-                  <Path Data="M 217,35 L 235,35 L 235,368 L 217,368 M 259,35 L 276,35 L 276,368 L 259,368" Stroke="#B94B4E" StrokeThickness="2" Fill="Transparent"/>
-                  <TextBlock Canvas.Left="218" Canvas.Top="175" Text="Thép dọc" FontSize="12">
-                    <TextBlock.LayoutTransform><RotateTransform Angle="-90"/></TextBlock.LayoutTransform>
-                  </TextBlock>
-                  <TextBlock Canvas.Left="112" Canvas.Top="380" Text="Mặt cắt dọc (minh họa)" FontSize="10"/>
-                </Canvas>
+                <Canvas x:Name="LongCanvas" Width="310" Height="400"/>
               </Viewbox>
             </Grid>
           </GroupBox>
@@ -136,31 +95,7 @@
               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
               <TextBlock x:Name="CrossSummary" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11"/>
               <Viewbox Grid.Row="1" Stretch="Uniform">
-                <Canvas Width="245" Height="320">
-                  <Rectangle Canvas.Left="27" Canvas.Top="52" Width="133" Height="106" Fill="#DBE0E5" Stroke="#667788" StrokeThickness="1.5"/>
-                  <Rectangle Canvas.Left="39" Canvas.Top="64" Width="109" Height="82" RadiusX="7" RadiusY="7" Stroke="#B94B4E" StrokeThickness="3" Fill="Transparent"/>
-                  <Ellipse Canvas.Left="42" Canvas.Top="68" Width="10" Height="10" Fill="#B94B4E"/>
-                  <Ellipse Canvas.Left="135" Canvas.Top="68" Width="10" Height="10" Fill="#B94B4E"/>
-                  <Ellipse Canvas.Left="42" Canvas.Top="133" Width="10" Height="10" Fill="#B94B4E"/>
-                  <Ellipse Canvas.Left="135" Canvas.Top="133" Width="10" Height="10" Fill="#B94B4E"/>
-                  <Line X1="27" X2="160" Y1="33" Y2="33" Stroke="#42586C"/>
-                  <Line X1="27" X2="27" Y1="29" Y2="37" Stroke="#42586C"/>
-                  <Line X1="160" X2="160" Y1="29" Y2="37" Stroke="#42586C"/>
-                  <Line X1="13" X2="13" Y1="52" Y2="158" Stroke="#42586C"/>
-                  <TextBlock Canvas.Left="68" Canvas.Top="12" Text="DIM" FontSize="12"/>
-                  <Rectangle Canvas.Left="182" Canvas.Top="76" Width="52" Height="58" RadiusX="8" RadiusY="8" Stroke="#B94B4E" StrokeThickness="2" Fill="Transparent"/>
-                  <TextBlock Canvas.Left="185" Canvas.Top="139" Text="Đai 2D" FontSize="10"/>
-                  <Border Canvas.Left="20" Canvas.Top="188" Background="#EDF2F7" BorderBrush="#A8B8C6" BorderThickness="1" Width="216" Padding="8">
-                    <StackPanel>
-                      <TextBlock Text="THÉP CHỦ         4Ø18" FontSize="11"/>
-                      <Separator/>
-                      <TextBlock Text="THÉP ĐAI 2 ĐẦU   Ø8a100" FontSize="11"/>
-                      <Separator/>
-                      <TextBlock Text="THÉP ĐAI GIỮA    Ø8a200" FontSize="11"/>
-                    </StackPanel>
-                  </Border>
-                  <TextBlock Canvas.Left="55" Canvas.Top="286" Text="Mặt cắt ngang (minh họa)" FontSize="10"/>
-                </Canvas>
+                <Canvas x:Name="CrossCanvas" Width="245" Height="320"/>
               </Viewbox>
             </Grid>
           </GroupBox>
@@ -168,8 +103,8 @@
         <Border Grid.Row="1" Background="#EAF3F7" BorderBrush="#BFD9E4" BorderThickness="1" Padding="12" Margin="0,12,0,0">
           <StackPanel>
             <TextBlock Text="③  OTHER SETTINGS / BẢN VẼ" FontWeight="Bold" Margin="0,0,0,5"/>
-            <TextBlock x:Name="SheetSummary" TextWrapping="Wrap"/>
-            <TextBlock Text="Preview sơ đồ, không phản ánh kích thước/thép thực của cấu kiện đã chọn." Foreground="#9A5A2E" FontSize="11" Margin="0,6,0,0"/>
+            <TextBlock x:Name="SheetSummary" TextWrapping="Wrap"/><TextBlock x:Name="ModelSummary" TextWrapping="Wrap" Margin="0,5,0,0"/><Button Content="Xuất chẩn đoán JSON" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Export_Click"/>
+            <TextBlock Text="Preview đường tâm từ mô hình, không phải bản vẽ phát hành." Foreground="#9A5A2E" FontSize="11" Margin="0,6,0,0"/>
           </StackPanel>
         </Border>
       </Grid>
