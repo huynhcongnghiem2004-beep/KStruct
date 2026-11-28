@@ -8,11 +8,12 @@ namespace ColumnRebarPro.V3
 {
     internal sealed partial class V3DrawingBuilder
     {
-        private const double StirrupTagGapMm = 200;   // khoảng cách từ mép cột đến mép gần nhất của tag
+        private const double StirrupTagPaperGapMm = 15;
 
-        // Mặt cắt dọc: P/T chọn phía theo View.RightDirection; tag dọc không leader, TOP/MID/BOT chọn cao độ.
+        // Mặt cắt dọc: P/T chọn phía theo View.RightDirection; TOP/MID/BOT chọn cao độ.
+        // Mọi tag dùng Free End và được căn theo cùng biên cột trong hệ tọa độ của view.
         private void TagStirrupByName(Document doc, V3SegmentWork work, ViewSection view, Rebar bar,
-                                     FamilySymbol tagSymbol, HashSet<string> spans)
+                                     FamilySymbol tagSymbol, HashSet<string> spans, List<XYZ> occupiedHeads)
         {
             IList<Curve> first, last;
             try
@@ -37,15 +38,22 @@ namespace ColumnRebarPro.V3
             V3TagHorizontalSide side = V3TagPlacement.Resolve(tagSymbol.FamilyName, tagSymbol.Name,
                 V3TagHorizontalSide.Left);
             double sign = side == V3TagHorizontalSide.Right ? 1 : -1;
-            XYZ face = Project(view, g.At(0, 0, 0)) + right * (sign * g.Width / 2);
+            XYZ center = Project(view, g.At(0, 0, 0));
+            XYZ face = center + right * (sign * g.Width / 2);
             XYZ anchor = Project(view, new XYZ(face.X, face.Y, midZ));
 
             var sub = bar.GetSubelements().FirstOrDefault();
             var reference = sub == null ? new Reference(bar) : sub.GetReference();
             if (!tagSymbol.IsActive) tagSymbol.Activate();
-            XYZ head = anchor + right * (sign * V3Units.Ft(StirrupTagGapMm));
-            var tag = IndependentTag.Create(doc, tagSymbol.Id, view.Id, reference, false, TagOrientation.Vertical, head);
-            tag.TagHeadPosition = head;
+            double centerU = center.DotProduct(right);
+            XYZ head = KStruct.Core.RebarTagPlacement.AlignedHead(view, anchor,
+                centerU - g.Width / 2, centerU + g.Width / 2,
+                StirrupTagPaperGapMm, (int)side);
+            head = KStruct.Core.RebarTagPlacement.AvoidVerticalCollision(view, head, occupiedHeads, 5);
+            var tag = IndependentTag.Create(doc, tagSymbol.Id, view.Id, reference, true,
+                TagOrientation.Horizontal, anchor);
+            KStruct.Core.RebarTagPlacement.ApplyHorizontalFreeEnd(doc, view, tag, reference, anchor, head);
+            occupiedHeads.Add(head);
         }
     }
 }

@@ -116,6 +116,7 @@ namespace ColumnRebarPro.V3
             GraphicsStyle dashed = DashedLineStyle(doc);
             var dimType = doc.GetElement(Id("LongDimension")) as DimensionType;
             var touched = new List<XYZ>();
+            var occupiedTagHeads = new List<XYZ>();
 
             Func<double, double, XYZ> P = (x, z) => basePt + right * x + XYZ.BasisZ * z;
             double cursor = overview.Width / 2 + V3Units.Ft(60 * s);
@@ -164,7 +165,7 @@ namespace ColumnRebarPro.V3
                 }
 
                 }
-                // 3) Rebar Tag đặt bên P/T theo token trong tên loại đã chọn, không leader.
+                // 3) Rebar Tag đặt bên P/T theo token trong tên loại đã chọn, dùng Free End.
                 //    Mác, số lượng, đường kính, chiều dài do family tag quyết định.
                 double bestLen = 0, midZ = (sh.MinZ + sh.MaxZ) / 2;
                 for (int i = 0; i + 1 < sh.Pts.Count; i++)
@@ -178,13 +179,20 @@ namespace ColumnRebarPro.V3
                     if (!tagSymbol.IsActive) { tagSymbol.Activate(); doc.Regenerate(); }
                     V3TagHorizontalSide side = V3TagPlacement.Resolve(tagSymbol.FamilyName, tagSymbol.Name,
                         V3TagHorizontalSide.Right);
-                    double headX = side == V3TagHorizontalSide.Right
-                        ? xs + sh.LateralMax + V3Units.Ft(8 * s)
-                        : xs + sh.LateralMin - V3Units.Ft(8 * s);
-                    XYZ head = P(headX, midZ);
+                    double sideX = side == V3TagHorizontalSide.Right
+                        ? xs + sh.LateralMax
+                        : xs + sh.LateralMin;
+                    XYZ anchor = P(sideX, midZ);
+                    XYZ head = anchor + right * ((int)side *
+                        KStruct.Core.RebarTagPlacement.PaperMillimetres(view, 15));
+                    head = KStruct.Core.RebarTagPlacement.AvoidVerticalCollision(
+                        view, head, occupiedTagHeads, 5);
                     var sub = sh.Bar.GetSubelements().FirstOrDefault();
                     var reference = sub == null ? new Reference(sh.Bar) : sub.GetReference();
-                    IndependentTag.Create(doc, tagType, view.Id, reference, false, TagOrientation.Horizontal, head);
+                    var tag = IndependentTag.Create(doc, tagType, view.Id, reference, true,
+                        TagOrientation.Horizontal, anchor);
+                    KStruct.Core.RebarTagPlacement.ApplyHorizontalFreeEnd(doc, view, tag, reference, anchor, head);
+                    occupiedTagHeads.Add(head);
                     touched.Add(head); touched.Add(head + right *
                         (side == V3TagHorizontalSide.Right ? V3Units.Ft(14 * s) : -V3Units.Ft(14 * s)));
                 }

@@ -351,10 +351,11 @@ namespace ColumnRebarPro.V3
                 // Tag thép dọc của mặt cắt dọc được đặt cùng hình khai triển (DrawBarShapes).
                 if (stirrupTag == null || stirrups.Count == 0) return;
                 var spans = new HashSet<string>();
+                var occupiedHeads = new List<XYZ>();
                 int tagged = 0, failed = 0;
                 foreach (Rebar bar in stirrups.OrderBy(b => b.Id.Value))
                 {
-                    try { TagStirrupByName(doc, work, view, bar, stirrupTag, spans); tagged++; }
+                    try { TagStirrupByName(doc, work, view, bar, stirrupTag, spans, occupiedHeads); tagged++; }
                     catch (Autodesk.Revit.Exceptions.ArgumentException) { failed++; }
                     catch (Autodesk.Revit.Exceptions.InvalidOperationException) { failed++; }
                 }
@@ -388,7 +389,8 @@ namespace ColumnRebarPro.V3
                     outward = outward.GetLength() < 1e-6 ? XYZ.BasisX : outward.Normalize();
                     XYZ direction = right * outward.X + up * outward.Y;
                     string tagError;
-                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s), out tagError))
+                    XYZ head = onView + direction * V3Units.Ft(10 * s);
+                    if (!TryTag(doc, view, mainTag, bar, onView, head, out tagError))
                         throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name + ": " + tagError);
                 }
             }
@@ -407,9 +409,12 @@ namespace ColumnRebarPro.V3
                 V3TagHorizontalSide side = V3TagPlacement.Resolve(stirrupTag.FamilyName, stirrupTag.Name,
                     V3TagHorizontalSide.Right);
                 double sign = side == V3TagHorizontalSide.Right ? 1 : -1;
-                XYZ head = center + right * (sign * (g.Width / 2 + V3Units.Ft(12 * s))) + up * (g.Depth / 2);
+                XYZ anchor = center + right * (sign * g.Width / 2) + up * (g.Depth / 2);
+                double centerU = center.DotProduct(right);
+                XYZ head = KStruct.Core.RebarTagPlacement.AlignedHead(view, anchor,
+                    centerU - g.Width / 2, centerU + g.Width / 2, 15, (int)side);
                 string tagError;
-                if (!TryTag(doc, view, stirrupTag, chosen, head, out tagError))
+                if (!TryTag(doc, view, stirrupTag, chosen, anchor, head, out tagError))
                     throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name + ": " + tagError);
             }
         }
@@ -466,7 +471,8 @@ namespace ColumnRebarPro.V3
             catch (Autodesk.Revit.Exceptions.ApplicationException) { return false; }
         }
 
-        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ head, out string error)
+        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar,
+            XYZ anchor, XYZ head, out string error)
         {
             var failures = new List<string>();
             var references = new List<Reference>();
@@ -491,7 +497,10 @@ namespace ColumnRebarPro.V3
                     attempt.Start();
                     try
                     {
-                        IndependentTag.Create(doc, symbol.Id, view.Id, references[i], true, TagOrientation.Horizontal, head);
+                        var tag = IndependentTag.Create(doc, symbol.Id, view.Id, references[i], true,
+                            TagOrientation.Horizontal, anchor);
+                        KStruct.Core.RebarTagPlacement.ApplyHorizontalFreeEnd(
+                            doc, view, tag, references[i], anchor, head);
                         var status = attempt.Commit();
                         if (status == TransactionStatus.Committed)
                         {
