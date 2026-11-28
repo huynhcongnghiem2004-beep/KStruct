@@ -70,7 +70,9 @@ namespace ColumnRebarPro.V3
             "LongShowValue",
             "UseMarkForStackName",
             "UseMarkForSheetName",
-            "UseMarkForViewportName"
+            "UseMarkForViewportName",
+            "CrossDimensionEnabled", "CrossMainTagEnabled", "LongDimensionEnabled",
+            "LongBendingEnabled", "LongBendingDimensionEnabled", "LongBendingTagEnabled"
         };
 
         private readonly string[] _comboNames =
@@ -406,6 +408,10 @@ namespace ColumnRebarPro.V3
                     }
                 }
 
+                // Migrate legacy coupled switches without changing saved output.
+                foreach (var pair in new[] { new[] {"CrossDimensionEnabled","CrossShowValue"}, new[] {"CrossMainTagEnabled","CrossShowTag"}, new[] {"LongDimensionEnabled","LongShowValue"}, new[] {"LongBendingEnabled","LongShowValue"}, new[] {"LongBendingDimensionEnabled","LongShowValue"}, new[] {"LongBendingTagEnabled","LongShowValue"} })
+                    if (!file.Entries.Any(e => e.Name == pair[0]))
+                        ((CheckBox)FindName(pair[0])).IsChecked = ((CheckBox)FindName(pair[1])).IsChecked;
                 SetStatus(missing == 0 ? "Đã nạp thiết lập đã lưu của project." :
                     "Có " + missing + " loại đã bị xóa/thay đổi trong project. Vui lòng chọn lại.",
                     missing == 0 ? StatusSeverity.Info : StatusSeverity.Review);
