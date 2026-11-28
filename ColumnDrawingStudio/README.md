@@ -9,4 +9,4 @@ Revit 2024 / WPF / net48. Select structural columns before opening Studio to pre
 - Review generated draft sheets before issue.
 
 ## Deferred
-Independent bending detail/tag controls, selectable cutting direction, full sheet preview and collision detection, language controls and full DevTools integration remain pending. V2.0 is a development milestone, not a verified production release.
+Independent bending detail/tag controls, selectable cutting direction, full sheet preview, language controls and full DevTools integration remain pending. Rebar Tag heads now receive deterministic 5 mm paper-space separation, but text-boundary collision detection still requires Revit runtime validation. V2.0 is a development milestone, not a verified production release.

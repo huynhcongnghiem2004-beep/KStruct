@@ -17,6 +17,12 @@ static class Program
         try { action(); } catch (InvalidOperationException) { rejected = true; }
         Check(rejected, "Invalid layout must be rejected");
     }
+    static void RejectArgument(Action action)
+    {
+        bool rejected = false;
+        try { action(); } catch (ArgumentException) { rejected = true; }
+        Check(rejected, "Invalid argument must be rejected");
+    }
     static List<V3TieBand> Plan(double zone = 500, bool fixedCount = false,
         bool joint = false, double spacing = 175, double height = 3000) =>
         V3TieLayoutPlan.Create(height, 30, 8, zone, 100, spacing, fixedCount,
@@ -68,6 +74,33 @@ static class Program
             V3TagHorizontalSide.Right, "Letters inside words are not placement tokens");
         Check(V3TagPlacement.Resolve("Plain family", "Plain type", V3TagHorizontalSide.Left) ==
             V3TagHorizontalSide.Left, "Tags without P/T preserve the caller fallback");
+        var tagAnchors = new[] {
+            new KStruct.Core.RebarTagAnchor2D { Key="L", U=1, V=10 },
+            new KStruct.Core.RebarTagAnchor2D { Key="R1", U=9, V=10 },
+            new KStruct.Core.RebarTagAnchor2D { Key="R2", U=9, V=12 }
+        };
+        var autoTags = KStruct.Core.RebarTagLayoutPolicy.Create(tagAnchors, 0, 10, 2, 5,
+            KStruct.Core.RebarTagSideMode.Auto);
+        Check(autoTags[0].Side == -1 && autoTags[0].HeadU == -2,
+            "Auto tag uses the nearest left edge and aligned left column");
+        Check(autoTags[1].Side == 1 && autoTags[1].HeadU == 12,
+            "Auto tag uses the nearest right edge and aligned right column");
+        Check(autoTags[2].HeadV == 15 && autoTags[2].NeedsElbow,
+            "Overlapping tags move vertically and request an elbow");
+        var balancedTags = KStruct.Core.RebarTagLayoutPolicy.Create(new[] {
+            new KStruct.Core.RebarTagAnchor2D { U=5, V=0 },
+            new KStruct.Core.RebarTagAnchor2D { U=5, V=1 }
+        }, 0, 10, 2, 5, KStruct.Core.RebarTagSideMode.BothSides);
+        Check(balancedTags[0].Side == -1 && balancedTags[1].Side == 1,
+            "Both-sides mode balances anchors on the view centreline");
+        var rightTags = KStruct.Core.RebarTagLayoutPolicy.Create(tagAnchors, 0, 10, 2, 5,
+            KStruct.Core.RebarTagSideMode.Right);
+        Check(rightTags.All(t => t.Side == 1 && t.HeadU == 12),
+            "Right mode aligns every tag to one view-relative column");
+        RejectArgument(() => KStruct.Core.RebarTagLayoutPolicy.Create(tagAnchors, 10, 0, 2, 5,
+            KStruct.Core.RebarTagSideMode.Auto));
+        RejectArgument(() => KStruct.Core.RebarTagLayoutPolicy.Create(tagAnchors, 0, 10, 0, 5,
+            KStruct.Core.RebarTagSideMode.Auto));
         // Dimensionless ratios also work in Revit internal feet.
         Check(V3CapGeometryPolicy.IsSeparateCap(6, 6, 4.8, .8), "Separate 2x3 cap works without named thickness");
         Check(!V3CapGeometryPolicy.IsSeparateCap(.16, .16, 1.6, 10), "Deep nested pile is not a cap");
