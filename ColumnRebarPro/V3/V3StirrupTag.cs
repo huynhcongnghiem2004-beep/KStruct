@@ -26,8 +26,7 @@ namespace ColumnRebarPro.V3
             if (first.Count == 0 || last.Count == 0) return;
 
             double z0 = first[0].GetEndPoint(0).Z, z1 = last[0].GetEndPoint(0).Z;
-            int vertical = V3TagPlacement.ResolveVerticalPosition(tagSymbol.FamilyName, tagSymbol.Name);
-            double midZ = vertical > 0 ? Math.Max(z0, z1) : vertical < 0 ? Math.Min(z0, z1) : (z0 + z1) / 2;
+            double midZ = KStruct.Core.RebarTagPlacement.SelectPosition(tagSymbol.FamilyName, tagSymbol.Name, z0, z1);
             // Các set đai cùng đoạn (ví dụ đai phụ trùng đoạn đai chính) chỉ tag một lần.
             string key = Math.Round(V3Units.Mm(Math.Min(z0, z1)) / 10).ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" +
                          Math.Round(V3Units.Mm(Math.Max(z0, z1)) / 10).ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -39,20 +38,11 @@ namespace ColumnRebarPro.V3
                 V3TagHorizontalSide.Left);
             double sign = side == V3TagHorizontalSide.Right ? 1 : -1;
             XYZ face = Project(view, g.At(0, 0, 0)) + right * (sign * g.Width / 2);
-            double targetEdge = face.DotProduct(right) + sign * V3Units.Ft(StirrupTagGapMm);
             XYZ anchor = Project(view, new XYZ(face.X, face.Y, midZ));
-            XYZ head = anchor + right * (sign * V3Units.Ft(StirrupTagGapMm));
 
             var sub = bar.GetSubelements().FirstOrDefault();
             var reference = sub == null ? new Reference(bar) : sub.GetReference();
-            var tag = IndependentTag.Create(doc, tagSymbol.Id, view.Id, reference, true, TagOrientation.Horizontal, anchor);
-            tag.LeaderEndCondition = LeaderEndCondition.Free;
-            tag.SetLeaderEnd(reference, anchor);
-            tag.TagHeadPosition = head;
-            doc.Regenerate();
-            tag.SetLeaderEnd(reference, anchor);
-            tag.SetLeaderElbow(reference, (anchor + head) / 2);
-            tag.TagHeadPosition = head;
+            KStruct.Core.RebarTagPlacement.CreateHorizontal(doc, view, tagSymbol, reference, anchor, StirrupTagGapMm, -1);
         }
     }
 }
