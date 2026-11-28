@@ -167,7 +167,7 @@ namespace ColumnRebarPro.V3
         // Thép chờ lên tầng trên: Dim chiều dài thép chờ phía trên đỉnh cột, cùng đường Dim với chuỗi vùng đai.
         private void StarterDim(Document doc,V3SegmentWork work,View view)
         {
-            if(!B("LongShowValue"))return;
+            if(!AnnotationEnabled("LongDimensionEnabled", "LongShowValue"))return;
             if(!work.Config.StarterBars)return;
             var g=work.Geometry;
             double starterLength = work.OutgoingStarterLengthMm > 0

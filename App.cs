@@ -38,6 +38,7 @@ namespace SDK_HD.KStruct
                 Add(columnRebarSplit, dll, "KStruct_ColumnRebarV3", "Tạo thép cột V4", typeof(global::ColumnRebarPro.V3.ColumnRebarV3Command), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_RoundColumnRebar", "Thép cột tròn", typeof(global::SDK_HD.KStruct.NativeRebar.RoundColumnRebarCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_CreateColumnDrawingsNative", "Tạo bộ bản vẽ thép cột", typeof(global::ColumnRebarPro.V3.CreateColumnDrawingsCommand), "RebarColumnV3");
+                Add(columnPanel, dll, "KStruct_ColumnDrawingStudio", "Column Drawing\nStudio V2.0", typeof(global::ColumnRebarPro.V3.ColumnDrawingStudioCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_UpdateColumnDrawings", "Cập nhật bản vẽ cột", typeof(global::ColumnRebarPro.V3.UpdateColumnDrawingsCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_StructuralPlanDimensionNative", "Dim cột/dầm/móng theo lưới", typeof(global::ColumnRebarPro.V3.V3StructuralPlanDimensionCommand), "RebarColumnV3");
                 Add(columnRebarSplit, dll, "KStruct_ColumnRebarSchedule", "Thống kê cốt thép", typeof(global::SDK_HD.KStruct.NativeRebar.RebarScheduleCommand), "RebarColumnV3");

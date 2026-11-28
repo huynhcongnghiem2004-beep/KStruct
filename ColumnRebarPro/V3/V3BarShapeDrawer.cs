@@ -103,7 +103,7 @@ namespace ColumnRebarPro.V3
         internal void DrawBarShapes(Document doc, IList<V3SegmentWork> works, ViewSection view, V3Geometry overview)
         {
             // Dùng chung công tắc "Hiện giá trị" của mặt cắt dọc (đã kiểm tra Text Type ở Validate).
-            if (!Enabled || !B("LongShowValue")) return;
+            if (!Enabled || !AnnotationEnabled("LongBendingEnabled", "LongShowValue")) return;
             var shapes = CollectBarShapes(doc, works);
             if (shapes.Count == 0) return;
 
@@ -134,6 +134,8 @@ namespace ColumnRebarPro.V3
                 }
 
                 // 2) Kích thước từng đoạn theo cao độ (các vạch ngang bên trái hình).
+                if (AnnotationEnabled("LongBendingDimensionEnabled", "LongShowValue"))
+                {
                 var zs = sh.Pts.Select(p => p.Z).OrderBy(z => z).ToList();
                 var breaks = new List<double>();
                 foreach (double z in zs) if (breaks.Count == 0 || z - breaks[breaks.Count - 1] > tol) breaks.Add(z);
@@ -161,6 +163,7 @@ namespace ColumnRebarPro.V3
                     }
                 }
 
+                }
                 // 3) Rebar Tag đặt bên P/T theo token trong tên loại đã chọn, không leader.
                 //    Mác, số lượng, đường kính, chiều dài do family tag quyết định.
                 double bestLen = 0, midZ = (sh.MinZ + sh.MaxZ) / 2;
@@ -170,7 +173,7 @@ namespace ColumnRebarPro.V3
                     if (len > bestLen && Math.Abs(sh.Pts[i + 1].X - sh.Pts[i].X) < 1e-6) { bestLen = len; midZ = (sh.Pts[i].Z + sh.Pts[i + 1].Z) / 2; }
                 }
                 var tagSymbol = doc.GetElement(tagType) as FamilySymbol;
-                if (tagSymbol != null)
+                if (tagSymbol != null && AnnotationEnabled("LongBendingTagEnabled", "LongShowValue"))
                 {
                     if (!tagSymbol.IsActive) { tagSymbol.Activate(); doc.Regenerate(); }
                     V3TagHorizontalSide side = V3TagPlacement.Resolve(tagSymbol.FamilyName, tagSymbol.Name,
@@ -190,6 +193,7 @@ namespace ColumnRebarPro.V3
             }
 
             // Mở rộng crop để mọi chi tiết nằm trong view (cùng cách ZoneDetail đang làm).
+            if (touched.Count == 0) return;
             var box = view.CropBox; Transform inv = box.Transform.Inverse;
             var local2 = touched.Select(p => inv.OfPoint(p)).ToList();
             double pad = V3Units.Ft(10 * s);

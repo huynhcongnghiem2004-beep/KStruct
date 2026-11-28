@@ -34,6 +34,8 @@ namespace ColumnRebarPro.V3
             return S(key) == "true";
         }
 
+        private bool AnnotationEnabled(string key, string legacy) => values.ContainsKey(key) ? B(key) : B(legacy);
+
         private ElementId Id(string key)
         {
             long id;
@@ -136,6 +138,17 @@ namespace ColumnRebarPro.V3
 
                 if (B(prefix + "ShowValue") && Id(prefix + "TextType") == ElementId.InvalidElementId)
                     throw new InvalidOperationException("Đang bật Hiện giá trị: hãy chọn Text Type hoặc tắt tùy chọn.");
+
+                if (prefix == "Cross" && AnnotationEnabled("CrossDimensionEnabled", "CrossShowValue") &&
+                    !(doc.GetElement(Id("CrossDimension")) is DimensionType))
+                    throw new InvalidOperationException("Chọn Dimension Type cho mặt cắt ngang hoặc tắt Dimension tiết diện.");
+                if (prefix == "Long" && AnnotationEnabled("LongDimensionEnabled", "LongShowValue") &&
+                    !(doc.GetElement(Id("LongDimension")) is DimensionType))
+                    throw new InvalidOperationException("Chọn Dimension Type cho thép chờ hoặc tắt Dimension thép chờ.");
+                if (prefix == "Long" && AnnotationEnabled("LongBendingEnabled", "LongShowValue") &&
+                    AnnotationEnabled("LongBendingTagEnabled", "LongShowValue") &&
+                    values.ContainsKey("LongBendingTagEnabled") && !(doc.GetElement(Id("LongMainTag")) is FamilySymbol))
+                    throw new InvalidOperationException("Chọn Tag thép dọc hoặc tắt Bending Detail Tag.");
 
                 var template = doc.GetElement(Id(prefix + "Template")) as View;
                 if (template != null)
@@ -322,10 +335,10 @@ namespace ColumnRebarPro.V3
             if (!Enabled) return;
             bool isLong = prefix == "Long";
 
-            if (!isLong && B("CrossShowValue")) CrossDimensions(doc, work, view);
-            if (!B(prefix + "ShowTag")) return;
+            if (!isLong && AnnotationEnabled("CrossDimensionEnabled", "CrossShowValue")) CrossDimensions(doc, work, view);
+            if (!B(prefix + "ShowTag") && (isLong || !AnnotationEnabled("CrossMainTagEnabled", "CrossShowTag"))) return;
 
-            FamilySymbol stirrupTag = ActiveTagSymbol(doc, Id(prefix + "StirrupTag"));
+            FamilySymbol stirrupTag = B(prefix + "ShowTag") ? ActiveTagSymbol(doc, Id(prefix + "StirrupTag")) : null;
             var stirrups = new List<Rebar>();
             var mains = new List<Rebar>();
             foreach (Rebar bar in ColumnRebars(doc, work, view))
@@ -358,7 +371,7 @@ namespace ColumnRebarPro.V3
             // tagged. They must be covered by Multi-Rebar Annotation.
             FamilySymbol mainTag = null;
 
-            HashSet<ElementId> covered = mains.Count > 0
+            HashSet<ElementId> covered = mains.Count > 0 && AnnotationEnabled("CrossMainTagEnabled", "CrossShowTag")
                 ? AnnotateMultiRebar(doc, work, view, mains)
                 : new HashSet<ElementId>();
 

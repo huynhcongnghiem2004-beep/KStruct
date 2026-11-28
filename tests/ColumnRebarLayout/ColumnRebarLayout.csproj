@@ -4,6 +4,7 @@
     <Compile Include="../../ColumnRebarPro/V3/V3AnchorGap.cs" Link="V3AnchorGap.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3FoundationDepth.cs" Link="V3FoundationDepth.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3TableParameterNames.cs" Link="V3TableParameterNames.cs" />
+    <Compile Include="../../Core/RebarTagNaming.cs" Link="RebarTagNaming.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3TagPlacement.cs" Link="V3TagPlacement.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3CapGeometryPolicy.cs" Link="V3CapGeometryPolicy.cs" />
     <Compile Include="../../ColumnRebarPro/V3/V3TieLayoutPlan.cs" Link="V3TieLayoutPlan.cs" />

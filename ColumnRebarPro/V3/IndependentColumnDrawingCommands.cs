@@ -349,17 +349,28 @@ namespace ColumnRebarPro.V3
         // Use the same full KStruct V3 documentation pipeline as "Thép cột". This keeps the
         // ribbon's standalone create/update drawing buttons from falling back to the old
         // two-view placeholder implementation below.
-        internal static Result ExecuteV3(ExternalCommandData data, ref string message, bool update)
+        internal static Result ExecuteV3(ExternalCommandData data, ref string message, bool update, bool studio = false)
         {
             UIDocument ui = data.Application.ActiveUIDocument;
             if (ui == null || ui.Document.IsFamilyDocument) return Result.Cancelled;
             Document doc = ui.Document;
             try
             {
-                var settingsWindow = new ColumnDrawingSettingsWindow(doc);
-                new WindowInteropHelper(settingsWindow).Owner = data.Application.MainWindowHandle;
-                if (settingsWindow.ShowDialog() != true) return Result.Cancelled;
-                DeploymentSettingsFile settings = settingsWindow.Settings;
+                DeploymentSettingsFile settings;
+                if (studio)
+                {
+                    var window = new ColumnDrawingStudioWindow(doc, ui.Selection.GetElementIds());
+                    new WindowInteropHelper(window).Owner = data.Application.MainWindowHandle;
+                    if (window.ShowDialog() != true) return Result.Cancelled;
+                    settings = window.Settings;
+                }
+                else
+                {
+                    var settingsWindow = new ColumnDrawingSettingsWindow(doc);
+                    new WindowInteropHelper(settingsWindow).Owner = data.Application.MainWindowHandle;
+                    if (settingsWindow.ShowDialog() != true) return Result.Cancelled;
+                    settings = settingsWindow.Settings;
+                }
 
                 List<FamilyInstance> picked = ui.Selection.GetElementIds().Select(doc.GetElement)
                     .OfType<FamilyInstance>().Where(c => new ColumnFilter().AllowElement(c)).Distinct().ToList();
