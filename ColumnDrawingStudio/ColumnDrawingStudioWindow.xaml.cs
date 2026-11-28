@@ -29,6 +29,7 @@ namespace ColumnRebarPro.V3
             _settings.Initialize(document);
             _settings.PrepareForExistingRebar();
             SettingsHost.Content = _settings;
+            BuildReferenceOptions();
             ColumnPicker.ItemsSource = _columns.Select(c => (c.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString() ?? "Cột") + " | ID " + c.Id.Value).ToList();
             ColumnPicker.SelectedIndex = _columns.Count > 0 ? 0 : -1;
             ColumnPicker.SelectionChanged += (sender, args) => RenderModel();
@@ -43,6 +44,58 @@ namespace ColumnRebarPro.V3
             _settings.AddHandler(TextBox.TextChangedEvent,
                 new TextChangedEventHandler((sender, args) => RefreshSummary()), true);
             Loaded += (sender, args) => { RefreshSummary(); RenderModel(); };
+        }
+
+        private void BuildReferenceOptions()
+        {
+            Action<StackPanel,string,string,string> row = (panel,label,check,field) =>
+            {
+                var grid = new Grid { Margin = new Thickness(0,2,0,2) };
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition());
+                var sourceCheck = string.IsNullOrEmpty(check) ? null : _settings.FindName(check) as CheckBox;
+                if (sourceCheck != null)
+                {
+                    var toggle = new CheckBox { Content = label, VerticalAlignment = VerticalAlignment.Center };
+                    toggle.SetBinding(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty,
+                        new System.Windows.Data.Binding("IsChecked") { Source=sourceCheck, Mode=System.Windows.Data.BindingMode.TwoWay });
+                    grid.Children.Add(toggle);
+                }
+                else grid.Children.Add(new TextBlock { Text=label, VerticalAlignment=VerticalAlignment.Center });
+                var source = _settings.FindName(field);
+                FrameworkElement editor = null;
+                if (source is ComboBox combo)
+                {
+                    var copy = new ComboBox { ItemsSource=combo.ItemsSource, DisplayMemberPath=combo.DisplayMemberPath, MinHeight=24 };
+                    copy.SetBinding(System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
+                        new System.Windows.Data.Binding("SelectedItem") { Source=combo, Mode=System.Windows.Data.BindingMode.TwoWay });
+                    editor=copy;
+                }
+                else if (source is TextBox box)
+                {
+                    var copy = new TextBox { MinHeight=24 };
+                    copy.SetBinding(TextBox.TextProperty,new System.Windows.Data.Binding("Text") { Source=box, Mode=System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger=System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
+                    editor=copy;
+                }
+                if(editor!=null){Grid.SetColumn(editor,1);grid.Children.Add(editor);}
+                panel.Children.Add(grid);
+            };
+            row(LongOptions,"① Dimension","LongDimensionEnabled","LongDimension");
+            row(LongOptions,"② Stirrup Tag","LongShowTag","LongStirrupTag");
+            row(LongOptions,"③ Bending Detail","LongBendingEnabled","");
+            row(LongOptions,"④ Bending Detail Tag","LongBendingTagEnabled","LongMainTag");
+            row(CrossOptions,"① Dimension","CrossDimensionEnabled","CrossDimension");
+            row(CrossOptions,"② Bending Detail","PullBars","");
+            row(OtherOptions,"Break Line","","LongBreakLine");
+            row(OtherOptions,"Longitudinal Type","","LongSectionType");
+            row(OtherOptions,"Longitudinal Template","","LongTemplate");
+            row(OtherOptions,"Longitudinal Scale","","LongScale");
+            row(OtherOptions,"Cross Type","","CrossSectionType");
+            row(OtherOptions,"Cross Template","","CrossTemplate");
+            row(OtherOptions,"Cross Scale","","CrossScale");
+            row(OtherOptions,"Sheet Number","","SheetNumber");
+            row(OtherOptions,"Sheet Name","","SheetName");
+            row(OtherOptions,"Title Block","","TitleBlock");
         }
 
         private void RefreshSummary()
