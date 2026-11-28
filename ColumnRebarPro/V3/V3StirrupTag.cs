@@ -26,7 +26,8 @@ namespace ColumnRebarPro.V3
             if (first.Count == 0 || last.Count == 0) return;
 
             double z0 = first[0].GetEndPoint(0).Z, z1 = last[0].GetEndPoint(0).Z;
-            double midZ = V3TagPlacement.IsUpperTag(tagSymbol.FamilyName, tagSymbol.Name) ? Math.Max(z0, z1) : (z0 + z1) / 2;
+            int vertical = V3TagPlacement.ResolveVerticalPosition(tagSymbol.FamilyName, tagSymbol.Name);
+            double midZ = vertical > 0 ? Math.Max(z0, z1) : vertical < 0 ? Math.Min(z0, z1) : (z0 + z1) / 2;
             // Các set đai cùng đoạn (ví dụ đai phụ trùng đoạn đai chính) chỉ tag một lần.
             string key = Math.Round(V3Units.Mm(Math.Min(z0, z1)) / 10).ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" +
                          Math.Round(V3Units.Mm(Math.Max(z0, z1)) / 10).ToString(System.Globalization.CultureInfo.InvariantCulture);
