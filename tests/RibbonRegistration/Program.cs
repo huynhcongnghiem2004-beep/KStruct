@@ -20,7 +20,8 @@ internal static class Program
         var panels = Regex.Matches(source, @"app\.CreateRibbonPanel\(tab,\s*""(?<panel>[^""]+)""\)")
             .Cast<Match>().Select(match => match.Groups["panel"].Value).ToList();
 
-        Require(buttons.Count == 96, "Expected exactly 96 registered KStruct commands; found " + buttons.Count);
+        Require(buttons.Count == 97, "Expected exactly 97 registered KStruct commands; found " + buttons.Count);
+        Require(buttons.Contains("KStruct_ColumnDrawingStudio") && source.Contains("Add(columnPanel, dll, \"KStruct_ColumnDrawingStudio\""), "Missing standalone column drawing studio");
         // The new beam editor must remain a direct command independent of the SplitButton state.
         Require(buttons.Contains("KStruct_BeamRebarModern"),
             "Missing dedicated beam editor ribbon command.");
@@ -114,7 +115,7 @@ internal static class Program
             source.Contains("typeof(global::SDK_HD.KStruct.NativeRebar.ReinforceStraightBeamsCommand)") &&
             source.Contains("typeof(global::SDK_HD.KStruct.FootingRebar.FootingRebarCommand)"),
             "Unified release must retain V4 column, beam and footing engines");
-        Console.WriteLine("PASS: All 96 commands and the footing dropdown use embedded Navy/Earth PNG icons at both sizes.");
+        Console.WriteLine("PASS: All 97 commands and the footing dropdown use embedded Navy/Earth PNG icons at both sizes.");
     }
 
     private static void Require(bool condition, string message)
