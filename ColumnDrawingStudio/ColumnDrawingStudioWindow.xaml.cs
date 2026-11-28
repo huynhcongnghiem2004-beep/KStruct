@@ -106,7 +106,7 @@ namespace ColumnRebarPro.V3
                                     if ((a.Z <= cut && b.Z > cut) || (b.Z <= cut && a.Z > cut))
                                     {
                                         XYZ q = a + (b-a)*((cut-a.Z)/(b.Z-a.Z));
-                                        var dot = new Ellipse { Width=5, Height=5, Fill=Brushes.IndianRed };
+                                        var dot = new System.Windows.Shapes.Ellipse { Width=5, Height=5, Fill=Brushes.IndianRed };
                                         Canvas.SetLeft(dot, 120+(q-g.Center).DotProduct(g.X)*cs);
                                         Canvas.SetTop(dot, 157.5-(q-g.Center).DotProduct(y)*cs);
                                         CrossCanvas.Children.Add(dot);
