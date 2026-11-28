@@ -1,4 +1,4 @@
-<Window x:Class="ColumnRebarPro.V3.ColumnDrawingStudioWindow"
+<Window x:Class="ColumnRebarPro.V3.ColumnDrawingStudioWindow" x:ClassModifier="internal"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="KStruct | Column Drawing Studio V1.0" Height="800" Width="1280"
@@ -40,7 +40,7 @@
     </Border>
     <Grid Margin="14">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="390" MinWidth="350"/>
+        <ColumnDefinition Width="58*" MinWidth="540"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <Border Grid.Column="0" Background="White" BorderBrush="#DCE5ED" BorderThickness="1" CornerRadius="5" Margin="0,0,12,0">
@@ -50,7 +50,7 @@
           </Border>
           <TabControl>
             <TabItem Header="Cấu hình chi tiết">
-              <ContentControl x:Name="SettingsHost"/>
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"><ContentControl x:Name="SettingsHost" MinWidth="780"/></ScrollViewer>
             </TabItem>
             <TabItem Header="Hướng dẫn">
               <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -93,18 +93,29 @@
                   <Path Data="M 76,22 L 106,22 L 106,370 L 78,370 M 176,22 L 145,22 L 145,370 L 176,370" Stroke="#B94B4E" StrokeThickness="2" Fill="Transparent"/>
                   <Line X1="115" X2="115" Y1="48" Y2="339" Stroke="#B94B4E" StrokeThickness="2"/>
                   <Line X1="137" X2="137" Y1="48" Y2="339" Stroke="#B94B4E" StrokeThickness="2"/>
-                  <ItemsControl Canvas.Left="0" Canvas.Top="0" ItemsSource="{Binding StirrupLines}">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                      <Style TargetType="ContentPresenter">
-                        <Setter Property="Canvas.Left" Value="0"/>
-                        <Setter Property="Canvas.Top" Value="{Binding}"/>
-                      </Style>
-                    </ItemsControl.ItemContainerStyle>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate><Line X1="107" X2="145" Y1="0" Y2="0" Stroke="#3998B7" StrokeThickness="2"/></DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                  <Line X1="107" X2="145" Y1="55" Y2="55" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="62" Y2="62" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="69" Y2="69" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="76" Y2="76" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="83" Y2="83" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="90" Y2="90" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="97" Y2="97" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="112" Y2="112" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="132" Y2="132" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="152" Y2="152" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="172" Y2="172" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="192" Y2="192" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="212" Y2="212" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="232" Y2="232" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="252" Y2="252" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="272" Y2="272" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="282" Y2="282" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="290" Y2="290" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="298" Y2="298" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="306" Y2="306" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="314" Y2="314" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="322" Y2="322" Stroke="#3998B7" StrokeThickness="2"/>
+                  <Line X1="107" X2="145" Y1="330" Y2="330" Stroke="#3998B7" StrokeThickness="2"/>
                   <Line X1="42" X2="42" Y1="16" Y2="376" Stroke="#42586C"/>
                   <Line X1="37" X2="47" Y1="16" Y2="16" Stroke="#42586C"/>
                   <Line X1="37" X2="47" Y1="376" Y2="376" Stroke="#42586C"/>
