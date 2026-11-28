@@ -359,7 +359,7 @@ namespace ColumnRebarPro.V3
                 DeploymentSettingsFile settings;
                 if (studio)
                 {
-                    var window = new ColumnDrawingStudioWindow(doc);
+                    var window = new ColumnDrawingStudioWindow(doc, ui.Selection.GetElementIds());
                     new WindowInteropHelper(window).Owner = data.Application.MainWindowHandle;
                     if (window.ShowDialog() != true) return Result.Cancelled;
                     settings = window.Settings;
