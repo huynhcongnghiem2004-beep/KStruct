@@ -34,6 +34,8 @@ namespace ColumnRebarPro.V3
             return S(key) == "true";
         }
 
+        private bool AnnotationEnabled(string key, string legacy) => values.ContainsKey(key) ? B(key) : B(legacy);
+
         private ElementId Id(string key)
         {
             long id;
@@ -322,10 +324,10 @@ namespace ColumnRebarPro.V3
             if (!Enabled) return;
             bool isLong = prefix == "Long";
 
-            if (!isLong && B("CrossShowValue")) CrossDimensions(doc, work, view);
-            if (!B(prefix + "ShowTag")) return;
+            if (!isLong && AnnotationEnabled("CrossDimensionEnabled", "CrossShowValue")) CrossDimensions(doc, work, view);
+            if (!B(prefix + "ShowTag") && (isLong || !AnnotationEnabled("CrossMainTagEnabled", "CrossShowTag"))) return;
 
-            FamilySymbol stirrupTag = ActiveTagSymbol(doc, Id(prefix + "StirrupTag"));
+            FamilySymbol stirrupTag = B(prefix + "ShowTag") ? ActiveTagSymbol(doc, Id(prefix + "StirrupTag")) : null;
             var stirrups = new List<Rebar>();
             var mains = new List<Rebar>();
             foreach (Rebar bar in ColumnRebars(doc, work, view))
@@ -358,7 +360,7 @@ namespace ColumnRebarPro.V3
             // tagged. They must be covered by Multi-Rebar Annotation.
             FamilySymbol mainTag = null;
 
-            HashSet<ElementId> covered = mains.Count > 0
+            HashSet<ElementId> covered = mains.Count > 0 && AnnotationEnabled("CrossMainTagEnabled", "CrossShowTag")
                 ? AnnotateMultiRebar(doc, work, view, mains)
                 : new HashSet<ElementId>();
 
