@@ -150,8 +150,10 @@
 
                             <StackPanel Orientation="Horizontal" Margin="0,18,0,6">
                                 <CheckBox x:Name="CrossShowTag" IsChecked="True" Content="Hiện Tag" Margin="0,0,30,0"/>
-                                <CheckBox x:Name="CrossShowValue" IsChecked="True" Content="Hiện giá trị"/>
+                                <CheckBox x:Name="CrossShowValue" IsChecked="True" Content="Bảng thép"/>
                             </StackPanel>
+                            <CheckBox x:Name="CrossDimensionEnabled" Content="Dimension tiết diện" IsChecked="True" Margin="0,6"/>
+                            <CheckBox x:Name="CrossMainTagEnabled" Content="Multi-Rebar Annotation thép chủ" IsChecked="True" Margin="0,6"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -232,8 +234,12 @@
 
                             <StackPanel Orientation="Horizontal" Margin="0,18,0,6">
                                 <CheckBox x:Name="LongShowTag" IsChecked="True" Content="Hiện Tag" Margin="0,0,30,0"/>
-                                <CheckBox x:Name="LongShowValue" IsChecked="True" Content="Hiện giá trị"/>
+                                <CheckBox x:Name="LongShowValue" IsChecked="True" Content="Ghi chú vùng đai"/>
                             </StackPanel>
+                            <CheckBox x:Name="LongDimensionEnabled" Content="Dimension thép chờ" IsChecked="True" Margin="0,6"/>
+                            <CheckBox x:Name="LongBendingEnabled" Content="Bending Detail thép chủ" IsChecked="True" Margin="0,6"/>
+                            <CheckBox x:Name="LongBendingDimensionEnabled" Content="Dimension hình khai triển" IsChecked="True" Margin="0,6"/>
+                            <CheckBox x:Name="LongBendingTagEnabled" Content="Bending Detail Tag" IsChecked="True" Margin="0,6"/>
                         </StackPanel>
                     </GroupBox>
                 </Grid>
