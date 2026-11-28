@@ -155,7 +155,7 @@ namespace ColumnRebarPro.V3
 
         // Each native Rebar Schedule is filtered to exactly one KStruct column
         // partition. Never reuse an unfiltered project-wide schedule.
-        private static void CreateStackSchedules(Document doc, ViewSheet sheet,
+        private void CreateStackSchedules(Document doc, ViewSheet sheet,
             IList<V3SegmentWork> works)
         {
             var fields = new[] {
@@ -166,8 +166,15 @@ namespace ColumnRebarPro.V3
                 Tuple.Create(BuiltInParameter.REBAR_ELEM_TOTAL_LENGTH, "Tổng chiều dài")
             };
             double mm = V3Units.Ft(1);
-            double x = sheet.Outline.Max.U - mm * 90;
-            double y = sheet.Outline.Max.V - mm * 35;
+            double reserve = V3Units.Ft(double.Parse(S("SheetRightMargin"), System.Globalization.CultureInfo.InvariantCulture));
+            double left = sheet.Outline.Min.U + mm * 20;
+            double right = sheet.Outline.Max.U - mm * 20 - reserve;
+            double bottom = sheet.Outline.Min.V + mm * 20;
+            double top = sheet.Outline.Max.V - mm * 20;
+            var occupied = sheet.GetAllViewports().Select(id => doc.GetElement(id) as Viewport)
+                .Where(v => v != null).Select(v => v.GetBoxOutline()).ToList();
+            foreach (var v in sheet.GetAllViewports().Select(id => doc.GetElement(id) as Viewport).Where(v => v != null))
+                occupied.Add(v.GetLabelOutline());
             foreach (var work in works)
             {
                 var schedule = ViewSchedule.CreateSchedule(doc,
@@ -201,10 +208,40 @@ namespace ColumnRebarPro.V3
                         "Không có trường BBS phù hợp trong Rebar Schedule.");
                 doc.Regenerate();
                 var instance = ScheduleSheetInstance.Create(doc, sheet.Id, schedule.Id,
-                    new XYZ(x, y, 0));
+                    new XYZ(left, top, 0));
                 doc.Regenerate();
                 var bounds = instance.get_BoundingBox(sheet);
-                y = bounds != null ? bounds.Min.Y - mm * 12 : y - mm * 90;
+                if (bounds == null) throw new InvalidOperationException("Không đo được bảng thống kê.");
+                double width = bounds.Max.X - bounds.Min.X, height = bounds.Max.Y - bounds.Min.Y;
+                double gap = mm * 8;
+                var xs = new[] { left, right - width }.Concat(occupied.Select(o => o.MaximumPoint.X + gap)).Distinct().OrderByDescending(x => x);
+                var ys = new[] { top, bottom + height }.Concat(occupied.Select(o => o.MinimumPoint.Y - gap)).Distinct().OrderByDescending(y => y);
+                bool placed = false;
+                foreach (double y in ys)
+                {
+                    foreach (double x in xs)
+                    {
+                        if (x < left || x + width > right || y > top || y - height < bottom) continue;
+                        if (occupied.Any(o => x < o.MaximumPoint.X + gap && x + width > o.MinimumPoint.X - gap &&
+                            y - height < o.MaximumPoint.Y + gap && y > o.MinimumPoint.Y - gap)) continue;
+                        ElementTransformUtils.MoveElement(doc, instance.Id, new XYZ(x - bounds.Min.X, y - bounds.Max.Y, 0));
+                        doc.Regenerate();
+                        var actual = instance.get_BoundingBox(sheet);
+                        if (actual == null) throw new InvalidOperationException("Không đo được bảng sau khi đặt.");
+                        occupied.Add(new Outline(actual.Min, actual.Max));
+                        placed = true;
+                        break;
+                    }
+                    if (placed) break;
+                }
+                if (!placed)
+                {
+                    // Preserve editable draft, but mark the layout for review.
+                    ElementTransformUtils.MoveElement(doc, instance.Id, new XYZ(right + gap - bounds.Min.X, top - bounds.Max.Y, 0));
+                    doc.Regenerate();
+                    var actual = instance.get_BoundingBox(sheet);
+                    if (actual != null) occupied.Add(new Outline(actual.Min, actual.Max));
+                }
             }
         }
 
