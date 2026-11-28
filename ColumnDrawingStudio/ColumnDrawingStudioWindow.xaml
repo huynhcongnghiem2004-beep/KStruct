@@ -103,7 +103,7 @@
         <Border Grid.Row="1" Background="#EAF3F7" BorderBrush="#BFD9E4" BorderThickness="1" Padding="12" Margin="0,12,0,0">
           <StackPanel>
             <TextBlock Text="③  OTHER SETTINGS / BẢN VẼ" FontWeight="Bold" Margin="0,0,0,5"/>
-            <TextBlock x:Name="SheetSummary" TextWrapping="Wrap"/><TextBlock x:Name="ModelSummary" TextWrapping="Wrap" Margin="0,5,0,0"/><Button Content="Xuất chẩn đoán JSON" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Export_Click"/>
+            <TextBlock x:Name="SheetSummary" TextWrapping="Wrap"/><WrapPanel Margin="0,6,0,0"><TextBlock Text="Cột xem trước: " VerticalAlignment="Center"/><ComboBox x:Name="ColumnPicker" MinWidth="130" Margin="0,0,8,0"/><TextBlock Text="Cao độ: " VerticalAlignment="Center"/><ComboBox x:Name="CutPicker" SelectedIndex="1" MinWidth="85"><ComboBoxItem Content="Chân cột"/><ComboBoxItem Content="Giữa cột"/><ComboBoxItem Content="Đầu cột"/></ComboBox></WrapPanel><TextBlock x:Name="ModelSummary" TextWrapping="Wrap" Margin="0,5,0,0"/><Button Content="Xuất chẩn đoán JSON" HorizontalAlignment="Left" Margin="0,8,0,0" Click="Export_Click"/>
             <TextBlock Text="Preview đường tâm từ mô hình, không phải bản vẽ phát hành." Foreground="#9A5A2E" FontSize="11" Margin="0,6,0,0"/>
           </StackPanel>
         </Border>
