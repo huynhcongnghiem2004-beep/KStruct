@@ -20,6 +20,20 @@ namespace ColumnRebarPro.V3
             return fromFamily ?? fallback;
         }
 
+        // KStruct naming convention: BOT means upper tag position, not bottom reinforcement.
+        internal static bool IsUpperTag(string familyName, string typeName)
+        {
+            return ResolveVertical(typeName) ?? ResolveVertical(familyName) ?? false;
+        }
+
+        private static bool? ResolveVertical(string name)
+        {
+            var tokens = System.Text.RegularExpressions.Regex.Split(name ?? "", @"[^\p{L}\p{N}]+");
+            if (tokens.Any(t => string.Equals(t, "BOT", StringComparison.OrdinalIgnoreCase))) return true;
+            if (tokens.Any(t => string.Equals(t, "MID", StringComparison.OrdinalIgnoreCase))) return false;
+            return null;
+        }
+
         private static V3TagHorizontalSide? ResolveName(string name)
         {
             string[] tokens = (name ?? "").Split(
