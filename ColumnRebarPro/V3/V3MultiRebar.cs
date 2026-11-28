@@ -94,11 +94,7 @@ namespace ColumnRebarPro.V3
                     if (tagId == ElementId.InvalidElementId && type != null) tagId = type.TagTypeId;
                     var tag = configuredMainTag ?? ActiveTagSymbol(doc, tagId);
                     string error = "Chưa chọn Tag thép dọc cho mặt cắt ngang.";
-                    V3TagHorizontalSide side = tag == null ? V3TagHorizontalSide.Right :
-                        V3TagPlacement.Resolve(tag.FamilyName, tag.Name, V3TagHorizontalSide.Right);
-                    XYZ head = a + right * (side == V3TagHorizontalSide.Right ? 1 : -1) *
-                        V3Units.Ft(10 * scale);
-                    if (tag == null || !TryTag(doc, view, tag, bar, head, out error))
+                    if (tag == null || !TryCrossMainTag(doc, view, tag, bar, a, columnCenter, out error))
                         throw new InvalidOperationException("Không gắn được tag cho Rebar " + bar.Id.Value + ": " + error);
                     covered.Add(bar.Id);
                     continue;
@@ -134,8 +130,18 @@ namespace ColumnRebarPro.V3
                     options.DimensionLineDirection = direction;
                     options.DimensionPlaneNormal = view.ViewDirection;
                     options.TagHeadPosition = origin + sideDirection * V3Units.Ft(10 * scale);
-                    options.TagHasLeader = false;
-                    MultiReferenceAnnotation.Create(doc, view.Id, options);
+                    options.TagHasLeader = true;
+                    var annotation = MultiReferenceAnnotation.Create(doc, view.Id, options);
+                    doc.Regenerate();
+                    var child = doc.GetElement(annotation.TagId) as IndependentTag;
+                    if (child == null || multiTag == null)
+                        throw new InvalidOperationException("Khong tim thay tag thep chu cua Multi-Rebar Annotation.");
+                    if (child.GetTypeId() != multiTag.Id) child.ChangeTypeId(multiTag.Id);
+                    doc.Regenerate();
+                    var refs = child.GetTaggedReferences();
+                    if (refs.Count != 1)
+                        throw new InvalidOperationException("Khong xac dinh duoc tham chieu leader cua Multi-Rebar Annotation.");
+                    ApplyCrossMainLeader(doc, view, child, refs[0], multiTag, origin, columnCenter);
                     covered.Add(bar.Id);
                 }
                 catch (Exception ex)
@@ -145,6 +151,51 @@ namespace ColumnRebarPro.V3
                 }
             }
             return covered;
+        }
+
+        private static void ApplyCrossMainLeader(Document doc, View view, IndependentTag tag,
+            Reference reference, FamilySymbol symbol, XYZ anchor, XYZ center)
+        {
+            int vertical = V3TagPlacement.ResolveVerticalPosition(symbol.FamilyName, symbol.Name);
+            if (vertical == 0) vertical = (anchor - center).DotProduct(view.UpDirection) < 0 ? -1 : 1;
+            int side = (int)V3TagPlacement.Resolve(symbol.FamilyName, symbol.Name, V3TagHorizontalSide.Right);
+            XYZ elbow = anchor + view.UpDirection.Normalize() * (vertical * V3Units.Ft(8 * view.Scale));
+            XYZ head = elbow + view.RightDirection.Normalize() * (side * V3Units.Ft(10 * view.Scale));
+            if (!tag.CanLeaderEndConditionBeAssigned(LeaderEndCondition.Free))
+                throw new InvalidOperationException("Tag khong ho tro leader Free End.");
+            tag.LeaderEndCondition = LeaderEndCondition.Free;
+            tag.SetLeaderEnd(reference, anchor);
+            tag.TagHeadPosition = head;
+            doc.Regenerate();
+            tag.SetLeaderEnd(reference, anchor);
+            tag.SetLeaderElbow(reference, elbow);
+            tag.TagHeadPosition = head;
+        }
+
+        private static bool TryCrossMainTag(Document doc, View view, FamilySymbol symbol,
+            Rebar bar, XYZ anchor, XYZ center, out string error)
+        {
+            var references = new List<Reference> { new Reference(bar) };
+            try { var sub = bar.GetSubelements().FirstOrDefault(); if (sub != null) references.Add(sub.GetReference()); }
+            catch (Autodesk.Revit.Exceptions.ApplicationException) { }
+            var failures = new List<string>();
+            foreach (var reference in references.Where(r => r != null))
+            {
+                using (var attempt = new SubTransaction(doc))
+                {
+                    attempt.Start();
+                    try
+                    {
+                        var tag = IndependentTag.Create(doc, symbol.Id, view.Id, reference, true, TagOrientation.Horizontal, anchor);
+                        ApplyCrossMainLeader(doc, view, tag, reference, symbol, anchor, center);
+                        if (attempt.Commit() == TransactionStatus.Committed) { error = null; return true; }
+                        failures.Add("Khong the commit tag.");
+                    }
+                    catch (Exception ex) { attempt.RollBack(); failures.Add(ex.Message); }
+                }
+            }
+            error = string.Join(" | ", failures);
+            return false;
         }
     }
 }
