@@ -356,10 +356,18 @@ namespace ColumnRebarPro.V3
             Document doc = ui.Document;
             try
             {
+                List<FamilyInstance> picked = ui.Selection.GetElementIds().Select(doc.GetElement)
+                    .OfType<FamilyInstance>().Where(c => new ColumnFilter().AllowElement(c)).Distinct().ToList();
+                if (studio && picked.Count == 0)
+                {
+                    TaskDialog.Show("KStruct | Column Drawing Studio",
+                        "Hãy chọn ít nhất một cột kết cấu trong mô hình trước, sau đó mở lại lệnh Column Drawing Studio.");
+                    return Result.Cancelled;
+                }
                 DeploymentSettingsFile settings;
                 if (studio)
                 {
-                    var window = new ColumnDrawingStudioWindow(doc, ui.Selection.GetElementIds());
+                    var window = new ColumnDrawingStudioWindow(doc, picked.Select(c => c.Id).ToList());
                     new WindowInteropHelper(window).Owner = data.Application.MainWindowHandle;
                     if (window.ShowDialog() != true) return Result.Cancelled;
                     settings = window.Settings;
@@ -372,8 +380,6 @@ namespace ColumnRebarPro.V3
                     settings = settingsWindow.Settings;
                 }
 
-                List<FamilyInstance> picked = ui.Selection.GetElementIds().Select(doc.GetElement)
-                    .OfType<FamilyInstance>().Where(c => new ColumnFilter().AllowElement(c)).Distinct().ToList();
                 if (picked.Count == 0)
                     picked = ui.Selection.PickObjects(ObjectType.Element, new ColumnFilter(),
                             "Chọn cột KStruct cần " + (update ? "cập nhật" : "triển khai") + " bản vẽ")
