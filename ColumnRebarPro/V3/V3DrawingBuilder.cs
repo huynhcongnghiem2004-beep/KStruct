@@ -139,6 +139,17 @@ namespace ColumnRebarPro.V3
                 if (B(prefix + "ShowValue") && Id(prefix + "TextType") == ElementId.InvalidElementId)
                     throw new InvalidOperationException("Đang bật Hiện giá trị: hãy chọn Text Type hoặc tắt tùy chọn.");
 
+                if (prefix == "Cross" && AnnotationEnabled("CrossDimensionEnabled", "CrossShowValue") &&
+                    !(doc.GetElement(Id("CrossDimension")) is DimensionType))
+                    throw new InvalidOperationException("Chọn Dimension Type cho mặt cắt ngang hoặc tắt Dimension tiết diện.");
+                if (prefix == "Long" && AnnotationEnabled("LongDimensionEnabled", "LongShowValue") &&
+                    !(doc.GetElement(Id("LongDimension")) is DimensionType))
+                    throw new InvalidOperationException("Chọn Dimension Type cho thép chờ hoặc tắt Dimension thép chờ.");
+                if (prefix == "Long" && AnnotationEnabled("LongBendingEnabled", "LongShowValue") &&
+                    AnnotationEnabled("LongBendingTagEnabled", "LongShowValue") &&
+                    values.ContainsKey("LongBendingTagEnabled") && !(doc.GetElement(Id("LongMainTag")) is FamilySymbol))
+                    throw new InvalidOperationException("Chọn Tag thép dọc hoặc tắt Bending Detail Tag.");
+
                 var template = doc.GetElement(Id(prefix + "Template")) as View;
                 if (template != null)
                 {
