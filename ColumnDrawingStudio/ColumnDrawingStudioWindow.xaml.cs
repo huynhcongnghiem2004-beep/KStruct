@@ -143,7 +143,7 @@ namespace ColumnRebarPro.V3
                 if (dialog.ShowDialog(this) != true) return;
                 var serializer = new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof(StudioDiagnostic));
                 using (var stream = File.Create(dialog.FileName))
-                    serializer.WriteObject(stream, new StudioDiagnostic { Version="2.0.3", ColumnIds=_columns.Select(c=>c.Id.Value).ToArray(), PreviewStatus=ModelSummary.Text });
+                    serializer.WriteObject(stream, new StudioDiagnostic { Version="2.0.5", ColumnIds=_columns.Select(c=>c.Id.Value).ToArray(), PreviewStatus=ModelSummary.Text });
                 StatusText.Text = "Đã xuất chẩn đoán.";
             }
             catch (Exception ex) { StatusText.Text = ex.Message; }
@@ -155,6 +155,41 @@ namespace ColumnRebarPro.V3
             [System.Runtime.Serialization.DataMember] public string Version { get; set; }
             [System.Runtime.Serialization.DataMember] public long[] ColumnIds { get; set; }
             [System.Runtime.Serialization.DataMember] public string PreviewStatus { get; set; }
+        }
+
+        private void SheetPreview_Click(object sender, RoutedEventArgs e)
+        {
+            var panel = new DockPanel { Margin = new Thickness(16) };
+            var picker = new ComboBox { ItemsSource = new[] {"A1", "A2", "A3"}, SelectedIndex = 2, Margin = new Thickness(0,0,0,8) };
+            var note = new TextBlock { TextWrapping = TextWrapping.Wrap, Text = "Sơ đồ quy hoạch khổ giấy (không phải kích thước Title Block hoặc Viewport thực). Một tuyến cột có 3 mặt cắt mỗi tầng; kích thước thật được đo khi tạo Sheet." };
+            var canvas = new Canvas { Width = 841, Height = 594, Background = Brushes.White };
+            DockPanel.SetDock(picker, Dock.Top); panel.Children.Add(picker);
+            DockPanel.SetDock(note, Dock.Bottom); panel.Children.Add(note);
+            panel.Children.Add(new Viewbox { Child = canvas, Stretch = Stretch.Uniform });
+            Action redraw = () =>
+            {
+                canvas.Children.Clear();
+                double w = picker.SelectedIndex == 0 ? 841 : picker.SelectedIndex == 1 ? 594 : 420;
+                double h = picker.SelectedIndex == 0 ? 594 : picker.SelectedIndex == 1 ? 420 : 297;
+                canvas.Width = w; canvas.Height = h;
+                DrawOutline(canvas, 1, 1, w-2, h-2);
+                DrawOutline(canvas, w*.82, 8, w*.16, h-16);
+                Action<double,double,double,double,string> tile = (x,y,tw,th,label) =>
+                {
+                    DrawOutline(canvas,x,y,tw,th);
+                    var text = new TextBlock { Text=label, FontSize=9, TextWrapping=TextWrapping.Wrap, Width=tw-4 };
+                    Canvas.SetLeft(text,x+2); Canvas.SetTop(text,y+2); canvas.Children.Add(text);
+                };
+                tile(8,8,w*.30,h*.70,"MCD");
+                tile(w*.34,8,w*.22,h*.20,"MCN chân");
+                tile(w*.58,8,w*.22,h*.20,"MCN giữa");
+                tile(w*.34,h*.25,w*.22,h*.20,"MCN đầu");
+                tile(w*.58,h*.25,w*.22,h*.20,"3D");
+                tile(w*.34,h*.50,w*.46,h*.20,"BBS / Schedule");
+            };
+            picker.SelectionChanged += (s, args) => redraw();
+            redraw();
+            new Window { Owner=this, Title="KStruct | Sơ đồ quy hoạch Sheet", Width=900, Height=680, WindowStartupLocation=WindowStartupLocation.CenterOwner, Content=panel }.ShowDialog();
         }
 
         private void Settings_Click(object sender, RoutedEventArgs e)
