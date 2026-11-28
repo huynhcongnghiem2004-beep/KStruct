@@ -388,7 +388,7 @@ namespace ColumnRebarPro.V3
                     outward = outward.GetLength() < 1e-6 ? XYZ.BasisX : outward.Normalize();
                     XYZ direction = right * outward.X + up * outward.Y;
                     string tagError;
-                    if (!TryTag(doc, view, mainTag, bar, onView + direction * V3Units.Ft(10 * s), out tagError))
+                    if (!TryTag(doc, view, mainTag, bar, onView, onView + direction * V3Units.Ft(10 * s), out tagError))
                         throw new InvalidOperationException("Không thể gắn Tag thép chủ " + bar.Id.Value + " tại " + view.Name + ": " + tagError);
                 }
             }
@@ -409,7 +409,10 @@ namespace ColumnRebarPro.V3
                 double sign = side == V3TagHorizontalSide.Right ? 1 : -1;
                 XYZ head = center + right * (sign * (g.Width / 2 + V3Units.Ft(12 * s))) + up * (g.Depth / 2);
                 string tagError;
-                if (!TryTag(doc, view, stirrupTag, chosen, head, out tagError))
+                XYZ anchor = ClosestProjectedBarPoint(view, chosen, head);
+                if (anchor == null)
+                    throw new InvalidOperationException("Không đọc được đường tâm đai tại " + view.Name + ".");
+                if (!TryTag(doc, view, stirrupTag, chosen, anchor, head, out tagError))
                     throw new InvalidOperationException("Không thể gắn Tag đai tại " + view.Name + ": " + tagError);
             }
         }
@@ -466,7 +469,38 @@ namespace ColumnRebarPro.V3
             catch (Autodesk.Revit.Exceptions.ApplicationException) { return false; }
         }
 
-        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ head, out string error)
+        private static XYZ ClosestProjectedBarPoint(View view, Rebar bar, XYZ head)
+        {
+            XYZ closest = null;
+            double bestDistance = double.PositiveInfinity;
+            for (int i = 0; i < bar.NumberOfBarPositions; i++)
+            {
+                if (!bar.DoesBarExistAtPosition(i)) continue;
+                var curves = bar.GetTransformedCenterlineCurves(false, true, false,
+                    MultiplanarOption.IncludeAllMultiplanarCurves, i);
+                foreach (Curve curve in curves)
+                {
+                    var points = curve.Tessellate();
+                    for (int j = 1; j < points.Count; j++)
+                    {
+                        XYZ start = Project(view, points[j - 1]);
+                        XYZ segment = Project(view, points[j]) - start;
+                        double lengthSquared = segment.DotProduct(segment);
+                        double fraction = lengthSquared > 0 ? (head - start).DotProduct(segment) / lengthSquared : 0;
+                        XYZ point = start + segment * Math.Max(0, Math.Min(1, fraction));
+                        double distance = point.DistanceTo(head);
+                        if (distance >= bestDistance) continue;
+                        bestDistance = distance;
+                        closest = point;
+                    }
+                }
+                // A stirrup set repeats the same projected shape at each elevation.
+                if (!bar.IsRebarFreeForm() && closest != null) break;
+            }
+            return closest;
+        }
+
+        private static bool TryTag(Document doc, View view, FamilySymbol symbol, Rebar bar, XYZ anchor, XYZ head, out string error)
         {
             var failures = new List<string>();
             var references = new List<Reference>();
@@ -491,7 +525,19 @@ namespace ColumnRebarPro.V3
                     attempt.Start();
                     try
                     {
-                        IndependentTag.Create(doc, symbol.Id, view.Id, references[i], true, TagOrientation.Horizontal, head);
+                        Reference reference = references[i];
+                        var tag = IndependentTag.Create(doc, symbol.Id, view.Id, reference, true,
+                            TagOrientation.Horizontal, anchor);
+                        if (!tag.CanLeaderEndConditionBeAssigned(LeaderEndCondition.Free))
+                        {
+                            attempt.RollBack();
+                            failures.Add("Tag không hỗ trợ leader Free End.");
+                            continue;
+                        }
+                        tag.LeaderEndCondition = LeaderEndCondition.Free;
+                        tag.TagHeadPosition = head;
+                        doc.Regenerate();
+                        tag.SetLeaderEnd(reference, anchor);
                         var status = attempt.Commit();
                         if (status == TransactionStatus.Committed)
                         {
