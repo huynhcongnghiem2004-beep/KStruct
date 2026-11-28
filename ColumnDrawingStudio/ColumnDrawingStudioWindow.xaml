@@ -1,7 +1,7 @@
 <Window x:Class="ColumnRebarPro.V3.ColumnDrawingStudioWindow" x:ClassModifier="internal"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KStruct | Column Drawing Studio V2.0.2" Height="800" Width="1280"
+        Title="KStruct | Column Drawing Studio V2.0.5" Height="800" Width="1280"
         MinWidth="1050" MinHeight="640" WindowStartupLocation="CenterOwner"
         Background="#F2F6FA" FontFamily="Segoe UI">
   <Window.Resources>
@@ -70,7 +70,7 @@
         <GroupBox Grid.Row="1" Header="03  OTHER SETTINGS · Thiết lập bản vẽ" Background="White" Margin="0,6,0,0">
           <DockPanel>
             <TextBlock x:Name="SheetSummary" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"/>
-            <Button DockPanel.Dock="Bottom" Content="Mở cấu hình đầy đủ" Click="Settings_Click" Margin="0,8,0,0"/>
+            <Button DockPanel.Dock="Bottom" Content="Xem sơ đồ Sheet" Click="SheetPreview_Click" Margin="0,8,0,0"/><Button DockPanel.Dock="Bottom" Content="Mở cấu hình đầy đủ" Click="Settings_Click" Margin="0,8,0,0"/>
             <ContentControl x:Name="SettingsHost" Visibility="Collapsed"/>
             <TextBlock Text="Thiết lập loại mặt cắt, tỷ lệ, template, dimension, tag, break line và khung tên trong cửa sổ cấu hình. Các thiết lập dùng chung với engine V3/V4." TextWrapping="Wrap"/>
           </DockPanel>
