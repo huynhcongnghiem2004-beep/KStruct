@@ -10,7 +10,7 @@ namespace ColumnRebarPro.V3
     {
         private const double StirrupTagGapMm = 200;   // khoảng cách từ mép cột đến mép gần nhất của tag
 
-        // Mặt cắt dọc: P/T chọn phía theo View.RightDirection; leader ngang, TOP/MID/BOT chọn cao độ.
+        // Mặt cắt dọc: P/T chọn phía theo View.RightDirection; tag dọc không leader, TOP/MID/BOT chọn cao độ.
         private void TagStirrupByName(Document doc, V3SegmentWork work, ViewSection view, Rebar bar,
                                      FamilySymbol tagSymbol, HashSet<string> spans)
         {
@@ -42,7 +42,10 @@ namespace ColumnRebarPro.V3
 
             var sub = bar.GetSubelements().FirstOrDefault();
             var reference = sub == null ? new Reference(bar) : sub.GetReference();
-            KStruct.Core.RebarTagPlacement.CreateHorizontal(doc, view, tagSymbol, reference, anchor, StirrupTagGapMm, -1);
+            if (!tagSymbol.IsActive) tagSymbol.Activate();
+            XYZ head = anchor + right * (sign * V3Units.Ft(StirrupTagGapMm));
+            var tag = IndependentTag.Create(doc, tagSymbol.Id, view.Id, reference, false, TagOrientation.Vertical, head);
+            tag.TagHeadPosition = head;
         }
     }
 }
