@@ -156,6 +156,28 @@ namespace ColumnRebarPro.V3
             [System.Runtime.Serialization.DataMember] public string PreviewStatus { get; set; }
         }
 
+        private void Settings_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsHost.Content = null;
+            var dialog = new Window
+            {
+                Title = "KStruct | Cấu hình triển khai bản vẽ",
+                Owner = this, Width = 1050, Height = 720,
+                MaxWidth = SystemParameters.WorkArea.Width,
+                MaxHeight = SystemParameters.WorkArea.Height,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            var panel = new DockPanel();
+            var close = new Button { Content = "Quay lại Preview", Margin = new Thickness(12), Padding = new Thickness(12,6,12,6), IsCancel = true };
+            close.Click += (s, args) => dialog.Close();
+            DockPanel.SetDock(close, Dock.Bottom);
+            panel.Children.Add(close);
+            panel.Children.Add(_settings);
+            dialog.Content = panel;
+            try { dialog.ShowDialog(); }
+            finally { panel.Children.Remove(_settings); SettingsHost.Content = _settings; RefreshSummary(); }
+        }
+
         private void Run_Click(object sender, RoutedEventArgs e)
         {
             try
