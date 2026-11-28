@@ -29,6 +29,10 @@ namespace ColumnRebarPro.V3
             _settings.Initialize(document);
             _settings.PrepareForExistingRebar();
             SettingsHost.Content = _settings;
+            ColumnPicker.ItemsSource = _columns.Select(c => (c.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString() ?? "Cột") + " | ID " + c.Id.Value).ToList();
+            ColumnPicker.SelectedIndex = _columns.Count > 0 ? 0 : -1;
+            ColumnPicker.SelectionChanged += (sender, args) => RenderModel();
+            CutPicker.SelectionChanged += (sender, args) => RenderModel();
 
             _settings.AddHandler(System.Windows.Controls.Primitives.Selector.SelectionChangedEvent,
                 new SelectionChangedEventHandler((sender, args) => RefreshSummary()), true);
@@ -67,7 +71,7 @@ namespace ColumnRebarPro.V3
             }
             try
             {
-                var column = _columns[0];
+                var column = _columns[Math.Max(0, ColumnPicker.SelectedIndex)];
                 var g = V3GeometryReader.Read(column);
                 var bars = new FilteredElementCollector(_document).OfClass(typeof(Rebar)).Cast<Rebar>()
                     .Where(b => b.get_Parameter(BuiltInParameter.NUMBER_PARTITION_PARAM)?.AsString() == V3RebarBuilder.Partition(column.Id)).ToList();
@@ -79,7 +83,7 @@ namespace ColumnRebarPro.V3
                 DrawOutline(LongCanvas, 155 - g.Width * ls / 2, 30, g.Width * ls, height * ls);
                 DrawOutline(CrossCanvas, 122.5 - g.Width * cs / 2, 160 - g.Depth * cs / 2, g.Width * cs, g.Depth * cs);
                 int skipped = 0, rendered = 0;
-                double cut = (g.Top + g.Bottom) / 2;
+                double cut = g.Bottom + height * (CutPicker.SelectedIndex == 0 ? 0.12 : CutPicker.SelectedIndex == 2 ? 0.88 : 0.5);
                 foreach (var bar in bars)
                 {
                     try
@@ -97,6 +101,8 @@ namespace ColumnRebarPro.V3
                                     XYZ a = points[j-1], b = points[j];
                                     double ax = (a-g.Center).DotProduct(g.X), bx = (b-g.Center).DotProduct(g.X);
                                     DrawLine(LongCanvas, 155+ax*ls, 30+(g.Top-a.Z)*ls, 155+bx*ls, 30+(g.Top-b.Z)*ls);
+                                    if (Math.Abs(a.Z-b.Z) < 1e-7 && Math.Abs(a.Z-cut) < 0.5/304.8)
+                                        DrawLine(CrossCanvas,122.5+ax*cs,160-(a-g.Center).DotProduct(y)*cs,122.5+bx*cs,160-(b-g.Center).DotProduct(y)*cs);
                                     if ((a.Z <= cut && b.Z > cut) || (b.Z <= cut && a.Z > cut))
                                     {
                                         XYZ q = a + (b-a)*((cut-a.Z)/(b.Z-a.Z));
@@ -112,7 +118,7 @@ namespace ColumnRebarPro.V3
                     }
                     catch (Autodesk.Revit.Exceptions.ApplicationException) { skipped++; }
                 }
-                ModelSummary.Text = string.Format("Cột {0} | {1} cột chọn | {2:0} × {3:0} mm | H={4:0} mm | {5} vị trí thép đọc được | {6} bộ lỗi. MCN tại giữa chiều cao, chỉ giao điểm đường tâm.", column.Id.Value, _columns.Count, g.Width*304.8, g.Depth*304.8, height*304.8, rendered, skipped);
+                ModelSummary.Text = string.Format("Cột {0} | {1} cột chọn | {2:0} × {3:0} mm | H={4:0} mm | {5} vị trí thép đọc được | {6} bộ lỗi. MCN tại cao độ đã chọn; đường tâm và giao điểm.", column.Id.Value, _columns.Count, g.Width*304.8, g.Depth*304.8, height*304.8, rendered, skipped);
             }
             catch (Exception ex) { ModelSummary.Text = "Không thể xem trước: " + ex.Message; }
         }
