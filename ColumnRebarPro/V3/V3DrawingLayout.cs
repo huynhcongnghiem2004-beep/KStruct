@@ -111,15 +111,12 @@ namespace ColumnRebarPro.V3
             var sheet=ViewSheet.Create(doc,Id("TitleBlock"));sheet.SheetNumber=SheetNumberFor();
             sheet.Name=sheetName;
             doc.Regenerate();PlaceStack(doc,sheet,longitudinal,sections);
-            CreateStackSchedules(doc, sheet, ordered);
             InspectCompleteSheetLayout(doc, sheet);
             V4SheetOwnership.Stamp(doc, sheet, works);
             result.Add(sheet.Id);return result;
         }
 
-        // Schedules are placed after the viewports, so inspect the completed sheet
-        // as well. Keep the existing non-blocking DRAFT workflow, but do not let
-        // a schedule overlapping a viewport or the title-block reserve go unnoticed.
+        // Inspect the completed sheet, including any non-revision schedules.
         private void InspectCompleteSheetLayout(Document doc, ViewSheet sheet)
         {
             doc.Regenerate();
@@ -151,98 +148,6 @@ namespace ColumnRebarPro.V3
             string name = sheet.Name ?? "";
             if (!name.EndsWith(suffix, StringComparison.Ordinal))
                 sheet.Name = SafeSheetTitle(name, 240 - suffix.Length) + suffix;
-        }
-
-        // Each native Rebar Schedule is filtered to exactly one KStruct column
-        // partition. Never reuse an unfiltered project-wide schedule.
-        private void CreateStackSchedules(Document doc, ViewSheet sheet,
-            IList<V3SegmentWork> works)
-        {
-            var fields = new[] {
-                Tuple.Create(BuiltInParameter.REBAR_ELEM_SCHEDULE_MARK, "Mã thép"),
-                Tuple.Create(BuiltInParameter.REBAR_BAR_DIAMETER, "Đường kính"),
-                Tuple.Create(BuiltInParameter.REBAR_ELEM_LENGTH, "Chiều dài"),
-                Tuple.Create(BuiltInParameter.REBAR_ELEM_QUANTITY_OF_BARS, "Số thanh"),
-                Tuple.Create(BuiltInParameter.REBAR_ELEM_TOTAL_LENGTH, "Tổng chiều dài")
-            };
-            double mm = V3Units.Ft(1);
-            double reserve = V3Units.Ft(double.Parse(S("SheetRightMargin"), System.Globalization.CultureInfo.InvariantCulture));
-            double left = sheet.Outline.Min.U + mm * 20;
-            double right = sheet.Outline.Max.U - mm * 20 - reserve;
-            double bottom = sheet.Outline.Min.V + mm * 20;
-            double top = sheet.Outline.Max.V - mm * 20;
-            var occupied = sheet.GetAllViewports().Select(id => doc.GetElement(id) as Viewport)
-                .Where(v => v != null).Select(v => v.GetBoxOutline()).ToList();
-            foreach (var v in sheet.GetAllViewports().Select(id => doc.GetElement(id) as Viewport).Where(v => v != null))
-                occupied.Add(v.GetLabelOutline());
-            foreach (var work in works)
-            {
-                var schedule = ViewSchedule.CreateSchedule(doc,
-                    new ElementId(BuiltInCategory.OST_Rebar));
-                schedule.Name = UniqueViewName(doc,
-                    "KSTR V4 BBS " + work.Column.Id.Value + " - DRAFT");
-                var definition = schedule.Definition;
-                definition.IsItemized = false;
-                var available = definition.GetSchedulableFields();
-                var partitionField = available.FirstOrDefault(f =>
-                    f.ParameterId == new ElementId(BuiltInParameter.NUMBER_PARTITION_PARAM));
-                if (partitionField == null)
-                    throw new InvalidOperationException(
-                        "Project không hỗ trợ lọc Rebar Schedule theo Partition.");
-                var partition = definition.AddField(partitionField);
-                partition.IsHidden = true;
-                definition.AddFilter(new ScheduleFilter(partition.FieldId,
-                    ScheduleFilterType.Equal, V3RebarBuilder.Partition(work.Column.Id)));
-                int count = 0;
-                foreach (var item in fields)
-                {
-                    var candidate = available.FirstOrDefault(f =>
-                        f.ParameterId == new ElementId(item.Item1));
-                    if (candidate == null) continue;
-                    var field = definition.AddField(candidate);
-                    field.ColumnHeading = item.Item2;
-                    count++;
-                }
-                if (count == 0)
-                    throw new InvalidOperationException(
-                        "Không có trường BBS phù hợp trong Rebar Schedule.");
-                doc.Regenerate();
-                var instance = ScheduleSheetInstance.Create(doc, sheet.Id, schedule.Id,
-                    new XYZ(left, top, 0));
-                doc.Regenerate();
-                var bounds = instance.get_BoundingBox(sheet);
-                if (bounds == null) throw new InvalidOperationException("Không đo được bảng thống kê.");
-                double width = bounds.Max.X - bounds.Min.X, height = bounds.Max.Y - bounds.Min.Y;
-                double gap = mm * 8;
-                var xs = new[] { left, right - width }.Concat(occupied.Select(o => o.MaximumPoint.X + gap)).Distinct().OrderByDescending(x => x);
-                var ys = new[] { top, bottom + height }.Concat(occupied.Select(o => o.MinimumPoint.Y - gap)).Distinct().OrderByDescending(y => y);
-                bool placed = false;
-                foreach (double y in ys)
-                {
-                    foreach (double x in xs)
-                    {
-                        if (x < left || x + width > right || y > top || y - height < bottom) continue;
-                        if (occupied.Any(o => x < o.MaximumPoint.X + gap && x + width > o.MinimumPoint.X - gap &&
-                            y - height < o.MaximumPoint.Y + gap && y > o.MinimumPoint.Y - gap)) continue;
-                        ElementTransformUtils.MoveElement(doc, instance.Id, new XYZ(x - bounds.Min.X, y - bounds.Max.Y, 0));
-                        doc.Regenerate();
-                        var actual = instance.get_BoundingBox(sheet);
-                        if (actual == null) throw new InvalidOperationException("Không đo được bảng sau khi đặt.");
-                        occupied.Add(new Outline(actual.Min, actual.Max));
-                        placed = true;
-                        break;
-                    }
-                    if (placed) break;
-                }
-                if (!placed)
-                {
-                    // Preserve editable draft, but mark the layout for review.
-                    ElementTransformUtils.MoveElement(doc, instance.Id, new XYZ(right + gap - bounds.Min.X, top - bounds.Max.Y, 0));
-                    doc.Regenerate();
-                    var actual = instance.get_BoundingBox(sheet);
-                    if (actual != null) occupied.Add(new Outline(actual.Min, actual.Max));
-                }
-            }
         }
 
         // Hai chuỗi Dim bên trái cột: chuỗi trong = từng vùng đai (kể cả đoạn lớp bảo vệ hai đầu),
